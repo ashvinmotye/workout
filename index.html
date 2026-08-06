@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta id="themeColorMeta" name="theme-color" content="#0b6ea8" />
   <meta name="description" content="A mobile-friendly circuit workout timer with voice guidance." />
-  <title>Voice Workout | Ashvin Motye</title>
+  <title>Voice Workout</title>
   <script>
     (() => {
       try {
@@ -44,6 +44,9 @@
       <button id="savedWorkoutsNavButton" class="nav-button" type="button">
         Saved workouts
         <span id="savedWorkoutNavCount" class="nav-count">0</span>
+      </button>
+      <button id="trendsNavButton" class="nav-button" type="button">
+        Trends
       </button>
     </nav>
 
@@ -230,6 +233,127 @@
         </section>
       </section>
 
+
+
+      <section id="trendsScreen" class="screen trends-screen" aria-labelledby="trendsTitle" hidden>
+        <div class="hero-card trends-hero">
+          <div>
+            <p class="eyebrow">YOUR PROGRESS</p>
+            <h2 id="trendsTitle">Workout trends</h2>
+            <p class="subtle">See your consistency, training time, exercise progress, and complete workout history.</p>
+          </div>
+          <div class="hero-badge trends-hero-badge" aria-hidden="true">↗</div>
+        </div>
+
+        <section id="trendsEmptyState" class="panel empty-state trends-empty-state">
+          <div class="empty-state-icon" aria-hidden="true">↗</div>
+          <h3>No workout history yet</h3>
+          <p>Complete a workout, or save an ended session, and your trends will appear here.</p>
+          <button id="trendsStartWorkoutButton" class="button button-secondary" type="button">Start a workout</button>
+        </section>
+
+        <div id="trendsContent" hidden>
+          <section class="panel" aria-labelledby="summaryTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">OVERVIEW</p>
+                <h3 id="summaryTitle">Training summary</h3>
+              </div>
+            </div>
+
+            <div class="period-summary-grid">
+              <article class="period-summary-card">
+                <div class="period-summary-heading">
+                  <span>This week</span>
+                  <small id="weekDateRange"></small>
+                </div>
+                <div class="summary-stat-grid">
+                  <div><strong id="weekWorkouts">0</strong><span>Workouts</span></div>
+                  <div><strong id="weekMinutes">0m</strong><span>Training</span></div>
+                  <div><strong id="weekRounds">0</strong><span>Rounds</span></div>
+                  <div><strong id="weekExercises">0</strong><span>Exercises</span></div>
+                </div>
+              </article>
+
+              <article class="period-summary-card">
+                <div class="period-summary-heading">
+                  <span>This month</span>
+                  <small id="monthDateRange"></small>
+                </div>
+                <div class="summary-stat-grid">
+                  <div><strong id="monthWorkouts">0</strong><span>Workouts</span></div>
+                  <div><strong id="monthMinutes">0m</strong><span>Training</span></div>
+                  <div><strong id="monthRounds">0</strong><span>Rounds</span></div>
+                  <div><strong id="monthExercises">0</strong><span>Exercises</span></div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel" aria-labelledby="activityTitle">
+            <div class="panel-heading activity-heading">
+              <div>
+                <p class="eyebrow">ACTIVITY</p>
+                <h3 id="activityTitle">Training minutes</h3>
+              </div>
+              <div id="trendRangeButtons" class="segmented-control" aria-label="Activity chart range">
+                <button class="range-button is-active" type="button" data-range="7">7D</button>
+                <button class="range-button" type="button" data-range="30">30D</button>
+                <button class="range-button" type="button" data-range="90">90D</button>
+                <button class="range-button" type="button" data-range="all">All</button>
+              </div>
+            </div>
+            <p id="activityChartSummary" class="chart-summary"></p>
+            <div id="activityChart" class="activity-chart" role="img" aria-label="Training minutes chart"></div>
+          </section>
+
+          <div class="trends-two-column">
+            <section class="panel consistency-panel" aria-labelledby="consistencyTitle">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">CONSISTENCY</p>
+                  <h3 id="consistencyTitle">Your rhythm</h3>
+                </div>
+              </div>
+              <div class="consistency-list">
+                <div><span>Current streak</span><strong id="currentStreak">0 days</strong></div>
+                <div><span>Longest streak</span><strong id="longestStreak">0 days</strong></div>
+                <div><span>Most active day</span><strong id="mostActiveDay">—</strong></div>
+              </div>
+            </section>
+
+            <section class="panel exercise-progress-panel" aria-labelledby="exerciseProgressTitle">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">EXERCISES</p>
+                  <h3 id="exerciseProgressTitle">Exercise progress</h3>
+                </div>
+              </div>
+              <label class="field field-wide exercise-progress-select">
+                <span>Exercise</span>
+                <select id="exerciseTrendSelect"></select>
+              </label>
+              <div id="exerciseTrendStats" class="exercise-trend-stats"></div>
+              <div id="exerciseTrendHistory" class="exercise-trend-history"></div>
+            </section>
+          </div>
+
+          <section class="panel history-panel" aria-labelledby="historyTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">HISTORY</p>
+                <h3 id="historyTitle">Workout sessions</h3>
+              </div>
+              <div class="history-heading-actions">
+                <span id="historyCount" class="counter-pill">0 sessions</span>
+                <button id="clearHistoryButton" class="button button-ghost button-small danger-text" type="button">Clear all</button>
+              </div>
+            </div>
+            <div id="historyList" class="history-list"></div>
+          </section>
+        </div>
+      </section>
+
       <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
         <div class="workout-topbar">
           <button id="backToSetupButton" class="icon-button" type="button" aria-label="End workout and return to setup">×</button>
@@ -375,11 +499,12 @@
 
   <dialog id="confirmDialog" class="confirm-dialog">
     <form method="dialog">
-      <h2>End this workout?</h2>
-      <p>Your current progress will be cleared.</p>
-      <div class="dialog-actions">
+      <h2 id="confirmDialogTitle">End this workout?</h2>
+      <p id="confirmDialogMessage">Choose whether to save this session in your history.</p>
+      <div class="dialog-actions dialog-actions-three">
         <button class="button button-ghost" value="cancel">Keep training</button>
-        <button class="button button-danger" value="confirm">End workout</button>
+        <button class="button button-danger" value="discard">Discard</button>
+        <button class="button button-primary" value="save">Save session</button>
       </div>
     </form>
   </dialog>

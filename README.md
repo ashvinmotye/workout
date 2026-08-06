@@ -51,3 +51,19 @@ Use **Save workout** on the Setup screen to add the current routine to **Saved w
 - Browser voices vary by operating system and device, so the available choices will differ between phones and computers.
 - On some mobile browsers, sound and speech begin only after the user taps Start or Test Voice.
 - Screen Wake Lock is used only when supported by the browser.
+
+## Trends and history
+
+The **Trends** tab records completed workouts automatically. When ending a workout early, choose **Save session** to include the partial session in history or **Discard** to leave it out.
+
+Trends includes:
+
+- This-week and this-month summaries
+- Training-minute charts for 7 days, 30 days, 90 days, or all history
+- Current and longest workout streaks
+- Most active training day
+- Exercise-specific targets, completed sets, and recent sessions
+- Detailed workout history with completed and ended-early status
+- Individual history deletion and a clear-all option
+
+Workout history is stored in `localStorage`, so it remains on the current browser and device.
