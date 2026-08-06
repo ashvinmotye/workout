@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta id="themeColorMeta" name="theme-color" content="#0b6ea8" />
+  <meta name="description" content="A mobile-friendly circuit workout timer with voice guidance." />
+  <title>Voice Workout | Ashvin Motye</title>
+  <script>
+    (() => {
+      try {
+        const savedTheme = localStorage.getItem("voiceWorkout.theme.v1");
+        document.documentElement.dataset.theme = savedTheme === "dark" ? "dark" : "light";
+      } catch {
+        document.documentElement.dataset.theme = "light";
+      }
+    })();
+  </script>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">VOICE-GUIDED CIRCUITS</p>
+        <h1>Voice Workout</h1>
+      </div>
+      <div class="header-actions">
+        <button id="themeToggleButton" class="icon-button theme-toggle-button" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
+          🌙
+        </button>
+        <button id="installButton" class="button button-ghost install-button" type="button" hidden>
+          Install
+        </button>
+      </div>
+    </header>
+
+    <nav id="mainNavigation" class="app-navigation" aria-label="Workout app sections">
+      <button id="setupNavButton" class="nav-button is-active" type="button" aria-current="page">
+        Setup
+      </button>
+      <button id="savedWorkoutsNavButton" class="nav-button" type="button">
+        Saved workouts
+        <span id="savedWorkoutNavCount" class="nav-count">0</span>
+      </button>
+    </nav>
+
+    <main>
+      <section id="setupScreen" class="screen" aria-labelledby="setupTitle">
+        <div id="resumeBanner" class="resume-banner" hidden>
+          <div>
+            <strong>Workout in progress</strong>
+            <p>You can resume where you left off.</p>
+          </div>
+          <div class="inline-actions">
+            <button id="discardSavedSession" class="button button-ghost button-small" type="button">Discard</button>
+            <button id="resumeSavedSession" class="button button-primary button-small" type="button">Resume</button>
+          </div>
+        </div>
+
+        <div class="hero-card">
+          <div>
+            <p class="eyebrow">BUILD YOUR SESSION</p>
+            <h2 id="setupTitle">Set up your workout</h2>
+            <p class="subtle">Create a circuit, choose repetitions or timed exercises, then let the app guide you.</p>
+          </div>
+          <div class="hero-badge" aria-hidden="true">▶</div>
+        </div>
+
+        <form id="workoutForm" novalidate>
+          <section class="panel" aria-labelledby="workoutSettingsTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">WORKOUT</p>
+                <h3 id="workoutSettingsTitle">Session settings</h3>
+              </div>
+            </div>
+
+            <label class="field field-wide">
+              <span>Workout name</span>
+              <input id="workoutName" type="text" maxlength="60" autocomplete="off" placeholder="Full-body circuit" />
+            </label>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>Rounds</span>
+                <input id="rounds" type="number" min="1" max="99" inputmode="numeric" value="3" required />
+              </label>
+
+              <label class="field">
+                <span>Round rest <small>seconds</small></span>
+                <input id="roundRest" type="number" min="0" max="3600" inputmode="numeric" value="60" required />
+              </label>
+
+              <label class="field">
+                <span>Starting countdown <small>seconds</small></span>
+                <input id="prepTime" type="number" min="0" max="60" inputmode="numeric" value="5" required />
+              </label>
+
+              <label class="field">
+                <span>Default exercise rest <small>seconds</small></span>
+                <input id="defaultRest" type="number" min="0" max="600" inputmode="numeric" value="20" required />
+              </label>
+            </div>
+          </section>
+
+          <section class="panel" aria-labelledby="voiceSettingsTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">AUDIO</p>
+                <h3 id="voiceSettingsTitle">Voice and cues</h3>
+              </div>
+              <button id="testVoiceButton" class="button button-ghost button-small" type="button">Test voice</button>
+            </div>
+
+            <div class="toggle-list">
+              <label class="toggle-row">
+                <span>
+                  <strong>Voice guidance</strong>
+                  <small>Exercise, rest and round announcements</small>
+                </span>
+                <input id="voiceEnabled" type="checkbox" checked />
+              </label>
+
+              <label class="toggle-row">
+                <span>
+                  <strong>Spoken countdown</strong>
+                  <small>Announce the final three seconds</small>
+                </span>
+                <input id="countdownVoice" type="checkbox" checked />
+              </label>
+
+              <label class="toggle-row">
+                <span>
+                  <strong>Sound effects</strong>
+                  <small>Short tones for transitions</small>
+                </span>
+                <input id="soundEffects" type="checkbox" checked />
+              </label>
+            </div>
+
+            <label class="field field-wide">
+              <span>Voice</span>
+              <select id="voiceSelect">
+                <option value="">System default</option>
+              </select>
+              <small id="voiceAvailability">Voices are supplied by your browser and device.</small>
+            </label>
+
+            <label class="field field-wide">
+              <span>Voice detail</span>
+              <select id="voiceDetail">
+                <option value="full">Full — includes round and next exercise</option>
+                <option value="minimal">Minimal — essential instructions only</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="panel exercises-panel" aria-labelledby="exerciseListTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">CIRCUIT</p>
+                <h3 id="exerciseListTitle">Exercises</h3>
+              </div>
+              <span id="exerciseCount" class="counter-pill">0 exercises</span>
+            </div>
+
+            <div id="exerciseList" class="exercise-list"></div>
+
+            <button id="addExerciseButton" class="button button-secondary button-full" type="button">
+              + Add exercise
+            </button>
+          </section>
+
+          <div id="formError" class="form-error" role="alert" hidden></div>
+
+          <div class="workout-save-bar">
+            <div>
+              <strong id="savedWorkoutStatusTitle">Save this routine</strong>
+              <p id="savedWorkoutStatusText">Keep this workout ready for another day.</p>
+            </div>
+            <div class="save-workout-actions">
+              <button id="saveWorkoutAsButton" class="button button-ghost button-small" type="button" hidden>
+                Save as new
+              </button>
+              <button id="saveWorkoutButton" class="button button-secondary button-small" type="button">
+                Save workout
+              </button>
+            </div>
+          </div>
+
+          <div class="sticky-action">
+            <button id="startWorkoutButton" class="button button-primary button-large button-full" type="submit">
+              Start workout
+            </button>
+          </div>
+        </form>
+      </section>
+
+
+      <section id="savedWorkoutsScreen" class="screen saved-workouts-screen" aria-labelledby="savedWorkoutsTitle" hidden>
+        <div class="hero-card saved-workouts-hero">
+          <div>
+            <p class="eyebrow">MY ROUTINES</p>
+            <h2 id="savedWorkoutsTitle">Saved workouts</h2>
+            <p class="subtle">Load a complete routine, change it, duplicate it, or keep variations for different training days.</p>
+          </div>
+          <button id="newWorkoutButton" class="button button-primary" type="button">New workout</button>
+        </div>
+
+        <section class="panel saved-workouts-panel" aria-labelledby="savedWorkoutListTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">LIBRARY</p>
+              <h3 id="savedWorkoutListTitle">Your routines</h3>
+            </div>
+            <span id="savedWorkoutCount" class="counter-pill">0 workouts</span>
+          </div>
+
+          <div id="savedWorkoutEmptyState" class="empty-state">
+            <div class="empty-state-icon" aria-hidden="true">＋</div>
+            <h3>No saved workouts yet</h3>
+            <p>Build a routine in Setup, then tap <strong>Save workout</strong>.</p>
+            <button id="emptyStateSetupButton" class="button button-secondary" type="button">Build a workout</button>
+          </div>
+
+          <div id="savedWorkoutList" class="saved-workout-list"></div>
+        </section>
+      </section>
+
+      <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
+        <div class="workout-topbar">
+          <button id="backToSetupButton" class="icon-button" type="button" aria-label="End workout and return to setup">×</button>
+          <div class="workout-title-block">
+            <span id="workoutNameDisplay" class="workout-name-display">Workout</span>
+            <span id="progressText" class="progress-text">Round 1 of 3</span>
+          </div>
+          <button id="voiceToggleButton" class="icon-button" type="button" aria-label="Toggle voice guidance" aria-pressed="true">🔊</button>
+        </div>
+
+        <div class="timer-stage">
+          <div id="timerRing" class="timer-ring" style="--progress: 0deg;">
+            <div class="timer-inner">
+              <span id="phaseLabel" class="phase-label">READY</span>
+              <strong id="timerValue" class="timer-value">5</strong>
+              <span id="timerUnit" class="timer-unit">seconds</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="exercise-focus">
+          <p id="exercisePosition" class="eyebrow">EXERCISE 1 OF 2</p>
+          <h2 id="currentExerciseName">Squats</h2>
+          <p id="currentTarget" class="current-target">10 reps</p>
+          <p id="currentMeta" class="current-meta" hidden></p>
+        </div>
+
+        <button id="doneButton" class="button button-primary done-button" type="button" hidden>
+          Done
+        </button>
+
+        <div id="nextExerciseCard" class="next-card">
+          <span>UP NEXT</span>
+          <strong id="nextExerciseName">Push-ups</strong>
+          <small id="nextExerciseTarget">10 reps</small>
+        </div>
+
+        <div class="workout-controls">
+          <button id="previousButton" class="control-button" type="button">
+            <span aria-hidden="true">↶</span>
+            Previous
+          </button>
+          <button id="pauseButton" class="control-button control-button-main" type="button">
+            <span id="pauseIcon" aria-hidden="true">Ⅱ</span>
+            <span id="pauseText">Pause</span>
+          </button>
+          <button id="skipButton" class="control-button" type="button">
+            <span aria-hidden="true">↷</span>
+            Skip
+          </button>
+        </div>
+      </section>
+
+      <section id="completeScreen" class="screen complete-screen" hidden>
+        <div class="complete-mark" aria-hidden="true">✓</div>
+        <p class="eyebrow">WORKOUT COMPLETE</p>
+        <h2 id="completeWorkoutName">Great work</h2>
+        <p id="completeSummary" class="complete-summary">3 rounds completed</p>
+        <div class="complete-actions">
+          <button id="repeatWorkoutButton" class="button button-primary button-full" type="button">Repeat workout</button>
+          <button id="editWorkoutButton" class="button button-ghost button-full" type="button">Back to setup</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="exerciseTemplate">
+    <article class="exercise-card">
+      <div class="exercise-card-header">
+        <div class="exercise-number"></div>
+        <div class="exercise-order-actions">
+          <button class="mini-icon move-up" type="button" aria-label="Move exercise up">↑</button>
+          <button class="mini-icon move-down" type="button" aria-label="Move exercise down">↓</button>
+          <button class="mini-icon remove-exercise" type="button" aria-label="Remove exercise">×</button>
+        </div>
+      </div>
+
+      <label class="field field-wide">
+        <span>Exercise name</span>
+        <input class="exercise-name" type="text" maxlength="60" autocomplete="off" placeholder="Squats" required />
+      </label>
+
+      <div class="field-grid exercise-fields">
+        <label class="field">
+          <span>Type</span>
+          <select class="exercise-mode">
+            <option value="reps">Repetitions</option>
+            <option value="time">Timed</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="exercise-value-label">Reps</span>
+          <input class="exercise-value" type="number" min="1" max="9999" inputmode="numeric" value="10" required />
+        </label>
+
+        <label class="field">
+          <span>Rest after <small>seconds</small></span>
+          <input class="exercise-rest" type="number" min="0" max="600" inputmode="numeric" value="20" required />
+        </label>
+
+        <label class="field">
+          <span>Weight <small>optional</small></span>
+          <input class="exercise-weight" type="text" maxlength="20" autocomplete="off" placeholder="2 × 5 kg" />
+        </label>
+      </div>
+
+      <div class="exercise-options">
+        <label class="check-row">
+          <input class="exercise-per-side" type="checkbox" />
+          <span>Per side</span>
+        </label>
+        <label class="field compact-note">
+          <span>Note <small>optional</small></span>
+          <input class="exercise-note" type="text" maxlength="80" autocomplete="off" placeholder="Controlled tempo" />
+        </label>
+      </div>
+    </article>
+  </template>
+
+
+  <template id="savedWorkoutTemplate">
+    <article class="saved-workout-card">
+      <div class="saved-workout-card-main">
+        <div class="saved-workout-title-row">
+          <h3 class="saved-workout-name"></h3>
+          <span class="saved-workout-active-badge" hidden>Loaded</span>
+        </div>
+        <p class="saved-workout-summary"></p>
+        <p class="saved-workout-preview"></p>
+        <small class="saved-workout-date"></small>
+      </div>
+      <div class="saved-workout-actions">
+        <button class="button button-primary button-small load-saved-workout" type="button">Load</button>
+        <button class="button button-ghost button-small rename-saved-workout" type="button">Rename</button>
+        <button class="button button-ghost button-small duplicate-saved-workout" type="button">Duplicate</button>
+        <button class="button button-ghost button-small delete-saved-workout danger-text" type="button">Delete</button>
+      </div>
+    </article>
+  </template>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <dialog id="confirmDialog" class="confirm-dialog">
+    <form method="dialog">
+      <h2>End this workout?</h2>
+      <p>Your current progress will be cleared.</p>
+      <div class="dialog-actions">
+        <button class="button button-ghost" value="cancel">Keep training</button>
+        <button class="button button-danger" value="confirm">End workout</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

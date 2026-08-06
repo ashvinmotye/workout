@@ -1,0 +1,1168 @@
+:root {
+  --bg: #f4f7f9;
+  --surface: #ffffff;
+  --surface-muted: #e9edf0;
+  --text: #0d1b26;
+  --text-muted: #5f6d78;
+  --line: #d7dee3;
+  --primary: #0b6ea8;
+  --primary-dark: #07547f;
+  --primary-soft: #dcedf7;
+  --danger: #b42318;
+  --success: #16855b;
+  --body-glow: rgba(11, 110, 168, 0.10);
+  --surface-elevated: rgba(255, 255, 255, 0.94);
+  --surface-floating: rgba(255, 255, 255, 0.90);
+  --surface-next: rgba(255, 255, 255, 0.86);
+  --surface-input: #ffffff;
+  --surface-exercise: #fbfcfd;
+  --surface-sticky: rgba(244, 247, 249, 0.88);
+  --panel-border: rgba(215, 222, 227, 0.92);
+  --floating-border: rgba(215, 222, 227, 0.90);
+  --hover-line: #aebcc6;
+  --focus-soft: rgba(11, 110, 168, 0.08);
+  --ring-track: #d8dee2;
+  --rest-ring: #7a8490;
+  --danger-soft: #fff0ee;
+  --success-soft: #dff5eb;
+  --contrast-surface: #0d1b26;
+  --contrast-text: #ffffff;
+  --shadow: 0 18px 40px rgba(19, 45, 62, 0.09);
+  --timer-shadow: 0 24px 60px rgba(19, 45, 62, 0.14);
+  --dialog-shadow: 0 26px 80px rgba(0, 0, 0, 0.22);
+  --radius-lg: 28px;
+  --radius-md: 20px;
+  --radius-sm: 14px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+:root[data-theme="dark"] {
+  --bg: #07131c;
+  --surface: #101f2a;
+  --surface-muted: #1b2c38;
+  --text: #f2f7fa;
+  --text-muted: #9fb0bc;
+  --line: #2d414f;
+  --primary: #38aeea;
+  --primary-dark: #69c7f2;
+  --primary-soft: #123a50;
+  --danger: #ff8a80;
+  --success: #4dd6a3;
+  --body-glow: rgba(56, 174, 234, 0.14);
+  --surface-elevated: rgba(16, 31, 42, 0.95);
+  --surface-floating: rgba(16, 31, 42, 0.93);
+  --surface-next: rgba(16, 31, 42, 0.88);
+  --surface-input: #0c1a24;
+  --surface-exercise: #0d1c26;
+  --surface-sticky: rgba(7, 19, 28, 0.90);
+  --panel-border: rgba(55, 78, 92, 0.92);
+  --floating-border: rgba(55, 78, 92, 0.90);
+  --hover-line: #526b7a;
+  --focus-soft: rgba(56, 174, 234, 0.13);
+  --ring-track: #263a47;
+  --rest-ring: #8c9aa5;
+  --danger-soft: #3b1d1d;
+  --success-soft: #123b30;
+  --contrast-surface: #f2f7fa;
+  --contrast-text: #07131c;
+  --shadow: 0 18px 46px rgba(0, 0, 0, 0.30);
+  --timer-shadow: 0 24px 64px rgba(0, 0, 0, 0.34);
+  --dialog-shadow: 0 26px 80px rgba(0, 0, 0, 0.48);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+  background: var(--bg);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top right, var(--body-glow), transparent 34rem),
+    var(--bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(11, 110, 168, 0.28);
+  outline-offset: 2px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.app-shell {
+  width: min(100%, 780px);
+  margin: 0 auto;
+  padding: 0 18px calc(28px + var(--safe-bottom));
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 2px 18px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.app-header h1,
+.panel h3,
+.hero-card h2,
+.exercise-focus h2,
+.complete-screen h2 {
+  margin: 0;
+  line-height: 1.08;
+}
+
+.app-header h1 {
+  font-size: clamp(1.45rem, 5vw, 2rem);
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--primary);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.screen {
+  animation: screen-in 220ms ease-out;
+}
+
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero-card,
+.panel,
+.resume-banner {
+  background: var(--surface-elevated);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+}
+
+.hero-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding: 26px;
+  border-radius: var(--radius-lg);
+}
+
+.hero-card h2 {
+  font-size: clamp(1.75rem, 7vw, 2.8rem);
+}
+
+.subtle {
+  max-width: 52ch;
+  margin: 12px 0 0;
+  color: var(--text-muted);
+}
+
+.hero-badge {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  padding-left: 5px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 2rem;
+}
+
+.panel {
+  margin-bottom: 18px;
+  padding: 22px;
+  border-radius: var(--radius-md);
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.panel-heading h3 {
+  font-size: 1.25rem;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.field-wide {
+  margin-bottom: 16px;
+}
+
+.field small {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-input);
+  color: var(--text);
+  padding: 0 14px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+input:hover,
+select:hover {
+  border-color: var(--hover-line);
+}
+
+input:focus,
+select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--focus-soft);
+}
+
+input.invalid,
+select.invalid {
+  border-color: var(--danger);
+}
+
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.toggle-list {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 18px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 68px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.toggle-row:last-child {
+  border-bottom: 0;
+}
+
+.toggle-row span {
+  display: grid;
+  gap: 2px;
+}
+
+.toggle-row small {
+  color: var(--text-muted);
+}
+
+input[type="checkbox"] {
+  width: 23px;
+  height: 23px;
+  accent-color: var(--primary);
+}
+
+.button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 18px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 100ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.button:active,
+.icon-button:active,
+.control-button:active,
+.mini-icon:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.button-primary {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(11, 110, 168, 0.23);
+}
+
+.button-primary:hover {
+  background: var(--primary-dark);
+}
+
+.button-secondary {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+
+.button-ghost {
+  border: 1px solid var(--line);
+  background: var(--surface-input);
+  color: var(--text);
+}
+
+.button-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.button-small {
+  min-height: 40px;
+  padding-inline: 14px;
+  font-size: 0.88rem;
+}
+
+.button-large {
+  min-height: 58px;
+  border-radius: 17px;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.button-full {
+  width: 100%;
+}
+
+.counter-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.exercise-list {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.exercise-card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-exercise);
+  padding: 16px;
+}
+
+.exercise-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.exercise-number {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--contrast-surface);
+  color: var(--contrast-text);
+  font-weight: 900;
+}
+
+.exercise-order-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.mini-icon,
+.icon-button {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: var(--surface-input);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mini-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  font-weight: 900;
+}
+
+.remove-exercise {
+  color: var(--danger);
+}
+
+.exercise-options {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 50px;
+  font-weight: 700;
+}
+
+.compact-note {
+  min-width: 0;
+}
+
+.sticky-action {
+  position: sticky;
+  bottom: calc(10px + var(--safe-bottom));
+  z-index: 4;
+  padding: 10px;
+  border-radius: 22px;
+  background: var(--surface-sticky);
+  backdrop-filter: blur(12px);
+}
+
+.form-error {
+  margin: 0 0 12px;
+  padding: 13px 15px;
+  border: 1px solid rgba(180, 35, 24, 0.24);
+  border-radius: 14px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.resume-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.resume-banner p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.workout-screen {
+  min-height: calc(100dvh - 30px);
+  padding-bottom: calc(20px + var(--safe-bottom));
+}
+
+.workout-topbar {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 18px;
+}
+
+.icon-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.theme-toggle-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-size: 1.15rem;
+}
+
+.workout-title-block {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.workout-name-display {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-text {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.timer-stage {
+  display: grid;
+  place-items: center;
+  padding: 12px 0 22px;
+}
+
+.timer-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(70vw, 320px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: conic-gradient(var(--primary) var(--progress), var(--ring-track) 0);
+  box-shadow: var(--timer-shadow);
+  transition: background 180ms linear;
+}
+
+.timer-ring::before {
+  content: "";
+  position: absolute;
+  inset: 13px;
+  border-radius: inherit;
+  background: var(--surface);
+}
+
+.timer-ring[data-phase="rest"] {
+  background: conic-gradient(var(--rest-ring) var(--progress), var(--ring-track) 0);
+}
+
+.timer-ring[data-phase="complete"] {
+  background: var(--success);
+}
+
+.timer-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+}
+
+.phase-label {
+  color: var(--primary);
+  font-size: clamp(0.78rem, 3vw, 1rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.timer-value {
+  font-size: clamp(5rem, 23vw, 9rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.timer-unit {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.exercise-focus {
+  text-align: center;
+}
+
+.exercise-focus h2 {
+  font-size: clamp(2rem, 10vw, 4.4rem);
+  overflow-wrap: anywhere;
+}
+
+.current-target {
+  margin: 9px 0 0;
+  color: var(--primary);
+  font-size: clamp(1.45rem, 7vw, 2.3rem);
+  font-weight: 900;
+}
+
+.current-meta {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+}
+
+.done-button {
+  display: block;
+  width: min(100%, 440px);
+  min-height: 76px;
+  margin: 26px auto 0;
+  border-radius: 22px;
+  font-size: 1.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.next-card {
+  display: grid;
+  gap: 2px;
+  width: min(100%, 500px);
+  margin: 28px auto 0;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-next);
+  text-align: center;
+}
+
+.next-card span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.next-card strong {
+  font-size: 1.05rem;
+}
+
+.next-card small {
+  color: var(--text-muted);
+}
+
+.workout-controls {
+  position: sticky;
+  bottom: calc(8px + var(--safe-bottom));
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: min(100%, 560px);
+  margin: 30px auto 0;
+  padding: 10px;
+  border: 1px solid var(--floating-border);
+  border-radius: 22px;
+  background: var(--surface-floating);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+
+.control-button {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-height: 64px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.control-button span:first-child {
+  font-size: 1.2rem;
+}
+
+.control-button-main {
+  background: var(--contrast-surface);
+  color: var(--contrast-text);
+}
+
+.complete-screen {
+  display: grid;
+  justify-items: center;
+  min-height: calc(100dvh - 100px);
+  align-content: center;
+  text-align: center;
+}
+
+.complete-mark {
+  display: grid;
+  place-items: center;
+  width: 118px;
+  height: 118px;
+  margin-bottom: 24px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 4rem;
+  font-weight: 900;
+}
+
+.complete-screen h2 {
+  font-size: clamp(2rem, 10vw, 4rem);
+}
+
+.complete-summary {
+  margin: 12px 0 28px;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+.complete-actions {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 420px);
+}
+
+.confirm-dialog {
+  width: min(calc(100% - 32px), 460px);
+  border: 0;
+  border-radius: 22px;
+  padding: 0;
+  box-shadow: var(--dialog-shadow);
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(13, 27, 38, 0.56);
+  backdrop-filter: blur(3px);
+}
+
+.confirm-dialog form {
+  padding: 24px;
+}
+
+.confirm-dialog h2 {
+  margin: 0 0 8px;
+}
+
+.confirm-dialog p {
+  margin: 0 0 22px;
+  color: var(--text-muted);
+}
+
+.dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+
+.app-navigation {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow);
+}
+
+.nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.nav-button.is-active {
+  background: var(--contrast-surface);
+  color: var(--contrast-text);
+}
+
+.nav-count {
+  display: inline-grid;
+  min-width: 23px;
+  min-height: 23px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.nav-button.is-active .nav-count {
+  background: color-mix(in srgb, var(--contrast-text) 18%, transparent);
+  color: var(--contrast-text);
+}
+
+.workout-save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 14px;
+  padding: 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow);
+}
+
+.workout-save-bar p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.save-workout-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.saved-workouts-hero {
+  align-items: flex-end;
+}
+
+.saved-workouts-hero .button {
+  flex: 0 0 auto;
+}
+
+.saved-workout-list {
+  display: grid;
+  gap: 14px;
+}
+
+.saved-workout-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-exercise);
+}
+
+.saved-workout-card.is-active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-soft);
+}
+
+.saved-workout-card-main {
+  min-width: 0;
+}
+
+.saved-workout-title-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.saved-workout-name {
+  overflow: hidden;
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-workout-active-badge {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.saved-workout-summary,
+.saved-workout-preview {
+  margin: 6px 0 0;
+}
+
+.saved-workout-summary {
+  color: var(--text);
+  font-weight: 750;
+}
+
+.saved-workout-preview,
+.saved-workout-date {
+  color: var(--text-muted);
+}
+
+.saved-workout-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-workout-date {
+  display: block;
+  margin-top: 8px;
+}
+
+.saved-workout-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.danger-text {
+  color: var(--danger);
+}
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  padding: 34px 18px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 2.2rem;
+  font-weight: 500;
+}
+
+.empty-state h3 {
+  margin: 0;
+}
+
+.empty-state p {
+  max-width: 38ch;
+  margin: 8px 0 18px;
+  color: var(--text-muted);
+}
+
+.toast {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, calc(18px + var(--safe-bottom)));
+  z-index: 20;
+  max-width: min(420px, calc(100vw - 36px));
+  padding: 13px 16px;
+  border: 1px solid var(--floating-border);
+  border-radius: 14px;
+  background: var(--contrast-surface);
+  color: var(--contrast-text);
+  box-shadow: var(--dialog-shadow);
+  font-weight: 800;
+  animation: toast-in 180ms ease-out;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.button:disabled,
+.mini-icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.hero-card,
+.panel,
+.resume-banner,
+.exercise-card,
+.saved-workout-card,
+.workout-save-bar,
+.app-navigation,
+.nav-button,
+.next-card,
+.workout-controls,
+.sticky-action,
+input,
+select,
+.button-ghost,
+.mini-icon,
+.icon-button,
+.timer-ring::before,
+.confirm-dialog {
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+@media (max-width: 620px) {
+  .app-shell {
+    padding-inline: 14px;
+  }
+
+  .app-header {
+    padding-top: 16px;
+  }
+
+  .hero-card {
+    padding: 22px 20px;
+  }
+
+  .hero-badge {
+    width: 62px;
+    height: 62px;
+    font-size: 1.55rem;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .exercise-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .exercise-options {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .resume-banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inline-actions {
+    justify-content: flex-end;
+  }
+
+  .workout-save-bar,
+  .saved-workouts-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .save-workout-actions {
+    justify-content: flex-end;
+  }
+
+  .saved-workout-card {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-workout-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .saved-workout-actions .button {
+    min-width: 0;
+    padding-inline: 9px;
+  }
+
+}
+
+@media (max-width: 420px) {
+
+  .app-navigation {
+    margin-bottom: 14px;
+  }
+
+  .nav-button {
+    font-size: 0.9rem;
+  }
+
+  .workout-save-bar {
+    padding: 14px;
+  }
+
+  .save-workout-actions,
+  .saved-workout-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .saved-workouts-hero .button {
+    width: 100%;
+  }
+
+  .field-grid,
+  .exercise-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-badge {
+    display: none;
+  }
+
+  .panel-heading {
+    align-items: flex-start;
+  }
+
+  .install-button {
+    min-height: 42px;
+    padding-inline: 12px;
+  }
+
+  .workout-controls {
+    gap: 5px;
+    padding: 7px;
+  }
+
+  .dialog-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
