@@ -17,6 +17,7 @@ A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 - Local storage for the current workout draft
 - Saved workout library for loading routines on another day
 - Rename, duplicate, update and delete saved workouts
+- Reorder saved workouts with Move Up / Move Down controls, with the custom order saved locally
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
 - Installable PWA with offline app-shell caching
@@ -44,7 +45,7 @@ The project uses only relative paths, so it also works when deployed under a rep
 
 ## Saved workouts
 
-Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. All routines remain on the current browser and device because they are stored with `localStorage`.
+Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Use **Move Up** and **Move Down** in the Saved workouts tab to arrange routines in your preferred order (for example Monday through Sunday). The custom order is preserved in `localStorage`, so it remains after closing or refreshing the app. All routines remain on the current browser and device.
 
 ## Notes
 

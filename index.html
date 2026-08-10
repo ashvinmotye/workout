@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta id="themeColorMeta" name="theme-color" content="#0b6ea8" />
   <meta name="description" content="A mobile-friendly circuit workout timer with voice guidance." />
-  <title>Voice Workout</title>
+  <title>Voice Workout | Ashvin Motye</title>
   <script>
     (() => {
       try {
@@ -486,11 +486,17 @@
         <p class="saved-workout-preview"></p>
         <small class="saved-workout-date"></small>
       </div>
-      <div class="saved-workout-actions">
+      <div class="saved-workout-card-controls">
+        <div class="saved-workout-order-controls" aria-label="Reorder saved workout">
+          <button class="button button-ghost button-small move-saved-workout-up" type="button" aria-label="Move workout up" title="Move up">↑ Up</button>
+          <button class="button button-ghost button-small move-saved-workout-down" type="button" aria-label="Move workout down" title="Move down">↓ Down</button>
+        </div>
+        <div class="saved-workout-actions">
         <button class="button button-primary button-small load-saved-workout" type="button">Load</button>
         <button class="button button-ghost button-small rename-saved-workout" type="button">Rename</button>
         <button class="button button-ghost button-small duplicate-saved-workout" type="button">Duplicate</button>
         <button class="button button-ghost button-small delete-saved-workout danger-text" type="button">Delete</button>
+        </div>
       </div>
     </article>
   </template>

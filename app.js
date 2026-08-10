@@ -379,15 +379,14 @@ function loadSavedWorkouts() {
 
   return parsed
     .map(normalizeSavedWorkoutRecord)
-    .filter(Boolean)
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+    .filter(Boolean);
 }
 
 function saveSavedWorkouts(records) {
+  // Preserve the array order because it is also the user's custom routine order.
   const normalized = records
     .map(normalizeSavedWorkoutRecord)
-    .filter(Boolean)
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+    .filter(Boolean);
   localStorage.setItem(SAVED_WORKOUTS_KEY, JSON.stringify(normalized));
 }
 
@@ -490,7 +489,7 @@ function renderSavedWorkouts() {
   dom.savedWorkoutNavCount.textContent = String(records.length);
 
   const fragment = document.createDocumentFragment();
-  records.forEach((record) => {
+  records.forEach((record, index) => {
     const cardFragment = dom.savedWorkoutTemplate.content.cloneNode(true);
     const card = cardFragment.querySelector(".saved-workout-card");
     const exerciseNames = record.workout.exercises.map((exercise) => exercise.name).filter(Boolean);
@@ -506,6 +505,13 @@ function renderSavedWorkouts() {
       : "No named exercises";
     card.querySelector(".saved-workout-date").textContent = `Updated ${formatSavedDate(record.updatedAt)}`;
     card.querySelector(".saved-workout-active-badge").hidden = record.id !== activeSavedWorkoutId;
+
+    const moveUpButton = card.querySelector(".move-saved-workout-up");
+    const moveDownButton = card.querySelector(".move-saved-workout-down");
+    moveUpButton.disabled = index === 0;
+    moveDownButton.disabled = index === records.length - 1;
+    moveUpButton.addEventListener("click", () => moveSavedWorkout(record.id, -1));
+    moveDownButton.addEventListener("click", () => moveSavedWorkout(record.id, 1));
 
     card.querySelector(".load-saved-workout").addEventListener("click", () => loadSavedWorkout(record.id));
     card.querySelector(".rename-saved-workout").addEventListener("click", () => renameSavedWorkout(record.id));
@@ -627,6 +633,27 @@ function loadSavedWorkout(id) {
   hideFormError();
   showScreen("setup");
   showToast(`Loaded “${loaded.name}”.`);
+}
+
+function moveSavedWorkout(id, direction) {
+  const records = loadSavedWorkouts();
+  const index = records.findIndex((record) => record.id === id);
+  if (index < 0) return;
+
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= records.length) return;
+
+  [records[index], records[nextIndex]] = [records[nextIndex], records[index]];
+  saveSavedWorkouts(records);
+  renderSavedWorkouts();
+
+  const moved = records[nextIndex];
+  showToast(`Moved “${moved.workout.name}” ${direction < 0 ? "up" : "down"}.`);
+
+  requestAnimationFrame(() => {
+    const movedCard = dom.savedWorkoutList.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    movedCard?.querySelector(direction < 0 ? ".move-saved-workout-up" : ".move-saved-workout-down")?.focus();
+  });
 }
 
 function duplicateSavedWorkout(id) {
