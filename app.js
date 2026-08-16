@@ -10,6 +10,9 @@ const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const BACKUP_APP_ID = "voice-workout";
 const BACKUP_SCHEMA_VERSION = 1;
 const MAX_BACKUP_FILE_SIZE = 5 * 1024 * 1024;
+const AUTH_USER_CACHE_KEY = "voiceWorkout.authUser.v1";
+const SUPABASE_URL = "https://xacwgipxqujbqvhzogbd.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-_rGsscYv3ipNd7hW23-RQ_bUCB9hTf";
 
 const PHASE = Object.freeze({
   PREP: "prep",
@@ -21,6 +24,17 @@ const PHASE = Object.freeze({
 });
 
 const dom = {
+  authScreen: document.querySelector("#authScreen"),
+  authLoading: document.querySelector("#authLoading"),
+  authFormContent: document.querySelector("#authFormContent"),
+  authForm: document.querySelector("#authForm"),
+  authEmail: document.querySelector("#authEmail"),
+  authPassword: document.querySelector("#authPassword"),
+  authPasswordHelp: document.querySelector("#authPasswordHelp"),
+  authSubmitButton: document.querySelector("#authSubmitButton"),
+  authMessage: document.querySelector("#authMessage"),
+  signInModeButton: document.querySelector("#signInModeButton"),
+  signUpModeButton: document.querySelector("#signUpModeButton"),
   setupScreen: document.querySelector("#setupScreen"),
   savedWorkoutsScreen: document.querySelector("#savedWorkoutsScreen"),
   trendsScreen: document.querySelector("#trendsScreen"),
@@ -126,6 +140,10 @@ const dom = {
   importBackupButton: document.querySelector("#importBackupButton"),
   importBackupInput: document.querySelector("#importBackupInput"),
   backupStatus: document.querySelector("#backupStatus"),
+  accountEmail: document.querySelector("#accountEmail"),
+  accountConnectionStatus: document.querySelector("#accountConnectionStatus"),
+  signOutButton: document.querySelector("#signOutButton"),
+  accountMessage: document.querySelector("#accountMessage"),
   confirmDialogTitle: document.querySelector("#confirmDialogTitle"),
   confirmDialogMessage: document.querySelector("#confirmDialogMessage")
 };
@@ -139,6 +157,11 @@ let availableVoices = [];
 let activeSavedWorkoutId = null;
 let toastTimer = null;
 let activeTrendRange = "7";
+let authMode = "signin";
+let authClient = null;
+let authSession = null;
+let authSubscription = null;
+let authBusy = false;
 
 function createEmptyRuntime() {
   return {
@@ -215,6 +238,278 @@ function safeJsonParse(value) {
     return JSON.parse(value);
   } catch {
     return null;
+  }
+}
+
+function getAuthRedirectUrl() {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+function loadCachedAuthUser() {
+  try {
+    const cached = safeJsonParse(localStorage.getItem(AUTH_USER_CACHE_KEY));
+    if (!cached || typeof cached.id !== "string" || typeof cached.email !== "string") return null;
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+function cacheAuthUser(user) {
+  if (!user?.id || !user?.email) return;
+  try {
+    localStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify({
+      id: user.id,
+      email: user.email,
+      confirmedAt: user.email_confirmed_at || null,
+      cachedAt: Date.now()
+    }));
+  } catch {
+    // Authentication continues for the current page even if this fallback cannot be stored.
+  }
+}
+
+function clearCachedAuthUser() {
+  try {
+    localStorage.removeItem(AUTH_USER_CACHE_KEY);
+  } catch {
+    // The current page can still be signed out even if storage is unavailable.
+  }
+}
+
+function setAuthMessage(message = "", type = "") {
+  dom.authMessage.textContent = message;
+  dom.authMessage.classList.toggle("is-error", type === "error");
+  dom.authMessage.classList.toggle("is-success", type === "success");
+}
+
+function setAccountMessage(message = "", isError = false) {
+  dom.accountMessage.textContent = message;
+  dom.accountMessage.classList.toggle("is-error", isError);
+}
+
+function setAuthMode(mode, clearMessage = true) {
+  authMode = mode === "signup" ? "signup" : "signin";
+  const isSignUp = authMode === "signup";
+  dom.signInModeButton.classList.toggle("is-active", !isSignUp);
+  dom.signUpModeButton.classList.toggle("is-active", isSignUp);
+  dom.signInModeButton.setAttribute("aria-pressed", String(!isSignUp));
+  dom.signUpModeButton.setAttribute("aria-pressed", String(isSignUp));
+  dom.authSubmitButton.textContent = isSignUp ? "Create account" : "Sign in";
+  dom.authPassword.autocomplete = isSignUp ? "new-password" : "current-password";
+  dom.authPasswordHelp.textContent = isSignUp
+    ? "Use at least 6 characters. You may need to confirm your email."
+    : "Enter the password for your Workout account.";
+  if (clearMessage) setAuthMessage();
+}
+
+function setAuthBusy(isBusy) {
+  authBusy = isBusy;
+  dom.authEmail.disabled = isBusy;
+  dom.authPassword.disabled = isBusy;
+  dom.signInModeButton.disabled = isBusy;
+  dom.signUpModeButton.disabled = isBusy;
+  dom.authSubmitButton.disabled = isBusy;
+  dom.authSubmitButton.textContent = isBusy
+    ? (authMode === "signup" ? "Creating account…" : "Signing in…")
+    : (authMode === "signup" ? "Create account" : "Sign in");
+}
+
+function friendlyAuthError(error) {
+  const message = String(error?.message || "").trim();
+  const normalized = message.toLocaleLowerCase();
+  if (!navigator.onLine || normalized.includes("failed to fetch") || normalized.includes("network")) {
+    return "You appear to be offline. Connect to the internet and try again.";
+  }
+  if (normalized.includes("invalid login credentials")) return "The email or password is incorrect.";
+  if (normalized.includes("email not confirmed")) return "Confirm your email using the message from Supabase, then sign in.";
+  if (normalized.includes("not authorized") || normalized.includes("email_address_not_authorized")) {
+    return "Supabase’s test email service can only send to members of this project. Use your Supabase account email for this first test.";
+  }
+  if (normalized.includes("user already registered")) return "An account already exists for this email. Try signing in instead.";
+  if (normalized.includes("password")) return message || "The password does not meet the account requirements.";
+  if (normalized.includes("rate limit") || normalized.includes("too many")) return "Too many attempts. Wait a little, then try again.";
+  return message || "Authentication could not be completed. Please try again.";
+}
+
+function updateAccountPanel(user, offline = false) {
+  dom.accountEmail.textContent = user?.email || "—";
+  const isOffline = offline || !navigator.onLine;
+  dom.accountConnectionStatus.textContent = isOffline ? "Offline access" : "Connected";
+  dom.accountConnectionStatus.classList.toggle("is-offline", isOffline);
+}
+
+function showAuthenticatedApp(session, options = {}) {
+  const user = session?.user || options.user;
+  if (!user) return;
+  authSession = session?.user ? session : null;
+  cacheAuthUser(user);
+  updateAccountPanel(user, Boolean(options.offline));
+  setAccountMessage(options.offline ? "Using the last account saved on this device. Cloud access will resume when you reconnect." : "");
+  dom.authPassword.value = "";
+  if (!dom.authScreen.hidden) showScreen("setup");
+}
+
+function showAuthForm(message = "", type = "") {
+  dom.authLoading.hidden = true;
+  dom.authFormContent.hidden = false;
+  showScreen("auth");
+  setAuthMessage(message, type);
+}
+
+function showAuthLoading() {
+  showScreen("auth");
+  dom.authLoading.hidden = false;
+  dom.authFormContent.hidden = true;
+}
+
+function handleAuthStateChange(event, session) {
+  if (session?.user) {
+    showAuthenticatedApp(session);
+    return;
+  }
+  if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+    authSession = null;
+    clearCachedAuthUser();
+    setAuthMode("signin", false);
+    showAuthForm("You have been signed out.", "success");
+  }
+}
+
+async function initializeAuthentication() {
+  showAuthLoading();
+
+  if (!window.supabase?.createClient) {
+    const cachedUser = loadCachedAuthUser();
+    if (!navigator.onLine && cachedUser) {
+      showAuthenticatedApp(null, { user: cachedUser, offline: true });
+      return;
+    }
+    showAuthForm("The account service could not be loaded. Check your connection and reload the app.", "error");
+    return;
+  }
+
+  authClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  });
+
+  const listener = authClient.auth.onAuthStateChange((event, session) => {
+    window.setTimeout(() => handleAuthStateChange(event, session), 0);
+  });
+  authSubscription = listener.data.subscription;
+
+  try {
+    const { data, error } = await authClient.auth.getSession();
+    if (error) throw error;
+    if (data.session?.user) {
+      showAuthenticatedApp(data.session);
+      return;
+    }
+
+    const cachedUser = loadCachedAuthUser();
+    if (!navigator.onLine && cachedUser) {
+      showAuthenticatedApp(null, { user: cachedUser, offline: true });
+      return;
+    }
+    showAuthForm();
+  } catch (error) {
+    const cachedUser = loadCachedAuthUser();
+    if (!navigator.onLine && cachedUser) {
+      showAuthenticatedApp(null, { user: cachedUser, offline: true });
+      return;
+    }
+    showAuthForm(friendlyAuthError(error), "error");
+  }
+}
+
+async function submitAuthForm(event) {
+  event.preventDefault();
+  if (authBusy || !authClient) return;
+
+  const email = dom.authEmail.value.trim().toLocaleLowerCase();
+  const password = dom.authPassword.value;
+  if (!email || !dom.authEmail.validity.valid) {
+    setAuthMessage("Enter a valid email address.", "error");
+    dom.authEmail.focus();
+    return;
+  }
+  if (password.length < 6) {
+    setAuthMessage("Your password must contain at least 6 characters.", "error");
+    dom.authPassword.focus();
+    return;
+  }
+  if (!navigator.onLine) {
+    setAuthMessage("Connect to the internet to sign in or create an account.", "error");
+    return;
+  }
+
+  setAuthBusy(true);
+  setAuthMessage();
+  try {
+    if (authMode === "signup") {
+      const { data, error } = await authClient.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: getAuthRedirectUrl() }
+      });
+      if (error) throw error;
+      if (data.session?.user) {
+        showAuthenticatedApp(data.session);
+      } else {
+        dom.authPassword.value = "";
+        setAuthMessage("Account created. Check your email, confirm the account, then return here to sign in.", "success");
+      }
+    } else {
+      const { data, error } = await authClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (!data.session?.user) throw new Error("The account session could not be started.");
+      showAuthenticatedApp(data.session);
+    }
+  } catch (error) {
+    setAuthMessage(friendlyAuthError(error), "error");
+  } finally {
+    setAuthBusy(false);
+  }
+}
+
+async function signOutCurrentDevice() {
+  if (authBusy) return;
+  dom.signOutButton.disabled = true;
+  setAccountMessage("Signing out…");
+  try {
+    if (authClient && authSession) {
+      const { error } = await authClient.auth.signOut({ scope: "local" });
+      if (error) throw error;
+    }
+    authSession = null;
+    clearCachedAuthUser();
+    setAuthMode("signin", false);
+    showAuthForm("You have been signed out. Your workout data remains on this device.", "success");
+  } catch (error) {
+    setAccountMessage(friendlyAuthError(error), true);
+  } finally {
+    dom.signOutButton.disabled = false;
+  }
+}
+
+async function refreshAuthenticationAfterReconnect() {
+  if (!authClient || authSession) {
+    if (authSession?.user) updateAccountPanel(authSession.user);
+    return;
+  }
+  try {
+    const { data, error } = await authClient.auth.getSession();
+    if (error) throw error;
+    if (data.session?.user) showAuthenticatedApp(data.session);
+  } catch {
+    // The app remains usable with local data and will retry on a future reconnect.
   }
 }
 
@@ -1177,6 +1472,7 @@ function saveFormDraft() {
 }
 
 function showScreen(name) {
+  dom.authScreen.hidden = name !== "auth";
   dom.setupScreen.hidden = name !== "setup";
   dom.savedWorkoutsScreen.hidden = name !== "saved";
   dom.trendsScreen.hidden = name !== "trends";
@@ -2364,6 +2660,10 @@ function setupInstallPrompt() {
 }
 
 function bindEvents() {
+  dom.signInModeButton.addEventListener("click", () => setAuthMode("signin"));
+  dom.signUpModeButton.addEventListener("click", () => setAuthMode("signup"));
+  dom.authForm.addEventListener("submit", submitAuthForm);
+  dom.signOutButton.addEventListener("click", signOutCurrentDevice);
   dom.setupNavButton.addEventListener("click", () => showScreen("setup"));
   dom.savedWorkoutsNavButton.addEventListener("click", () => showScreen("saved"));
   dom.trendsNavButton.addEventListener("click", () => showScreen("trends"));
@@ -2422,9 +2722,17 @@ function bindEvents() {
 
   document.addEventListener("visibilitychange", restoreWakeLockIfNeeded);
   window.addEventListener("beforeunload", persistSession);
+  window.addEventListener("online", refreshAuthenticationAfterReconnect);
+  window.addEventListener("offline", () => {
+    const user = authSession?.user || loadCachedAuthUser();
+    if (user) {
+      updateAccountPanel(user, true);
+      setAccountMessage("You are offline. Workout data on this device remains available.");
+    }
+  });
 }
 
-function init() {
+async function init() {
   applyTheme(loadTheme(), false);
   const savedWorkouts = loadSavedWorkouts();
   const storedActiveId = loadActiveSavedWorkoutId();
@@ -2440,6 +2748,8 @@ function init() {
   showSavedSessionBanner();
   registerServiceWorker();
   setupInstallPrompt();
+  setAuthMode("signin");
+  await initializeAuthentication();
 }
 
 init();

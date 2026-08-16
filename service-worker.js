@@ -1,6 +1,7 @@
 "use strict";
 
-const CACHE_NAME = "voice-workout-v7";
+const CACHE_NAME = "voice-workout-v8";
+const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -15,6 +16,8 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(APP_SHELL))
+      .then(() => caches.open(CACHE_NAME))
+      .then((cache) => cache.add(SUPABASE_SDK_URL).catch(() => {}))
       .then(() => self.skipWaiting())
   );
 });

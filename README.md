@@ -19,6 +19,9 @@ A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 - Rename, duplicate, update and delete saved workouts
 - Reorder saved workouts with Move Up / Move Down controls, with the custom order saved locally
 - Settings page with full JSON export and validated JSON import
+- Supabase email/password account creation and sign-in
+- Persistent authenticated sessions with a current-device sign-out control
+- Previously authenticated devices retain access to local workout data while offline
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
 - Installable PWA with offline app-shell caching
@@ -75,3 +78,11 @@ Workout history is stored in `localStorage`, so it remains on the current browse
 Open **Settings** and use **Export JSON** to download a complete backup. The file includes the current workout draft, saved routines and their custom order, workout history, theme, the currently loaded routine, and any resumable session.
 
 Use **Import JSON** to restore a backup. The app validates the file and shows its saved-workout and session counts before asking for confirmation. Import replaces the Workout data stored on the current browser or device.
+
+## Supabase authentication
+
+The app uses Supabase email/password authentication. Create an account from the opening screen, confirm the email if required, and return to sign in. The browser stores the authenticated session so the app remains signed in between launches. **Settings → Account** shows the current email and provides a current-device sign-out action.
+
+This version proves authentication only. Workout routines and history continue to use local browser storage and are not yet synchronized to the Supabase database.
+
+For the first account test, use an email address that belongs to a member of the Supabase organization. Supabase's built-in test email service only sends authentication messages to project members. Configure custom SMTP later before inviting other users.

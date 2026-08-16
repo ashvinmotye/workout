@@ -37,7 +37,7 @@
       </div>
     </header>
 
-    <nav id="mainNavigation" class="app-navigation" aria-label="Workout app sections">
+    <nav id="mainNavigation" class="app-navigation" aria-label="Workout app sections" hidden>
       <button id="setupNavButton" class="nav-button is-active" type="button" aria-current="page">
         Setup
       </button>
@@ -54,7 +54,48 @@
     </nav>
 
     <main>
-      <section id="setupScreen" class="screen" aria-labelledby="setupTitle">
+      <section id="authScreen" class="screen auth-screen" aria-labelledby="authTitle">
+        <div class="auth-card">
+          <div class="auth-intro">
+            <div class="auth-mark" aria-hidden="true">W</div>
+            <p class="eyebrow">YOUR WORKOUT ACCOUNT</p>
+            <h2 id="authTitle">Continue your training</h2>
+            <p class="subtle">Sign in to connect this device to your Workout account.</p>
+          </div>
+
+          <div id="authLoading" class="auth-loading" role="status">
+            <span class="auth-spinner" aria-hidden="true"></span>
+            Checking your session…
+          </div>
+
+          <div id="authFormContent" hidden>
+            <div class="auth-mode-switch" aria-label="Account action">
+              <button id="signInModeButton" class="auth-mode-button is-active" type="button" aria-pressed="true">Sign in</button>
+              <button id="signUpModeButton" class="auth-mode-button" type="button" aria-pressed="false">Create account</button>
+            </div>
+
+            <form id="authForm" novalidate>
+              <label class="field field-wide">
+                <span>Email</span>
+                <input id="authEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" required />
+              </label>
+
+              <label class="field field-wide">
+                <span>Password</span>
+                <input id="authPassword" type="password" minlength="6" autocomplete="current-password" required />
+                <small id="authPasswordHelp">Enter the password for your Workout account.</small>
+              </label>
+
+              <button id="authSubmitButton" class="button button-primary button-full" type="submit">Sign in</button>
+            </form>
+
+            <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+            <p class="auth-offline-note">Your first sign-in or account creation requires an internet connection.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="setupScreen" class="screen" aria-labelledby="setupTitle" hidden>
         <div id="resumeBanner" class="resume-banner" hidden>
           <div>
             <strong>Workout in progress</strong>
@@ -367,6 +408,26 @@
           <div class="hero-badge settings-hero-badge" aria-hidden="true">⚙</div>
         </div>
 
+        <section class="panel account-panel" aria-labelledby="accountTitle">
+          <div class="panel-heading account-heading">
+            <div>
+              <p class="eyebrow">ACCOUNT</p>
+              <h3 id="accountTitle">Signed-in device</h3>
+            </div>
+            <span id="accountConnectionStatus" class="account-status">Connected</span>
+          </div>
+
+          <div class="account-row">
+            <div>
+              <span class="account-label">Email</span>
+              <strong id="accountEmail">—</strong>
+              <small>Authentication is active. Workout data is still stored locally during this milestone.</small>
+            </div>
+            <button id="signOutButton" class="button button-ghost" type="button">Sign out</button>
+          </div>
+          <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
+        </section>
+
         <section class="panel" aria-labelledby="dataOverviewTitle">
           <div class="panel-heading">
             <div>
@@ -579,6 +640,7 @@
     </form>
   </dialog>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
