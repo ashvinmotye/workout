@@ -34,6 +34,9 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Optional post-workout review for RPE, heart-rate zone minutes and session notes
 - Per-session analysis with zone distribution and duration × RPE session load
 - Same-routine comparison against the previous recorded session
+- Weekly and monthly session-load and average-RPE summaries
+- Range-based overall load progression and aggregate heart-rate zone analysis
+- Review coverage, four-week frequency, 30-day active days and completion rate
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
 - Installable PWA with offline app-shell caching
@@ -84,6 +87,9 @@ Trends includes:
 - Per-session RPE, session load, heart-rate zone distribution and notes
 - Previous-session comparison for duration, completed work, round completion, RPE, load and high-intensity share
 - An editable Session review on the completion screen and every history card
+- Weekly and monthly load plus average RPE
+- Overall load charts and aggregate zone distributions for 7D, 30D, 90D and all history
+- Review coverage and expanded consistency metrics
 - Individual history deletion and a clear-all option
 
 Workout history is stored locally first and synchronized to the signed-in Supabase account. Review edits use the same offline-first queue as new and deleted sessions.

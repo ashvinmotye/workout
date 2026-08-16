@@ -323,6 +323,8 @@
                   <div><strong id="weekMinutes">0m</strong><span>Training</span></div>
                   <div><strong id="weekRounds">0</strong><span>Rounds</span></div>
                   <div><strong id="weekExercises">0</strong><span>Exercises</span></div>
+                  <div><strong id="weekLoad">—</strong><span>Session load</span></div>
+                  <div><strong id="weekAvgRpe">—</strong><span>Avg RPE</span></div>
                 </div>
               </article>
 
@@ -336,6 +338,8 @@
                   <div><strong id="monthMinutes">0m</strong><span>Training</span></div>
                   <div><strong id="monthRounds">0</strong><span>Rounds</span></div>
                   <div><strong id="monthExercises">0</strong><span>Exercises</span></div>
+                  <div><strong id="monthLoad">—</strong><span>Session load</span></div>
+                  <div><strong id="monthAvgRpe">—</strong><span>Avg RPE</span></div>
                 </div>
               </article>
             </div>
@@ -347,7 +351,7 @@
                 <p class="eyebrow">ACTIVITY</p>
                 <h3 id="activityTitle">Training minutes</h3>
               </div>
-              <div id="trendRangeButtons" class="segmented-control" aria-label="Activity chart range">
+              <div id="trendRangeButtons" class="segmented-control" aria-label="Overall trends range">
                 <button class="range-button is-active" type="button" data-range="7">7D</button>
                 <button class="range-button" type="button" data-range="30">30D</button>
                 <button class="range-button" type="button" data-range="90">90D</button>
@@ -356,6 +360,47 @@
             </div>
             <p id="activityChartSummary" class="chart-summary"></p>
             <div id="activityChart" class="activity-chart" role="img" aria-label="Training minutes chart"></div>
+          </section>
+
+          <section class="panel overall-analytics-panel" aria-labelledby="overallAnalyticsTitle">
+            <div class="panel-heading overall-analytics-heading">
+              <div>
+                <p class="eyebrow">LOAD &amp; INTENSITY</p>
+                <h3 id="overallAnalyticsTitle">Overall analytics</h3>
+              </div>
+              <span id="overallRangeLabel" class="analytics-range-label">Last 7 days</span>
+            </div>
+
+            <div class="overall-metric-grid">
+              <div><strong id="overallTotalLoad">—</strong><span>Total load</span><small>minutes × RPE</small></div>
+              <div><strong id="overallAverageLoad">—</strong><span>Average load</span><small>per reviewed session</small></div>
+              <div><strong id="overallAverageRpe">—</strong><span>Average RPE</span><small>reviewed sessions</small></div>
+              <div><strong id="overallReviewCoverage">0/0</strong><span>Review coverage</span><small id="overallReviewCoveragePercent">0% of sessions</small></div>
+            </div>
+
+            <div class="overall-analytics-columns">
+              <article class="analytics-card load-trend-card" aria-labelledby="loadTrendTitle">
+                <div class="analytics-card-heading">
+                  <div>
+                    <h4 id="loadTrendTitle">Training load</h4>
+                    <p>Daily, weekly or monthly load from reviewed sessions.</p>
+                  </div>
+                </div>
+                <p id="loadChartSummary" class="analytics-card-summary"></p>
+                <div id="loadChart" class="load-chart" role="img" aria-label="Training load chart"></div>
+              </article>
+
+              <article class="analytics-card overall-zone-card" aria-labelledby="overallZonesTitle">
+                <div class="analytics-card-heading">
+                  <div>
+                    <h4 id="overallZonesTitle">Heart-rate zones</h4>
+                    <p>Total recorded time across the selected range.</p>
+                  </div>
+                </div>
+                <p id="overallZoneSummary" class="analytics-card-summary"></p>
+                <div id="overallZoneDistribution" class="overall-zone-distribution"></div>
+              </article>
+            </div>
           </section>
 
           <div class="trends-two-column">
@@ -370,6 +415,9 @@
                 <div><span>Current streak</span><strong id="currentStreak">0 days</strong></div>
                 <div><span>Longest streak</span><strong id="longestStreak">0 days</strong></div>
                 <div><span>Most active day</span><strong id="mostActiveDay">—</strong></div>
+                <div><span>4-week frequency</span><strong id="fourWeekFrequency">0/week</strong></div>
+                <div><span>Active days · 30D</span><strong id="activeDaysThirty">0 days</strong></div>
+                <div><span>Completion rate</span><strong id="completionRate">0%</strong></div>
               </div>
             </section>
 

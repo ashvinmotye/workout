@@ -127,17 +127,34 @@ const dom = {
   weekMinutes: document.querySelector("#weekMinutes"),
   weekRounds: document.querySelector("#weekRounds"),
   weekExercises: document.querySelector("#weekExercises"),
+  weekLoad: document.querySelector("#weekLoad"),
+  weekAvgRpe: document.querySelector("#weekAvgRpe"),
   monthDateRange: document.querySelector("#monthDateRange"),
   monthWorkouts: document.querySelector("#monthWorkouts"),
   monthMinutes: document.querySelector("#monthMinutes"),
   monthRounds: document.querySelector("#monthRounds"),
   monthExercises: document.querySelector("#monthExercises"),
+  monthLoad: document.querySelector("#monthLoad"),
+  monthAvgRpe: document.querySelector("#monthAvgRpe"),
   trendRangeButtons: document.querySelector("#trendRangeButtons"),
   activityChartSummary: document.querySelector("#activityChartSummary"),
   activityChart: document.querySelector("#activityChart"),
+  overallRangeLabel: document.querySelector("#overallRangeLabel"),
+  overallTotalLoad: document.querySelector("#overallTotalLoad"),
+  overallAverageLoad: document.querySelector("#overallAverageLoad"),
+  overallAverageRpe: document.querySelector("#overallAverageRpe"),
+  overallReviewCoverage: document.querySelector("#overallReviewCoverage"),
+  overallReviewCoveragePercent: document.querySelector("#overallReviewCoveragePercent"),
+  loadChartSummary: document.querySelector("#loadChartSummary"),
+  loadChart: document.querySelector("#loadChart"),
+  overallZoneSummary: document.querySelector("#overallZoneSummary"),
+  overallZoneDistribution: document.querySelector("#overallZoneDistribution"),
   currentStreak: document.querySelector("#currentStreak"),
   longestStreak: document.querySelector("#longestStreak"),
   mostActiveDay: document.querySelector("#mostActiveDay"),
+  fourWeekFrequency: document.querySelector("#fourWeekFrequency"),
+  activeDaysThirty: document.querySelector("#activeDaysThirty"),
+  completionRate: document.querySelector("#completionRate"),
   exerciseTrendSelect: document.querySelector("#exerciseTrendSelect"),
   exerciseTrendStats: document.querySelector("#exerciseTrendStats"),
   exerciseTrendHistory: document.querySelector("#exerciseTrendHistory"),
@@ -3107,6 +3124,8 @@ function formatSessionDate(timestamp) {
 }
 
 function summarizeHistory(records) {
+  const reviewedRecords = records.filter((record) => Number.isFinite(record.rpe));
+  const trainingLoad = reviewedRecords.reduce((sum, record) => sum + getSessionLoad(record), 0);
   return {
     workouts: records.length,
     durationSeconds: records.reduce((sum, record) => sum + record.durationSeconds, 0),
@@ -3114,7 +3133,12 @@ function summarizeHistory(records) {
     exercises: records.reduce(
       (sum, record) => sum + record.exercises.reduce((exerciseSum, exercise) => exerciseSum + exercise.completedSets, 0),
       0
-    )
+    ),
+    reviewedCount: reviewedRecords.length,
+    trainingLoad,
+    averageRpe: reviewedRecords.length
+      ? reviewedRecords.reduce((sum, record) => sum + record.rpe, 0) / reviewedRecords.length
+      : null
   };
 }
 
@@ -3125,6 +3149,8 @@ function updatePeriodSummary(prefix, records, start, end) {
   dom[`${prefix}Minutes`].textContent = formatDuration(summary.durationSeconds);
   dom[`${prefix}Rounds`].textContent = String(summary.rounds);
   dom[`${prefix}Exercises`].textContent = String(summary.exercises);
+  dom[`${prefix}Load`].textContent = summary.reviewedCount ? String(summary.trainingLoad) : "—";
+  dom[`${prefix}AvgRpe`].textContent = summary.averageRpe === null ? "—" : summary.averageRpe.toFixed(1);
 }
 
 function getStreakStats(records) {
@@ -3173,6 +3199,8 @@ function buildActivityBuckets(records, range) {
         .filter((record) => record.endedAt >= start.getTime() && record.endedAt < end.getTime())
         .reduce((sum, record) => sum + record.durationSeconds, 0);
       return {
+        startTime: start.getTime(),
+        endTime: end.getTime(),
         label: days === 7
           ? new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(start).slice(0, 2)
           : String(start.getDate()),
@@ -3183,13 +3211,16 @@ function buildActivityBuckets(records, range) {
   }
 
   if (range === "90") {
+    const rangeStart = addDays(today, -89);
     return Array.from({ length: 13 }, (_, index) => {
-      const start = addDays(today, (index - 12) * 7 - 6);
-      const end = addDays(start, 7);
+      const start = addDays(rangeStart, index * 7);
+      const end = index === 12 ? addDays(today, 1) : addDays(start, 7);
       const totalSeconds = records
         .filter((record) => record.endedAt >= start.getTime() && record.endedAt < end.getTime())
         .reduce((sum, record) => sum + record.durationSeconds, 0);
       return {
+        startTime: start.getTime(),
+        endTime: end.getTime(),
         label: index % 2 === 0 ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(start) : "",
         title: `Week of ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(start)}`,
         minutes: totalSeconds / 60
@@ -3208,6 +3239,8 @@ function buildActivityBuckets(records, range) {
       .filter((record) => record.endedAt >= start.getTime() && record.endedAt < end.getTime())
       .reduce((sum, record) => sum + record.durationSeconds, 0);
     return {
+      startTime: start.getTime(),
+      endTime: end.getTime(),
       label: new Intl.DateTimeFormat(undefined, { month: "short", year: monthCount > 12 ? "2-digit" : undefined }).format(start),
       title: new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(start),
       minutes: totalSeconds / 60
@@ -3288,6 +3321,162 @@ function renderActivityChart(records) {
     }
   });
   dom.activityChart.appendChild(svg);
+}
+
+function trendRangeLabel(range) {
+  if (range === "7") return "Last 7 days";
+  if (range === "30") return "Last 30 days";
+  if (range === "90") return "Last 90 days";
+  return "All history";
+}
+
+function filterRecordsForTrendRange(records, range = activeTrendRange) {
+  if (range === "all") return [...records];
+  const buckets = buildActivityBuckets(records, range);
+  if (!buckets.length) return [];
+  const startTime = buckets[0].startTime;
+  const endTime = buckets[buckets.length - 1].endTime;
+  return records.filter((record) => record.endedAt >= startTime && record.endedAt < endTime);
+}
+
+function buildLoadBuckets(records, range = activeTrendRange) {
+  return buildActivityBuckets(records, range).map((bucket) => ({
+    ...bucket,
+    load: records
+      .filter((record) =>
+        Number.isFinite(record.rpe)
+        && record.endedAt >= bucket.startTime
+        && record.endedAt < bucket.endTime
+      )
+      .reduce((sum, record) => sum + getSessionLoad(record), 0)
+  }));
+}
+
+function renderLoadChart(records) {
+  const buckets = buildLoadBuckets(records, activeTrendRange);
+  const selectedRecords = filterRecordsForTrendRange(records);
+  const reviewedRecords = selectedRecords.filter((record) => Number.isFinite(record.rpe));
+  const totalLoad = reviewedRecords.reduce((sum, record) => sum + getSessionLoad(record), 0);
+  const maxLoad = Math.max(1, ...buckets.map((bucket) => bucket.load));
+  const reviewedLabel = `${reviewedRecords.length} reviewed ${reviewedRecords.length === 1 ? "session" : "sessions"}`;
+
+  dom.loadChartSummary.textContent = reviewedRecords.length
+    ? `${totalLoad} total load from ${reviewedLabel}.`
+    : "Add RPE to sessions in this range to calculate training load.";
+  dom.loadChart.setAttribute(
+    "aria-label",
+    reviewedRecords.length
+      ? `Training load chart. ${totalLoad} total load from ${reviewedLabel}.`
+      : "Training load chart. No sessions with RPE in this range."
+  );
+  dom.loadChart.replaceChildren();
+
+  const bars = document.createElement("div");
+  bars.className = "load-bars";
+  bars.style.setProperty("--load-bucket-count", String(buckets.length));
+  bars.style.minWidth = buckets.length <= 7 ? "100%" : buckets.length <= 13 ? "560px" : "760px";
+  const labelEvery = buckets.length > 20 ? Math.ceil(buckets.length / 8) : 1;
+
+  buckets.forEach((bucket, index) => {
+    const column = document.createElement("div");
+    column.className = "load-bar-column";
+    column.title = `${bucket.title}: ${Math.round(bucket.load)} load`;
+    const showLabel = bucket.label && (index % labelEvery === 0 || index === buckets.length - 1);
+    const height = bucket.load ? Math.max(3, bucket.load / maxLoad * 100) : 0;
+    column.innerHTML = `
+      <span class="load-bar-value">${bucket.load ? Math.round(bucket.load) : ""}</span>
+      <span class="load-bar-track"><i class="${bucket.load ? "" : "is-empty"}" style="height: ${height.toFixed(2)}%"></i></span>
+      <small>${showLabel ? escapeHtml(bucket.label) : ""}</small>
+    `;
+    bars.appendChild(column);
+  });
+  dom.loadChart.appendChild(bars);
+}
+
+function renderOverallZoneDistribution(records) {
+  const zones = HEART_RATE_ZONES.map((zone) => ({
+    ...zone,
+    seconds: records.reduce((sum, record) => sum + Math.max(0, Number(record[zone.key]) || 0), 0)
+  }));
+  const totalSeconds = zones.reduce((sum, zone) => sum + zone.seconds, 0);
+  const zoneSessions = records.filter((record) => getTotalZoneSeconds(record) > 0).length;
+
+  if (!totalSeconds) {
+    dom.overallZoneSummary.textContent = "No heart-rate zone time is recorded in this range.";
+    dom.overallZoneDistribution.innerHTML = `
+      <div class="overall-zone-empty">
+        <strong>Zone analysis is ready</strong>
+        <span>Add zone minutes to a session review to populate it.</span>
+      </div>
+    `;
+    return;
+  }
+
+  dom.overallZoneSummary.textContent = `${formatZoneDuration(totalSeconds)} across ${zoneSessions} ${zoneSessions === 1 ? "session" : "sessions"}.`;
+  const segments = zones
+    .filter((zone) => zone.seconds > 0)
+    .map((zone) => `<span class="zone-${zone.number}" style="width: ${(zone.seconds / totalSeconds * 100).toFixed(2)}%"></span>`)
+    .join("");
+  const ariaLabel = zones
+    .map((zone) => `Zone ${zone.number} ${Math.round(zone.seconds / totalSeconds * 100)} percent`)
+    .join(", ");
+  const rows = zones.map((zone) => {
+    const percent = Math.round(zone.seconds / totalSeconds * 100);
+    return `
+      <div class="overall-zone-row">
+        <div class="overall-zone-row-heading">
+          <span><i class="zone-${zone.number}"></i><strong>Z${zone.number}</strong> ${escapeHtml(zone.name)}</span>
+          <small>${formatZoneDuration(zone.seconds)} · ${percent}%</small>
+        </div>
+        <div class="overall-zone-track"><i class="zone-${zone.number}" style="width: ${percent}%"></i></div>
+      </div>
+    `;
+  }).join("");
+
+  dom.overallZoneDistribution.innerHTML = `
+    <div class="overall-zone-stack" role="img" aria-label="${escapeHtml(ariaLabel)}">${segments}</div>
+    <div class="overall-zone-rows">${rows}</div>
+  `;
+}
+
+function renderOverallAnalytics(records) {
+  const selectedRecords = filterRecordsForTrendRange(records);
+  const rpeRecords = selectedRecords.filter((record) => Number.isFinite(record.rpe));
+  const reviewedRecords = selectedRecords.filter(hasSessionReviewData);
+  const totalLoad = rpeRecords.reduce((sum, record) => sum + getSessionLoad(record), 0);
+  const averageLoad = rpeRecords.length ? totalLoad / rpeRecords.length : null;
+  const averageRpe = rpeRecords.length
+    ? rpeRecords.reduce((sum, record) => sum + record.rpe, 0) / rpeRecords.length
+    : null;
+  const coverage = selectedRecords.length ? Math.round(reviewedRecords.length / selectedRecords.length * 100) : 0;
+
+  dom.overallRangeLabel.textContent = trendRangeLabel(activeTrendRange);
+  dom.overallTotalLoad.textContent = rpeRecords.length ? String(totalLoad) : "—";
+  dom.overallAverageLoad.textContent = averageLoad === null ? "—" : String(Math.round(averageLoad));
+  dom.overallAverageRpe.textContent = averageRpe === null ? "—" : averageRpe.toFixed(1);
+  dom.overallReviewCoverage.textContent = `${reviewedRecords.length}/${selectedRecords.length}`;
+  dom.overallReviewCoveragePercent.textContent = `${coverage}% of sessions`;
+  renderLoadChart(records);
+  renderOverallZoneDistribution(selectedRecords);
+}
+
+function updateExpandedConsistency(records) {
+  const today = startOfLocalDay();
+  const fourWeekStart = addDays(today, -27).getTime();
+  const thirtyDayStart = addDays(today, -29).getTime();
+  const recentFourWeeks = records.filter((record) => record.endedAt >= fourWeekStart);
+  const activeDays = new Set(
+    records
+      .filter((record) => record.endedAt >= thirtyDayStart)
+      .map((record) => dateKey(record.endedAt))
+  ).size;
+  const completed = records.filter((record) => record.status === "completed").length;
+  const completionRate = records.length ? Math.round(completed / records.length * 100) : 0;
+  const weeklyFrequency = recentFourWeeks.length / 4;
+
+  dom.fourWeekFrequency.textContent = `${weeklyFrequency.toFixed(1)}/week`;
+  dom.activeDaysThirty.textContent = `${activeDays} ${activeDays === 1 ? "day" : "days"}`;
+  dom.completionRate.textContent = `${completionRate}%`;
 }
 
 function exerciseKey(name) {
@@ -3821,7 +4010,9 @@ function renderTrends() {
   dom.currentStreak.textContent = `${streak.current} ${streak.current === 1 ? "day" : "days"}`;
   dom.longestStreak.textContent = `${streak.longest} ${streak.longest === 1 ? "day" : "days"}`;
   dom.mostActiveDay.textContent = getMostActiveDay(records);
+  updateExpandedConsistency(records);
   renderActivityChart(records);
+  renderOverallAnalytics(records);
   renderExerciseTrend(records);
   renderHistoryList(records);
 }
@@ -3988,7 +4179,9 @@ function bindEvents() {
     if (!button) return;
     activeTrendRange = button.dataset.range || "7";
     dom.trendRangeButtons.querySelectorAll(".range-button").forEach((item) => item.classList.toggle("is-active", item === button));
-    renderActivityChart(loadWorkoutHistory());
+    const records = loadWorkoutHistory();
+    renderActivityChart(records);
+    renderOverallAnalytics(records);
   });
   dom.addExerciseButton.addEventListener("click", () => addExerciseCard());
   dom.defaultRest.addEventListener("change", saveFormDraft);
