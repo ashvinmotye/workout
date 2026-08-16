@@ -774,6 +774,14 @@ function queueHistoryDeleteAll() {
   saveHistorySyncQueue(otherUsersOperations);
 }
 
+function recordSuccessfulHistorySyncOperation(operation, userId) {
+  const cloudIds = loadHistoryCloudIds(userId);
+  if (operation.type === "upsert") cloudIds.add(operation.id);
+  else if (operation.type === "delete") cloudIds.delete(operation.id);
+  else cloudIds.clear();
+  saveHistoryCloudIds(cloudIds, userId);
+}
+
 function sessionToCloudRow(record) {
   const normalized = normalizeHistoryRecord(record);
   return {
@@ -906,6 +914,7 @@ async function processHistorySyncQueue() {
         .eq("user_id", authSession.user.id);
     }
     if (response.error) throw response.error;
+    recordSuccessfulHistorySyncOperation(operation, userId);
     const latest = loadHistorySyncQueue();
     saveHistorySyncQueue(latest.filter((item) => item.queueId !== operation.queueId));
   }
@@ -1012,8 +1021,12 @@ async function uploadExistingWorkoutHistory() {
     historyMigrationInProgress = false;
     updateHistoryMigrationUI();
   }
+  const cloudIds = loadHistoryCloudIds(authSession?.user?.id);
+  const allUploaded = records.every((record) => cloudIds.has(record.id));
   if (succeeded) {
     showToast(`${count} existing ${count === 1 ? "session" : "sessions"} uploaded.`);
+  } else if (allUploaded) {
+    showToast(`${count} existing ${count === 1 ? "session" : "sessions"} uploaded. Tap Sync now to refresh.`);
   } else if (queued) {
     showToast(`${count} existing ${count === 1 ? "session" : "sessions"} queued. Sync will retry automatically.`);
   } else {

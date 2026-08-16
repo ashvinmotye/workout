@@ -89,7 +89,7 @@ The app uses Supabase email/password authentication. Create an account from the 
 
 Newly completed workout sessions are saved locally first and then synchronized to the Supabase `workout_sessions` table. Signing into the same account on another device downloads cloud sessions and merges them into that device's local history. Individual history deletion and **Clear all** are also synchronized, with offline changes queued for retry.
 
-Existing sessions that predate cloud sync remain local until **Settings → Account → Upload existing history** is confirmed. The app counts only sessions that are not already in Supabase, keeps their existing IDs to prevent duplicates, and queues the upload for automatic retry if synchronization is interrupted.
+Existing sessions that predate cloud sync remain local until **Settings → Account → Upload existing history** is confirmed. The app counts only sessions that are not already in Supabase, keeps their existing IDs to prevent duplicates, marks every successful upload immediately, and queues interrupted uploads for automatic retry.
 
 Saved workout routines, the current draft, settings and active session remain local during this milestone.
 
