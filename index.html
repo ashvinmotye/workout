@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta id="themeColorMeta" name="theme-color" content="#0b6ea8" />
   <meta name="description" content="A mobile-friendly circuit workout timer with voice guidance." />
-  <title>Voice Workout | Ashvin Motye</title>
+  <title>Voice Workout</title>
   <script>
     (() => {
       try {
@@ -47,6 +47,9 @@
       </button>
       <button id="trendsNavButton" class="nav-button" type="button">
         Trends
+      </button>
+      <button id="settingsNavButton" class="nav-button" type="button">
+        Settings
       </button>
     </nav>
 
@@ -352,6 +355,67 @@
             <div id="historyList" class="history-list"></div>
           </section>
         </div>
+      </section>
+
+      <section id="settingsScreen" class="screen settings-screen" aria-labelledby="settingsTitle" hidden>
+        <div class="hero-card settings-hero">
+          <div>
+            <p class="eyebrow">APP SETTINGS</p>
+            <h2 id="settingsTitle">Settings</h2>
+            <p class="subtle">Back up your complete Workout app data or restore it on this device.</p>
+          </div>
+          <div class="hero-badge settings-hero-badge" aria-hidden="true">⚙</div>
+        </div>
+
+        <section class="panel" aria-labelledby="dataOverviewTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">ON THIS DEVICE</p>
+              <h3 id="dataOverviewTitle">Data overview</h3>
+            </div>
+          </div>
+
+          <div class="settings-data-grid">
+            <div>
+              <strong id="settingsSavedWorkoutCount">0</strong>
+              <span>Saved workouts</span>
+            </div>
+            <div>
+              <strong id="settingsHistoryCount">0</strong>
+              <span>Workout sessions</span>
+            </div>
+            <div>
+              <strong id="settingsActiveSession">None</strong>
+              <span>Resumable session</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel backup-panel" aria-labelledby="backupTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">BACKUP &amp; RESTORE</p>
+              <h3 id="backupTitle">Your Workout data</h3>
+            </div>
+          </div>
+
+          <p class="subtle backup-description">
+            Export creates one JSON file containing your current workout draft, saved routines, workout history,
+            preferences, and any resumable session.
+          </p>
+
+          <div class="backup-actions">
+            <button id="exportBackupButton" class="button button-primary" type="button">Export JSON</button>
+            <button id="importBackupButton" class="button button-ghost" type="button">Import JSON</button>
+            <input id="importBackupInput" class="visually-hidden" type="file" accept="application/json,.json" tabindex="-1" />
+          </div>
+
+          <div class="import-warning" role="note">
+            <strong>Import replaces data on this device.</strong>
+            <span>You will be asked to confirm after the backup file has been checked.</span>
+          </div>
+          <p id="backupStatus" class="backup-status" role="status" aria-live="polite"></p>
+        </section>
       </section>
 
       <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
