@@ -2721,9 +2721,11 @@ summary:focus-visible {
 }
 
 .timer-ring::before {
-  inset: 10px;
+  inset: 8px;
   border: 1px solid var(--line);
-  background: radial-gradient(circle at 50% 38%, rgb(var(--aura-highlight-rgb) / 0.10), var(--surface) 66%);
+  background:
+    radial-gradient(circle at 50% 38%, rgb(var(--aura-highlight-rgb) / 0.10), transparent 62%),
+    var(--surface);
   box-shadow: inset 0 0 45px rgb(var(--aura-accent-rgb) / 0.08);
 }
 
@@ -2732,6 +2734,14 @@ summary:focus-visible {
 }
 
 .timer-value {
+  display: block;
+  min-width: 1.55em;
+  padding: 0.08em 0.14em 0.14em;
+  overflow: visible;
+  text-align: center;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  text-rendering: geometricPrecision;
   background-image:
     radial-gradient(ellipse at center, rgb(var(--aura-highlight-rgb) / 0.30), rgb(var(--aura-accent-rgb) / 0.13) 42%, transparent 82%),
     linear-gradient(155deg, var(--text) 16%, var(--aura-highlight) 50%, var(--aura-accent) 76%, var(--aura-accent-2));
@@ -2741,6 +2751,10 @@ summary:focus-visible {
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 12px 24px rgb(var(--aura-accent-rgb) / 0.34));
   animation: auraNumberBreathe 5.2s ease-in-out infinite;
+}
+
+.timer-inner {
+  overflow: visible;
 }
 
 @keyframes auraNumberBreathe {

@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "voice-workout-v15";
+const CACHE_NAME = "voice-workout-v16";
 const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3";
 const APP_SHELL = [
   "./",
