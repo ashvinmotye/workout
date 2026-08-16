@@ -25,6 +25,7 @@ A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 - Automatic cloud sync for newly completed workout sessions
 - Cloud history download when the same account signs in on another device
 - Offline history-operation queue with automatic retry after reconnection
+- One-time migration control for uploading existing local workout history
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
 - Installable PWA with offline app-shell caching
@@ -88,7 +89,9 @@ The app uses Supabase email/password authentication. Create an account from the 
 
 Newly completed workout sessions are saved locally first and then synchronized to the Supabase `workout_sessions` table. Signing into the same account on another device downloads cloud sessions and merges them into that device's local history. Individual history deletion and **Clear all** are also synchronized, with offline changes queued for retry.
 
-Existing sessions that predate this sync version remain local and are not automatically uploaded. Saved workout routines, the current draft, settings and active session also remain local during this milestone.
+Existing sessions that predate cloud sync remain local until **Settings → Account → Upload existing history** is confirmed. The app counts only sessions that are not already in Supabase, keeps their existing IDs to prevent duplicates, and queues the upload for automatic retry if synchronization is interrupted.
+
+Saved workout routines, the current draft, settings and active session remain local during this milestone.
 
 The reproducible table definition and Row Level Security policies are stored in `supabase/migrations/20260816_create_workout_sessions.sql`.
 

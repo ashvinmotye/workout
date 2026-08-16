@@ -1877,6 +1877,17 @@ select,
   font-size: 0.76rem;
 }
 
+.history-migration-row {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+  background: color-mix(in srgb, var(--primary-soft) 58%, var(--surface-exercise));
+}
+
+.history-migration-row span {
+  color: var(--text);
+}
+
 .account-message {
   min-height: 1.3em;
   margin: 12px 0 0;

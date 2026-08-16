@@ -148,6 +148,9 @@ const dom = {
   signOutButton: document.querySelector("#signOutButton"),
   historySyncStatus: document.querySelector("#historySyncStatus"),
   syncHistoryButton: document.querySelector("#syncHistoryButton"),
+  historyMigrationRow: document.querySelector("#historyMigrationRow"),
+  historyMigrationStatus: document.querySelector("#historyMigrationStatus"),
+  uploadExistingHistoryButton: document.querySelector("#uploadExistingHistoryButton"),
   accountMessage: document.querySelector("#accountMessage"),
   confirmDialogTitle: document.querySelector("#confirmDialogTitle"),
   confirmDialogMessage: document.querySelector("#confirmDialogMessage")
@@ -169,6 +172,7 @@ let authSubscription = null;
 let authBusy = false;
 let historySyncInProgress = false;
 let historySyncRequested = false;
+let historyMigrationInProgress = false;
 
 function createEmptyRuntime() {
   return {
@@ -720,17 +724,24 @@ function saveHistorySyncQueue(operations) {
 }
 
 function queueHistoryUpsert(record) {
+  queueHistoryUpserts([record]);
+}
+
+function queueHistoryUpserts(records) {
   const userId = getHistorySyncUserId();
   if (!userId) return;
-  const normalized = normalizeHistoryRecord(record);
-  const operations = loadHistorySyncQueue().filter((operation) => operation.userId !== userId || operation.id !== normalized.id);
-  operations.push({
-    queueId: syncOperationUid(),
-    type: "upsert",
-    id: normalized.id,
-    userId,
-    record: normalized,
-    queuedAt: Date.now()
+  const normalizedRecords = records.map(normalizeHistoryRecord).filter(Boolean);
+  const recordIds = new Set(normalizedRecords.map((record) => record.id));
+  const operations = loadHistorySyncQueue().filter((operation) => operation.userId !== userId || !recordIds.has(operation.id));
+  normalizedRecords.forEach((record, index) => {
+    operations.push({
+      queueId: syncOperationUid(),
+      type: "upsert",
+      id: record.id,
+      userId,
+      record,
+      queuedAt: Date.now() + index
+    });
   });
   saveHistorySyncQueue(operations);
 }
@@ -825,8 +836,36 @@ function setHistorySyncStatus(message, state = "") {
   dom.syncHistoryButton.disabled = historySyncInProgress || !authSession || !navigator.onLine;
 }
 
+function getExistingHistoryMigrationRecords(userId = getHistorySyncUserId()) {
+  if (!userId) return [];
+  const cloudIds = loadHistoryCloudIds(userId);
+  const queuedUpsertIds = new Set(loadHistorySyncQueue()
+    .filter((operation) => operation.userId === userId && operation.type === "upsert")
+    .map((operation) => operation.id));
+  const seen = new Set();
+  return loadWorkoutHistory().filter((record) => {
+    if (seen.has(record.id) || cloudIds.has(record.id) || queuedUpsertIds.has(record.id)) return false;
+    seen.add(record.id);
+    return true;
+  });
+}
+
+function updateHistoryMigrationUI() {
+  if (!dom.historyMigrationRow) return;
+  const records = getExistingHistoryMigrationRecords();
+  const count = records.length;
+  dom.historyMigrationRow.hidden = count === 0;
+  if (!count) return;
+  dom.historyMigrationStatus.textContent = `${count} existing ${count === 1 ? "session" : "sessions"} ready to upload`;
+  dom.uploadExistingHistoryButton.textContent = historyMigrationInProgress
+    ? "Preparing upload…"
+    : `Upload ${count} ${count === 1 ? "session" : "sessions"}`;
+  dom.uploadExistingHistoryButton.disabled = historyMigrationInProgress || historySyncInProgress || !authSession || !navigator.onLine;
+}
+
 function updateHistorySyncStatus() {
   if (!dom.historySyncStatus) return;
+  updateHistoryMigrationUI();
   const userId = getHistorySyncUserId();
   const pending = loadHistorySyncQueue().filter((operation) => operation.userId === userId).length;
   if (!navigator.onLine || !authSession) {
@@ -904,12 +943,12 @@ function friendlyHistorySyncError(error) {
 async function syncWorkoutHistory(options = {}) {
   if (historySyncInProgress) {
     historySyncRequested = true;
-    return;
+    return false;
   }
   if (!authClient || !authSession || !navigator.onLine) {
     updateHistorySyncStatus();
     if (options.manual) showToast("History will sync when you are online and signed in.");
-    return;
+    return false;
   }
 
   historySyncInProgress = true;
@@ -926,15 +965,59 @@ async function syncWorkoutHistory(options = {}) {
       ? `${formatLastHistorySync(syncedAt)} • ${cloudCount} cloud ${cloudCount === 1 ? "session" : "sessions"}`
       : formatLastHistorySync(syncedAt), "success");
     if (options.manual) showToast("Workout history synced.");
+    return true;
   } catch (error) {
     setHistorySyncStatus(friendlyHistorySyncError(error), "error");
     if (options.manual) showToast("Workout history sync failed.");
+    return false;
   } finally {
     historySyncInProgress = false;
     dom.syncHistoryButton.disabled = !authSession || !navigator.onLine;
+    updateHistoryMigrationUI();
     if (historySyncRequested && authSession && navigator.onLine) {
       window.setTimeout(() => syncWorkoutHistory(), 0);
     }
+  }
+}
+
+async function uploadExistingWorkoutHistory() {
+  if (historyMigrationInProgress || historySyncInProgress || !authSession || !navigator.onLine) {
+    updateHistoryMigrationUI();
+    return;
+  }
+  const records = getExistingHistoryMigrationRecords(authSession.user.id);
+  const count = records.length;
+  if (!count) {
+    updateHistoryMigrationUI();
+    showToast("All local workout history is already synced.");
+    return;
+  }
+  const confirmed = window.confirm(
+    `Upload ${count} existing workout ${count === 1 ? "session" : "sessions"} to your account?\n\n` +
+    "They will become available on your other signed-in devices. Existing cloud sessions will not be duplicated."
+  );
+  if (!confirmed) return;
+
+  historyMigrationInProgress = true;
+  updateHistoryMigrationUI();
+  let queued = false;
+  let succeeded = false;
+  try {
+    queueHistoryUpserts(records);
+    queued = true;
+    succeeded = await syncWorkoutHistory();
+  } catch (error) {
+    setHistorySyncStatus(friendlyHistorySyncError(error), "error");
+  } finally {
+    historyMigrationInProgress = false;
+    updateHistoryMigrationUI();
+  }
+  if (succeeded) {
+    showToast(`${count} existing ${count === 1 ? "session" : "sessions"} uploaded.`);
+  } else if (queued) {
+    showToast(`${count} existing ${count === 1 ? "session" : "sessions"} queued. Sync will retry automatically.`);
+  } else {
+    showToast("Existing history could not be prepared for upload.");
   }
 }
 
@@ -1221,6 +1304,7 @@ function renderSettingsSummary() {
   dom.settingsSavedWorkoutCount.textContent = String(savedWorkouts.length);
   dom.settingsHistoryCount.textContent = String(history.length);
   dom.settingsActiveSession.textContent = activeSession ? "Available" : "None";
+  updateHistoryMigrationUI();
 }
 
 function cloneWorkout(candidate, regenerateExerciseIds = false) {
@@ -3009,6 +3093,7 @@ function bindEvents() {
   dom.importBackupButton.addEventListener("click", () => dom.importBackupInput.click());
   dom.importBackupInput.addEventListener("change", importBackupFile);
   dom.syncHistoryButton.addEventListener("click", () => syncWorkoutHistory({ manual: true }));
+  dom.uploadExistingHistoryButton.addEventListener("click", uploadExistingWorkoutHistory);
   dom.exerciseTrendSelect.addEventListener("change", () => renderExerciseTrend(loadWorkoutHistory()));
   dom.trendRangeButtons.addEventListener("click", (event) => {
     const button = event.target.closest(".range-button");
