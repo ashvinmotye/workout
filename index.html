@@ -421,7 +421,7 @@
             <div>
               <span class="account-label">Email</span>
               <strong id="accountEmail">—</strong>
-              <small>Workout history can sync to this account. Saved routines and the current draft remain on this device.</small>
+              <small>Workout history and saved routines can sync to this account. The current draft and active workout remain on this device.</small>
             </div>
             <button id="signOutButton" class="button button-ghost" type="button">Sign out</button>
           </div>
@@ -442,6 +442,24 @@
               <small>Upload these sessions once to make them available on your other signed-in devices.</small>
             </div>
             <button id="uploadExistingHistoryButton" class="button button-primary button-small" type="button">Upload history</button>
+          </div>
+
+          <div class="history-sync-row">
+            <div>
+              <strong>Saved routines</strong>
+              <span id="savedWorkoutSyncStatus">Preparing routine sync…</span>
+              <small>Routine changes, deletions and your custom order sync automatically.</small>
+            </div>
+            <button id="syncSavedWorkoutsButton" class="button button-secondary button-small" type="button">Sync routines</button>
+          </div>
+
+          <div id="savedWorkoutMigrationRow" class="history-sync-row history-migration-row" hidden>
+            <div>
+              <strong>Existing local routines</strong>
+              <span id="savedWorkoutMigrationStatus">Checking this device…</span>
+              <small>Upload these routines once to make them available on your other signed-in devices.</small>
+            </div>
+            <button id="uploadExistingSavedWorkoutsButton" class="button button-primary button-small" type="button">Upload routines</button>
           </div>
           <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
         </section>

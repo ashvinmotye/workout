@@ -14,6 +14,9 @@ const AUTH_USER_CACHE_KEY = "voiceWorkout.authUser.v1";
 const HISTORY_SYNC_QUEUE_KEY = "voiceWorkout.historySyncQueue.v1";
 const HISTORY_LAST_SYNC_KEY_PREFIX = "voiceWorkout.historyLastSync.v1";
 const HISTORY_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.historyCloudIds.v1";
+const SAVED_WORKOUT_SYNC_QUEUE_KEY = "voiceWorkout.savedWorkoutSyncQueue.v1";
+const SAVED_WORKOUT_LAST_SYNC_KEY_PREFIX = "voiceWorkout.savedWorkoutLastSync.v1";
+const SAVED_WORKOUT_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutCloudIds.v1";
 const SUPABASE_URL = "https://xacwgipxqujbqvhzogbd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-_rGsscYv3ipNd7hW23-RQ_bUCB9hTf";
 
@@ -151,6 +154,11 @@ const dom = {
   historyMigrationRow: document.querySelector("#historyMigrationRow"),
   historyMigrationStatus: document.querySelector("#historyMigrationStatus"),
   uploadExistingHistoryButton: document.querySelector("#uploadExistingHistoryButton"),
+  savedWorkoutSyncStatus: document.querySelector("#savedWorkoutSyncStatus"),
+  syncSavedWorkoutsButton: document.querySelector("#syncSavedWorkoutsButton"),
+  savedWorkoutMigrationRow: document.querySelector("#savedWorkoutMigrationRow"),
+  savedWorkoutMigrationStatus: document.querySelector("#savedWorkoutMigrationStatus"),
+  uploadExistingSavedWorkoutsButton: document.querySelector("#uploadExistingSavedWorkoutsButton"),
   accountMessage: document.querySelector("#accountMessage"),
   confirmDialogTitle: document.querySelector("#confirmDialogTitle"),
   confirmDialogMessage: document.querySelector("#confirmDialogMessage")
@@ -173,6 +181,9 @@ let authBusy = false;
 let historySyncInProgress = false;
 let historySyncRequested = false;
 let historyMigrationInProgress = false;
+let savedWorkoutSyncInProgress = false;
+let savedWorkoutSyncRequested = false;
+let savedWorkoutMigrationInProgress = false;
 
 function createEmptyRuntime() {
   return {
@@ -363,7 +374,13 @@ function showAuthenticatedApp(session, options = {}) {
   dom.authPassword.value = "";
   if (!dom.authScreen.hidden) showScreen("setup");
   updateHistorySyncStatus();
-  if (authSession && navigator.onLine) window.setTimeout(() => syncWorkoutHistory(), 0);
+  updateSavedWorkoutSyncStatus();
+  if (authSession && navigator.onLine) {
+    window.setTimeout(() => {
+      syncWorkoutHistory();
+      syncSavedWorkouts();
+    }, 0);
+  }
 }
 
 function showAuthForm(message = "", type = "") {
@@ -388,6 +405,7 @@ function handleAuthStateChange(event, session) {
     authSession = null;
     clearCachedAuthUser();
     updateHistorySyncStatus();
+    updateSavedWorkoutSyncStatus();
     setAuthMode("signin", false);
     showAuthForm("You have been signed out.", "success");
   }
@@ -505,6 +523,7 @@ async function signOutCurrentDevice() {
     authSession = null;
     clearCachedAuthUser();
     updateHistorySyncStatus();
+    updateSavedWorkoutSyncStatus();
     setAuthMode("signin", false);
     showAuthForm("You have been signed out. Your workout data remains on this device.", "success");
   } catch (error) {
@@ -519,7 +538,9 @@ async function refreshAuthenticationAfterReconnect() {
   if (authSession) {
     updateAccountPanel(authSession.user);
     updateHistorySyncStatus();
+    updateSavedWorkoutSyncStatus();
     syncWorkoutHistory().catch(() => {});
+    syncSavedWorkouts().catch(() => {});
     return;
   }
   try {
@@ -1089,13 +1110,15 @@ function normalizeSavedWorkoutRecord(record) {
   if (!record || typeof record !== "object") return null;
 
   const createdAt = Number.isFinite(Number(record.createdAt)) ? Number(record.createdAt) : Date.now();
-  const updatedAt = Number.isFinite(Number(record.updatedAt)) ? Number(record.updatedAt) : createdAt;
+  const candidateUpdatedAt = Number.isFinite(Number(record.updatedAt)) ? Number(record.updatedAt) : createdAt;
+  const updatedAt = Math.max(createdAt, candidateUpdatedAt);
   const sourceWorkout = record.workout && typeof record.workout === "object" ? record.workout : record;
 
   return {
     id: typeof record.id === "string" && record.id ? record.id : workoutUid(),
     createdAt,
     updatedAt,
+    sortOrder: clampInteger(record.sortOrder, 0, 999999, 0),
     workout: cloneWorkout(sourceWorkout, false)
   };
 }
@@ -1106,15 +1129,365 @@ function loadSavedWorkouts() {
 
   return parsed
     .map(normalizeSavedWorkoutRecord)
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 function saveSavedWorkouts(records) {
   // Preserve the array order because it is also the user's custom routine order.
   const normalized = records
-    .map(normalizeSavedWorkoutRecord)
+    .map((record, index) => {
+      const normalizedRecord = normalizeSavedWorkoutRecord(record);
+      return normalizedRecord ? { ...normalizedRecord, sortOrder: index } : null;
+    })
     .filter(Boolean);
   localStorage.setItem(SAVED_WORKOUTS_KEY, JSON.stringify(normalized));
+}
+
+function getAccountSyncUserId() {
+  return authSession?.user?.id || loadCachedAuthUser()?.id || null;
+}
+
+function savedWorkoutCloudIdsKey(userId = getAccountSyncUserId()) {
+  return userId ? `${SAVED_WORKOUT_CLOUD_IDS_KEY_PREFIX}.${userId}` : null;
+}
+
+function savedWorkoutLastSyncKey(userId = getAccountSyncUserId()) {
+  return userId ? `${SAVED_WORKOUT_LAST_SYNC_KEY_PREFIX}.${userId}` : null;
+}
+
+function loadSavedWorkoutCloudIds(userId = getAccountSyncUserId()) {
+  const key = savedWorkoutCloudIdsKey(userId);
+  if (!key) return new Set();
+  const parsed = safeJsonParse(localStorage.getItem(key));
+  return new Set(Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string" && id) : []);
+}
+
+function saveSavedWorkoutCloudIds(ids, userId = getAccountSyncUserId()) {
+  const key = savedWorkoutCloudIdsKey(userId);
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify([...new Set(ids)].sort()));
+}
+
+function savedWorkoutSyncOperationUid() {
+  return `routine-sync-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeSavedWorkoutSyncOperation(operation) {
+  if (!operation || typeof operation !== "object") return null;
+  const type = operation.type;
+  const userId = typeof operation.userId === "string" && operation.userId
+    ? operation.userId
+    : getAccountSyncUserId();
+  if (!userId || (type !== "upsert" && type !== "delete")) return null;
+  if (typeof operation.id !== "string" || !operation.id) return null;
+  if (type === "upsert" && (!operation.record || typeof operation.record !== "object")) return null;
+  const record = type === "upsert" ? normalizeSavedWorkoutRecord(operation.record) : null;
+  return {
+    queueId: typeof operation.queueId === "string" ? operation.queueId : savedWorkoutSyncOperationUid(),
+    type,
+    id: operation.id,
+    userId,
+    record,
+    sortOrder: type === "upsert" ? clampInteger(operation.sortOrder ?? record?.sortOrder, 0, 999999, 0) : null,
+    queuedAt: Number.isFinite(Number(operation.queuedAt)) ? Number(operation.queuedAt) : Date.now()
+  };
+}
+
+function loadSavedWorkoutSyncQueue() {
+  const parsed = safeJsonParse(localStorage.getItem(SAVED_WORKOUT_SYNC_QUEUE_KEY));
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map(normalizeSavedWorkoutSyncOperation)
+    .filter(Boolean)
+    .sort((a, b) => a.queuedAt - b.queuedAt);
+}
+
+function saveSavedWorkoutSyncQueue(operations) {
+  const normalized = operations
+    .map(normalizeSavedWorkoutSyncOperation)
+    .filter(Boolean)
+    .sort((a, b) => a.queuedAt - b.queuedAt);
+  if (normalized.length) localStorage.setItem(SAVED_WORKOUT_SYNC_QUEUE_KEY, JSON.stringify(normalized));
+  else localStorage.removeItem(SAVED_WORKOUT_SYNC_QUEUE_KEY);
+  updateSavedWorkoutSyncStatus();
+}
+
+function queueSavedWorkoutUpserts(records) {
+  const userId = getAccountSyncUserId();
+  if (!userId) return;
+  const normalizedRecords = records.map(normalizeSavedWorkoutRecord).filter(Boolean);
+  const recordIds = new Set(normalizedRecords.map((record) => record.id));
+  const operations = loadSavedWorkoutSyncQueue()
+    .filter((operation) => operation.userId !== userId || !recordIds.has(operation.id));
+  normalizedRecords.forEach((record, index) => {
+    operations.push({
+      queueId: savedWorkoutSyncOperationUid(),
+      type: "upsert",
+      id: record.id,
+      userId,
+      record,
+      sortOrder: record.sortOrder,
+      queuedAt: Date.now() + index
+    });
+  });
+  saveSavedWorkoutSyncQueue(operations);
+}
+
+function queueSavedWorkoutDelete(id) {
+  const userId = getAccountSyncUserId();
+  if (!userId) return;
+  const operations = loadSavedWorkoutSyncQueue()
+    .filter((operation) => operation.userId !== userId || operation.id !== id);
+  operations.push({
+    queueId: savedWorkoutSyncOperationUid(),
+    type: "delete",
+    id,
+    userId,
+    queuedAt: Date.now()
+  });
+  saveSavedWorkoutSyncQueue(operations);
+}
+
+function savedWorkoutToCloudRow(record, sortOrder = record.sortOrder) {
+  const normalized = normalizeSavedWorkoutRecord(record);
+  return {
+    id: normalized.id,
+    user_id: authSession.user.id,
+    name: normalized.workout.name,
+    workout: normalized.workout,
+    sort_order: clampInteger(sortOrder, 0, 999999, 0),
+    client_created_at: new Date(normalized.createdAt).toISOString(),
+    client_updated_at: new Date(normalized.updatedAt).toISOString()
+  };
+}
+
+function cloudRowToSavedWorkout(row) {
+  return normalizeSavedWorkoutRecord({
+    id: row.id,
+    createdAt: Date.parse(row.client_created_at),
+    updatedAt: Date.parse(row.client_updated_at),
+    sortOrder: row.sort_order,
+    workout: row.workout
+  });
+}
+
+function recordSuccessfulSavedWorkoutSyncOperation(operation, userId) {
+  const cloudIds = loadSavedWorkoutCloudIds(userId);
+  if (operation.type === "upsert") cloudIds.add(operation.id);
+  else cloudIds.delete(operation.id);
+  saveSavedWorkoutCloudIds(cloudIds, userId);
+}
+
+function getExistingSavedWorkoutMigrationRecords(userId = getAccountSyncUserId()) {
+  if (!userId) return [];
+  const cloudIds = loadSavedWorkoutCloudIds(userId);
+  const queuedUpsertIds = new Set(loadSavedWorkoutSyncQueue()
+    .filter((operation) => operation.userId === userId && operation.type === "upsert")
+    .map((operation) => operation.id));
+  return loadSavedWorkouts().filter((record) => !cloudIds.has(record.id) && !queuedUpsertIds.has(record.id));
+}
+
+function updateSavedWorkoutMigrationUI() {
+  if (!dom.savedWorkoutMigrationRow) return;
+  const records = getExistingSavedWorkoutMigrationRecords();
+  const count = records.length;
+  dom.savedWorkoutMigrationRow.hidden = count === 0;
+  if (!count) return;
+  dom.savedWorkoutMigrationStatus.textContent = `${count} existing ${count === 1 ? "routine" : "routines"} ready to upload`;
+  dom.uploadExistingSavedWorkoutsButton.textContent = savedWorkoutMigrationInProgress
+    ? "Preparing upload…"
+    : `Upload ${count} ${count === 1 ? "routine" : "routines"}`;
+  dom.uploadExistingSavedWorkoutsButton.disabled = savedWorkoutMigrationInProgress
+    || savedWorkoutSyncInProgress
+    || !authSession
+    || !navigator.onLine;
+}
+
+function setSavedWorkoutSyncStatus(message, state = "") {
+  if (!dom.savedWorkoutSyncStatus) return;
+  dom.savedWorkoutSyncStatus.textContent = message;
+  dom.savedWorkoutSyncStatus.classList.toggle("is-error", state === "error");
+  dom.savedWorkoutSyncStatus.classList.toggle("is-waiting", state === "waiting");
+  dom.savedWorkoutSyncStatus.classList.toggle("is-success", state === "success");
+  dom.syncSavedWorkoutsButton.disabled = savedWorkoutSyncInProgress || !authSession || !navigator.onLine;
+}
+
+function updateSavedWorkoutSyncStatus() {
+  if (!dom.savedWorkoutSyncStatus) return;
+  updateSavedWorkoutMigrationUI();
+  const userId = getAccountSyncUserId();
+  const pending = loadSavedWorkoutSyncQueue().filter((operation) => operation.userId === userId).length;
+  if (!navigator.onLine || !authSession) {
+    setSavedWorkoutSyncStatus(pending
+      ? `${pending} routine ${pending === 1 ? "change" : "changes"} waiting for connection`
+      : "Offline — local routines are available", "waiting");
+    return;
+  }
+  if (savedWorkoutSyncInProgress) {
+    setSavedWorkoutSyncStatus("Syncing saved routines…", "waiting");
+    return;
+  }
+  if (pending) {
+    setSavedWorkoutSyncStatus(`${pending} routine ${pending === 1 ? "change" : "changes"} waiting to sync`, "waiting");
+    return;
+  }
+  const lastSyncKey = savedWorkoutLastSyncKey(userId);
+  const lastSync = lastSyncKey ? Number(localStorage.getItem(lastSyncKey)) : 0;
+  setSavedWorkoutSyncStatus(lastSync ? formatLastHistorySync(lastSync) : "Ready to sync", lastSync ? "success" : "");
+}
+
+async function processSavedWorkoutSyncQueue() {
+  const userId = authSession.user.id;
+  const operations = loadSavedWorkoutSyncQueue().filter((operation) => operation.userId === userId);
+  for (const operation of operations) {
+    const response = operation.type === "upsert"
+      ? await authClient
+        .from("saved_workouts")
+        .upsert(savedWorkoutToCloudRow(operation.record, operation.sortOrder), { onConflict: "id" })
+      : await authClient
+        .from("saved_workouts")
+        .delete()
+        .eq("id", operation.id);
+    if (response.error) throw response.error;
+    recordSuccessfulSavedWorkoutSyncOperation(operation, userId);
+    const latest = loadSavedWorkoutSyncQueue();
+    saveSavedWorkoutSyncQueue(latest.filter((item) => item.queueId !== operation.queueId));
+  }
+}
+
+async function pullSavedWorkoutsFromCloud() {
+  const { data, error } = await authClient
+    .from("saved_workouts")
+    .select("id, name, workout, sort_order, client_created_at, client_updated_at, updated_at")
+    .order("sort_order", { ascending: true })
+    .order("client_updated_at", { ascending: true });
+  if (error) throw error;
+
+  const userId = authSession.user.id;
+  const previousCloudIds = loadSavedWorkoutCloudIds(userId);
+  const cloudRecords = (data || []).map(cloudRowToSavedWorkout);
+  const currentCloudIds = new Set(cloudRecords.map((record) => record.id));
+  const merged = new Map();
+
+  loadSavedWorkouts().forEach((record, index) => {
+    if (previousCloudIds.has(record.id) && !currentCloudIds.has(record.id)) return;
+    merged.set(record.id, { record, sortOrder: record.sortOrder ?? index, source: 1, index });
+  });
+  cloudRecords.forEach((record, index) => {
+    merged.set(record.id, { record, sortOrder: record.sortOrder, source: 0, index });
+  });
+
+  const nextRecords = [...merged.values()]
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.source - b.source || a.index - b.index)
+    .map((entry) => entry.record);
+  saveSavedWorkouts(nextRecords);
+  saveSavedWorkoutCloudIds(currentCloudIds, userId);
+
+  if (activeSavedWorkoutId && !nextRecords.some((record) => record.id === activeSavedWorkoutId)) {
+    activeSavedWorkoutId = null;
+    localStorage.removeItem(ACTIVE_SAVED_WORKOUT_KEY);
+    updateSavedWorkoutStatus();
+  }
+  return data?.length || 0;
+}
+
+function friendlySavedWorkoutSyncError(error) {
+  const message = String(error?.message || "").trim();
+  const normalized = message.toLocaleLowerCase();
+  if (!navigator.onLine || normalized.includes("failed to fetch") || normalized.includes("network")) {
+    return "Waiting for an internet connection";
+  }
+  if (normalized.includes("saved_workouts") && (normalized.includes("not find") || normalized.includes("does not exist") || normalized.includes("relation"))) {
+    return "Saved-routine sync needs its Supabase table";
+  }
+  if (normalized.includes("row-level security")) return "Routine sync was blocked by the database security policy";
+  return message ? `Routine sync failed: ${message}` : "Saved routines could not be synced";
+}
+
+async function syncSavedWorkouts(options = {}) {
+  if (savedWorkoutSyncInProgress) {
+    savedWorkoutSyncRequested = true;
+    return false;
+  }
+  if (!authClient || !authSession || !navigator.onLine) {
+    updateSavedWorkoutSyncStatus();
+    if (options.manual) showToast("Routines will sync when you are online and signed in.");
+    return false;
+  }
+
+  savedWorkoutSyncInProgress = true;
+  savedWorkoutSyncRequested = false;
+  updateSavedWorkoutSyncStatus();
+  try {
+    await processSavedWorkoutSyncQueue();
+    const cloudCount = await pullSavedWorkoutsFromCloud();
+    const syncedAt = Date.now();
+    localStorage.setItem(savedWorkoutLastSyncKey(authSession.user.id), String(syncedAt));
+    renderSavedWorkouts();
+    renderSettingsSummary();
+    setSavedWorkoutSyncStatus(cloudCount
+      ? `${formatLastHistorySync(syncedAt)} • ${cloudCount} cloud ${cloudCount === 1 ? "routine" : "routines"}`
+      : formatLastHistorySync(syncedAt), "success");
+    if (options.manual) showToast("Saved routines synced.");
+    return true;
+  } catch (error) {
+    setSavedWorkoutSyncStatus(friendlySavedWorkoutSyncError(error), "error");
+    if (options.manual) showToast("Saved-routine sync failed.");
+    return false;
+  } finally {
+    savedWorkoutSyncInProgress = false;
+    dom.syncSavedWorkoutsButton.disabled = !authSession || !navigator.onLine;
+    updateSavedWorkoutMigrationUI();
+    if (savedWorkoutSyncRequested && authSession && navigator.onLine) {
+      window.setTimeout(() => syncSavedWorkouts(), 0);
+    }
+  }
+}
+
+async function uploadExistingSavedWorkouts() {
+  if (savedWorkoutMigrationInProgress || savedWorkoutSyncInProgress || !authSession || !navigator.onLine) {
+    updateSavedWorkoutMigrationUI();
+    return;
+  }
+  const records = getExistingSavedWorkoutMigrationRecords(authSession.user.id);
+  const count = records.length;
+  if (!count) {
+    updateSavedWorkoutMigrationUI();
+    showToast("All local saved routines are already synced.");
+    return;
+  }
+  const confirmed = window.confirm(
+    `Upload ${count} existing saved ${count === 1 ? "routine" : "routines"} to your account?\n\n` +
+    "They will become available on your other signed-in devices. Existing cloud routines will not be duplicated."
+  );
+  if (!confirmed) return;
+
+  savedWorkoutMigrationInProgress = true;
+  updateSavedWorkoutMigrationUI();
+  let queued = false;
+  let succeeded = false;
+  try {
+    queueSavedWorkoutUpserts(records);
+    queued = true;
+    succeeded = await syncSavedWorkouts();
+  } catch (error) {
+    setSavedWorkoutSyncStatus(friendlySavedWorkoutSyncError(error), "error");
+  } finally {
+    savedWorkoutMigrationInProgress = false;
+    updateSavedWorkoutMigrationUI();
+  }
+  const cloudIds = loadSavedWorkoutCloudIds(authSession?.user?.id);
+  const allUploaded = records.every((record) => cloudIds.has(record.id));
+  if (succeeded) {
+    showToast(`${count} existing ${count === 1 ? "routine" : "routines"} uploaded.`);
+  } else if (allUploaded) {
+    showToast(`${count} existing ${count === 1 ? "routine" : "routines"} uploaded. Tap Sync routines to refresh.`);
+  } else if (queued) {
+    showToast(`${count} existing ${count === 1 ? "routine" : "routines"} queued. Sync will retry automatically.`);
+  } else {
+    showToast("Existing routines could not be prepared for upload.");
+  }
 }
 
 function getStoredJson(key) {
@@ -1318,6 +1691,7 @@ function renderSettingsSummary() {
   dom.settingsHistoryCount.textContent = String(history.length);
   dom.settingsActiveSession.textContent = activeSession ? "Available" : "None";
   updateHistoryMigrationUI();
+  updateSavedWorkoutMigrationUI();
 }
 
 function cloneWorkout(candidate, regenerateExerciseIds = false) {
@@ -1528,6 +1902,8 @@ function saveCurrentWorkout(asNew = false) {
       workout: cloneWorkout(candidate, false)
     };
     saveSavedWorkouts(records);
+    queueSavedWorkoutUpserts([loadSavedWorkouts()[targetIndex]]);
+    syncSavedWorkouts().catch(() => {});
     setActiveSavedWorkoutId(targetId);
     saveSettings(candidate);
     showToast("Workout changes saved.");
@@ -1542,6 +1918,8 @@ function saveCurrentWorkout(asNew = false) {
   };
   records.push(record);
   saveSavedWorkouts(records);
+  queueSavedWorkoutUpserts([findSavedWorkout(record.id)]);
+  syncSavedWorkouts().catch(() => {});
   dom.workoutName.value = record.workout.name;
   saveSettings(record.workout);
   setActiveSavedWorkoutId(record.id);
@@ -1574,7 +1952,13 @@ function moveSavedWorkout(id, direction) {
   if (nextIndex < 0 || nextIndex >= records.length) return;
 
   [records[index], records[nextIndex]] = [records[nextIndex], records[index]];
+  const reorderedAt = Date.now();
+  records[index] = { ...records[index], updatedAt: reorderedAt };
+  records[nextIndex] = { ...records[nextIndex], updatedAt: reorderedAt };
   saveSavedWorkouts(records);
+  const savedRecords = loadSavedWorkouts();
+  queueSavedWorkoutUpserts(savedRecords.filter((record) => record.id === records[index].id || record.id === records[nextIndex].id));
+  syncSavedWorkouts().catch(() => {});
   renderSavedWorkouts();
 
   const moved = records[nextIndex];
@@ -1594,13 +1978,16 @@ function duplicateSavedWorkout(id) {
   const now = Date.now();
   const duplicate = cloneWorkout(source.workout, true);
   duplicate.name = makeUniqueWorkoutName(`${source.workout.name} copy`, records);
-  records.push({
+  const duplicateRecord = {
     id: workoutUid(),
     createdAt: now,
     updatedAt: now,
     workout: duplicate
-  });
+  };
+  records.push(duplicateRecord);
   saveSavedWorkouts(records);
+  queueSavedWorkoutUpserts([findSavedWorkout(duplicateRecord.id)]);
+  syncSavedWorkouts().catch(() => {});
   renderSavedWorkouts();
   showToast(`Created “${duplicate.name}”.`);
 }
@@ -1637,6 +2024,8 @@ function renameSavedWorkout(id) {
     }
   };
   saveSavedWorkouts(records);
+  queueSavedWorkoutUpserts([findSavedWorkout(id)]);
+  syncSavedWorkouts().catch(() => {});
 
   if (activeSavedWorkoutId === id) {
     dom.workoutName.value = nextName;
@@ -1656,6 +2045,8 @@ function deleteSavedWorkout(id) {
   if (!window.confirm(`Delete “${record.workout.name}”? This cannot be undone.`)) return;
 
   saveSavedWorkouts(records.filter((item) => item.id !== id));
+  queueSavedWorkoutDelete(id);
+  syncSavedWorkouts().catch(() => {});
   if (activeSavedWorkoutId === id) setActiveSavedWorkoutId(null);
   renderSavedWorkouts();
   showToast("Saved workout deleted.");
@@ -1917,6 +2308,7 @@ function showScreen(name) {
   if (name === "settings") {
     renderSettingsSummary();
     updateHistorySyncStatus();
+    updateSavedWorkoutSyncStatus();
   }
   window.scrollTo({ top: 0, behavior: "auto" });
 }
@@ -3107,6 +3499,8 @@ function bindEvents() {
   dom.importBackupInput.addEventListener("change", importBackupFile);
   dom.syncHistoryButton.addEventListener("click", () => syncWorkoutHistory({ manual: true }));
   dom.uploadExistingHistoryButton.addEventListener("click", uploadExistingWorkoutHistory);
+  dom.syncSavedWorkoutsButton.addEventListener("click", () => syncSavedWorkouts({ manual: true }));
+  dom.uploadExistingSavedWorkoutsButton.addEventListener("click", uploadExistingSavedWorkouts);
   dom.exerciseTrendSelect.addEventListener("change", () => renderExerciseTrend(loadWorkoutHistory()));
   dom.trendRangeButtons.addEventListener("click", (event) => {
     const button = event.target.closest(".range-button");
@@ -3159,6 +3553,7 @@ function bindEvents() {
       updateAccountPanel(user, true);
       setAccountMessage("You are offline. Workout data on this device remains available.");
       updateHistorySyncStatus();
+      updateSavedWorkoutSyncStatus();
     }
   });
 }

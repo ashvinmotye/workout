@@ -17,7 +17,7 @@ A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 - Local storage for the current workout draft
 - Saved workout library for loading routines on another day
 - Rename, duplicate, update and delete saved workouts
-- Reorder saved workouts with Move Up / Move Down controls, with the custom order saved locally
+- Reorder saved workouts with Move Up / Move Down controls
 - Settings page with full JSON export and validated JSON import
 - Supabase email/password account creation and sign-in
 - Persistent authenticated sessions with a current-device sign-out control
@@ -26,6 +26,8 @@ A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 - Cloud history download when the same account signs in on another device
 - Offline history-operation queue with automatic retry after reconnection
 - One-time migration control for uploading existing local workout history
+- Automatic saved-routine CRUD and custom-order sync with offline retry
+- One-time migration control for uploading existing local routines
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
 - Installable PWA with offline app-shell caching
@@ -53,7 +55,7 @@ The project uses only relative paths, so it also works when deployed under a rep
 
 ## Saved workouts
 
-Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Use **Move Up** and **Move Down** in the Saved workouts tab to arrange routines in your preferred order (for example Monday through Sunday). The custom order is preserved in `localStorage`, so it remains after closing or refreshing the app. All routines remain on the current browser and device.
+Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Use **Move Up** and **Move Down** in the Saved workouts tab to arrange routines in your preferred order (for example Monday through Sunday). Routines and their custom order are saved locally first and synchronized to the signed-in account, with offline changes queued for retry.
 
 ## Notes
 
@@ -91,8 +93,13 @@ Newly completed workout sessions are saved locally first and then synchronized t
 
 Existing sessions that predate cloud sync remain local until **Settings → Account → Upload existing history** is confirmed. The app counts only sessions that are not already in Supabase, keeps their existing IDs to prevent duplicates, marks every successful upload immediately, and queues interrupted uploads for automatic retry.
 
-Saved workout routines, the current draft, settings and active session remain local during this milestone.
+Saved workout changes—including create, edit, rename, duplicate, delete and custom order—synchronize through the `saved_workouts` table. Existing routines remain local until **Settings → Account → Upload existing routines** is confirmed. When two devices save the same routine, the change with the latest client update timestamp wins; the database prevents an older delayed upsert from replacing it.
 
-The reproducible table definition and Row Level Security policies are stored in `supabase/migrations/20260816_create_workout_sessions.sql`.
+The current workout draft, preferences and active workout session remain device-local during this milestone.
+
+The reproducible table definitions and Row Level Security policies are stored in:
+
+- `supabase/migrations/20260816_create_workout_sessions.sql`
+- `supabase/migrations/20260816220000_create_saved_workouts.sql`
 
 For the first account test, use an email address that belongs to a member of the Supabase organization. Supabase's built-in test email service only sends authentication messages to project members. Configure custom SMTP later before inviting other users.
