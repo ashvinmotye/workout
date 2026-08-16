@@ -28,6 +28,7 @@ A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 - One-time migration control for uploading existing local workout history
 - Automatic saved-routine CRUD and custom-order sync with offline retry
 - One-time migration control for uploading existing local routines
+- Silent history and routine refresh when the app opens, returns to the foreground, regains focus or reconnects
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
 - Installable PWA with offline app-shell caching
@@ -96,6 +97,8 @@ Existing sessions that predate cloud sync remain local until **Settings → Acco
 Saved workout changes—including create, edit, rename, duplicate, delete and custom order—synchronize through the `saved_workouts` table. Existing routines remain local until **Settings → Account → Upload existing routines** is confirmed. When two devices save the same routine, the change with the latest client update timestamp wins; the database prevents an older delayed upsert from replacing it.
 
 Supabase API responses bypass the PWA cache so every sync reads the current database state. The app also distinguishes a successful upload from a routine observed in a completed cloud pull, preventing a stale or delayed empty response from being mistaken for a remote deletion.
+
+Authenticated devices automatically refresh workout history and saved routines when the app opens, returns to the foreground, regains focus or reconnects. Closely spaced lifecycle events are combined into one refresh, and the manual sync buttons remain available as a fallback.
 
 The current workout draft, preferences and active workout session remain device-local during this milestone.
 

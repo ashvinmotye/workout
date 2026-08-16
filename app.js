@@ -18,6 +18,7 @@ const SAVED_WORKOUT_SYNC_QUEUE_KEY = "voiceWorkout.savedWorkoutSyncQueue.v1";
 const SAVED_WORKOUT_LAST_SYNC_KEY_PREFIX = "voiceWorkout.savedWorkoutLastSync.v1";
 const SAVED_WORKOUT_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutCloudIds.v1";
 const SAVED_WORKOUT_PULL_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutPullIds.v1";
+const AUTOMATIC_CLOUD_REFRESH_THROTTLE_MS = 15 * 1000;
 const SUPABASE_URL = "https://xacwgipxqujbqvhzogbd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-_rGsscYv3ipNd7hW23-RQ_bUCB9hTf";
 
@@ -185,6 +186,9 @@ let historyMigrationInProgress = false;
 let savedWorkoutSyncInProgress = false;
 let savedWorkoutSyncRequested = false;
 let savedWorkoutMigrationInProgress = false;
+let automaticCloudRefreshTimer = null;
+let automaticCloudRefreshDueAt = 0;
+let lastAutomaticCloudRefreshAt = 0;
 
 function createEmptyRuntime() {
   return {
@@ -376,12 +380,7 @@ function showAuthenticatedApp(session, options = {}) {
   if (!dom.authScreen.hidden) showScreen("setup");
   updateHistorySyncStatus();
   updateSavedWorkoutSyncStatus();
-  if (authSession && navigator.onLine) {
-    window.setTimeout(() => {
-      syncWorkoutHistory();
-      syncSavedWorkouts();
-    }, 0);
-  }
+  requestAutomaticCloudRefresh();
 }
 
 function showAuthForm(message = "", type = "") {
@@ -404,6 +403,7 @@ function handleAuthStateChange(event, session) {
   }
   if (event === "SIGNED_OUT" || event === "USER_DELETED") {
     authSession = null;
+    cancelAutomaticCloudRefresh();
     clearCachedAuthUser();
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
@@ -522,6 +522,7 @@ async function signOutCurrentDevice() {
       if (error) throw error;
     }
     authSession = null;
+    cancelAutomaticCloudRefresh();
     clearCachedAuthUser();
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
@@ -540,8 +541,7 @@ async function refreshAuthenticationAfterReconnect() {
     updateAccountPanel(authSession.user);
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
-    syncWorkoutHistory().catch(() => {});
-    syncSavedWorkouts().catch(() => {});
+    requestAutomaticCloudRefresh({ force: true });
     return;
   }
   try {
@@ -551,6 +551,57 @@ async function refreshAuthenticationAfterReconnect() {
   } catch {
     // The app remains usable with local data and will retry on a future reconnect.
   }
+}
+
+function canAutomaticallyRefreshCloudData() {
+  return Boolean(
+    authClient
+    && authSession
+    && navigator.onLine
+    && document.visibilityState !== "hidden"
+  );
+}
+
+function cancelAutomaticCloudRefresh() {
+  if (automaticCloudRefreshTimer !== null) {
+    window.clearTimeout(automaticCloudRefreshTimer);
+  }
+  automaticCloudRefreshTimer = null;
+  automaticCloudRefreshDueAt = 0;
+  lastAutomaticCloudRefreshAt = 0;
+}
+
+function requestAutomaticCloudRefresh(options = {}) {
+  if (!canAutomaticallyRefreshCloudData()) return;
+
+  const now = Date.now();
+  const delay = options.force
+    ? 0
+    : Math.max(0, AUTOMATIC_CLOUD_REFRESH_THROTTLE_MS - (now - lastAutomaticCloudRefreshAt));
+  const dueAt = now + delay;
+
+  if (automaticCloudRefreshTimer !== null) {
+    if (automaticCloudRefreshDueAt <= dueAt) return;
+    window.clearTimeout(automaticCloudRefreshTimer);
+  }
+
+  automaticCloudRefreshDueAt = dueAt;
+  automaticCloudRefreshTimer = window.setTimeout(async () => {
+    automaticCloudRefreshTimer = null;
+    automaticCloudRefreshDueAt = 0;
+    if (!canAutomaticallyRefreshCloudData()) return;
+
+    lastAutomaticCloudRefreshAt = Date.now();
+    await Promise.allSettled([
+      syncWorkoutHistory(),
+      syncSavedWorkouts()
+    ]);
+  }, delay);
+}
+
+function handleAppVisibilityChange() {
+  restoreWakeLockIfNeeded();
+  if (document.visibilityState === "visible") requestAutomaticCloudRefresh();
 }
 
 function normalizeWorkout(candidate) {
@@ -3588,8 +3639,9 @@ function bindEvents() {
   dom.resumeSavedSession.addEventListener("click", resumeSavedSession);
   dom.discardSavedSession.addEventListener("click", clearSavedSession);
 
-  document.addEventListener("visibilitychange", restoreWakeLockIfNeeded);
+  document.addEventListener("visibilitychange", handleAppVisibilityChange);
   window.addEventListener("beforeunload", persistSession);
+  window.addEventListener("focus", () => requestAutomaticCloudRefresh());
   window.addEventListener("online", refreshAuthenticationAfterReconnect);
   window.addEventListener("offline", () => {
     const user = authSession?.user || loadCachedAuthUser();
