@@ -421,9 +421,18 @@
             <div>
               <span class="account-label">Email</span>
               <strong id="accountEmail">—</strong>
-              <small>Authentication is active. Workout data is still stored locally during this milestone.</small>
+              <small>New workout sessions sync to this account. Saved routines and the current draft remain on this device.</small>
             </div>
             <button id="signOutButton" class="button button-ghost" type="button">Sign out</button>
+          </div>
+
+          <div class="history-sync-row">
+            <div>
+              <strong>Workout history</strong>
+              <span id="historySyncStatus">Preparing cloud sync…</span>
+              <small>Existing sessions stay local for now; newly completed sessions sync automatically.</small>
+            </div>
+            <button id="syncHistoryButton" class="button button-secondary button-small" type="button">Sync now</button>
           </div>
           <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
         </section>

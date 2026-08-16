@@ -1836,6 +1836,47 @@ select,
   overflow-wrap: anywhere;
 }
 
+.history-sync-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface-exercise);
+}
+
+.history-sync-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.history-sync-row span {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.history-sync-row span.is-success {
+  color: var(--success);
+}
+
+.history-sync-row span.is-error {
+  color: var(--danger);
+}
+
+.history-sync-row span.is-waiting,
+.history-sync-row small {
+  color: var(--text-muted);
+}
+
+.history-sync-row small {
+  font-size: 0.76rem;
+}
+
 .account-message {
   min-height: 1.3em;
   margin: 12px 0 0;
@@ -1856,6 +1897,7 @@ select,
 .auth-card,
 .auth-mode-button,
 .account-row,
+.history-sync-row,
 .account-status {
   transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
 }
@@ -1958,8 +2000,14 @@ select,
     flex-direction: column;
   }
 
-  .account-row .button {
+  .account-row .button,
+  .history-sync-row .button {
     width: 100%;
+  }
+
+  .history-sync-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

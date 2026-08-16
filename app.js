@@ -11,6 +11,9 @@ const BACKUP_APP_ID = "voice-workout";
 const BACKUP_SCHEMA_VERSION = 1;
 const MAX_BACKUP_FILE_SIZE = 5 * 1024 * 1024;
 const AUTH_USER_CACHE_KEY = "voiceWorkout.authUser.v1";
+const HISTORY_SYNC_QUEUE_KEY = "voiceWorkout.historySyncQueue.v1";
+const HISTORY_LAST_SYNC_KEY_PREFIX = "voiceWorkout.historyLastSync.v1";
+const HISTORY_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.historyCloudIds.v1";
 const SUPABASE_URL = "https://xacwgipxqujbqvhzogbd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-_rGsscYv3ipNd7hW23-RQ_bUCB9hTf";
 
@@ -143,6 +146,8 @@ const dom = {
   accountEmail: document.querySelector("#accountEmail"),
   accountConnectionStatus: document.querySelector("#accountConnectionStatus"),
   signOutButton: document.querySelector("#signOutButton"),
+  historySyncStatus: document.querySelector("#historySyncStatus"),
+  syncHistoryButton: document.querySelector("#syncHistoryButton"),
   accountMessage: document.querySelector("#accountMessage"),
   confirmDialogTitle: document.querySelector("#confirmDialogTitle"),
   confirmDialogMessage: document.querySelector("#confirmDialogMessage")
@@ -162,6 +167,8 @@ let authClient = null;
 let authSession = null;
 let authSubscription = null;
 let authBusy = false;
+let historySyncInProgress = false;
+let historySyncRequested = false;
 
 function createEmptyRuntime() {
   return {
@@ -351,6 +358,8 @@ function showAuthenticatedApp(session, options = {}) {
   setAccountMessage(options.offline ? "Using the last account saved on this device. Cloud access will resume when you reconnect." : "");
   dom.authPassword.value = "";
   if (!dom.authScreen.hidden) showScreen("setup");
+  updateHistorySyncStatus();
+  if (authSession && navigator.onLine) window.setTimeout(() => syncWorkoutHistory(), 0);
 }
 
 function showAuthForm(message = "", type = "") {
@@ -374,6 +383,7 @@ function handleAuthStateChange(event, session) {
   if (event === "SIGNED_OUT" || event === "USER_DELETED") {
     authSession = null;
     clearCachedAuthUser();
+    updateHistorySyncStatus();
     setAuthMode("signin", false);
     showAuthForm("You have been signed out.", "success");
   }
@@ -490,6 +500,7 @@ async function signOutCurrentDevice() {
     }
     authSession = null;
     clearCachedAuthUser();
+    updateHistorySyncStatus();
     setAuthMode("signin", false);
     showAuthForm("You have been signed out. Your workout data remains on this device.", "success");
   } catch (error) {
@@ -500,8 +511,11 @@ async function signOutCurrentDevice() {
 }
 
 async function refreshAuthenticationAfterReconnect() {
-  if (!authClient || authSession) {
-    if (authSession?.user) updateAccountPanel(authSession.user);
+  if (!authClient) return;
+  if (authSession) {
+    updateAccountPanel(authSession.user);
+    updateHistorySyncStatus();
+    syncWorkoutHistory().catch(() => {});
     return;
   }
   try {
@@ -585,6 +599,12 @@ function normalizeHistoryRecord(record) {
   const exercises = Array.isArray(record.exercises)
     ? record.exercises.map(normalizeHistoryExercise).filter(Boolean)
     : [];
+  const rpe = Number.parseInt(record.rpe, 10);
+  const normalizeOptionalSeconds = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : null;
+  };
 
   return {
     id: typeof record.id === "string" && record.id ? record.id : sessionUid(),
@@ -595,7 +615,14 @@ function normalizeHistoryRecord(record) {
     durationSeconds,
     plannedRounds: clampInteger(record.plannedRounds, 1, 99, 1),
     completedRounds: clampInteger(record.completedRounds, 0, 99, 0),
-    exercises
+    exercises,
+    rpe: Number.isFinite(rpe) && rpe >= 1 && rpe <= 10 ? rpe : null,
+    zone1Seconds: normalizeOptionalSeconds(record.zone1Seconds),
+    zone2Seconds: normalizeOptionalSeconds(record.zone2Seconds),
+    zone3Seconds: normalizeOptionalSeconds(record.zone3Seconds),
+    zone4Seconds: normalizeOptionalSeconds(record.zone4Seconds),
+    zone5Seconds: normalizeOptionalSeconds(record.zone5Seconds),
+    notes: typeof record.notes === "string" ? record.notes : ""
   };
 }
 
@@ -614,6 +641,301 @@ function saveWorkoutHistory(records) {
     .filter(Boolean)
     .sort((a, b) => b.endedAt - a.endedAt);
   localStorage.setItem(HISTORY_KEY, JSON.stringify(normalized));
+}
+
+function syncOperationUid() {
+  return `sync-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getHistorySyncUserId() {
+  return authSession?.user?.id || loadCachedAuthUser()?.id || null;
+}
+
+function historyCloudIdsKey(userId = getHistorySyncUserId()) {
+  return userId ? `${HISTORY_CLOUD_IDS_KEY_PREFIX}.${userId}` : null;
+}
+
+function historyLastSyncKey(userId = getHistorySyncUserId()) {
+  return userId ? `${HISTORY_LAST_SYNC_KEY_PREFIX}.${userId}` : null;
+}
+
+function loadHistoryCloudIds(userId = getHistorySyncUserId()) {
+  const key = historyCloudIdsKey(userId);
+  if (!key) return new Set();
+  const parsed = safeJsonParse(localStorage.getItem(key));
+  return new Set(Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string" && id) : []);
+}
+
+function saveHistoryCloudIds(ids, userId = getHistorySyncUserId()) {
+  const key = historyCloudIdsKey(userId);
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify([...new Set(ids)].sort()));
+}
+
+function normalizeHistorySyncOperation(operation) {
+  if (!operation || typeof operation !== "object") return null;
+  const type = operation.type;
+  const userId = typeof operation.userId === "string" && operation.userId
+    ? operation.userId
+    : getHistorySyncUserId();
+  if (!userId) return null;
+  if (type === "delete-all") {
+    return {
+      queueId: typeof operation.queueId === "string" ? operation.queueId : syncOperationUid(),
+      type,
+      id: "*",
+      userId,
+      queuedAt: Number.isFinite(Number(operation.queuedAt)) ? Number(operation.queuedAt) : Date.now()
+    };
+  }
+  if ((type !== "upsert" && type !== "delete") || typeof operation.id !== "string" || !operation.id) return null;
+  if (type === "upsert" && (!operation.record || typeof operation.record !== "object")) return null;
+  return {
+    queueId: typeof operation.queueId === "string" ? operation.queueId : syncOperationUid(),
+    type,
+    id: operation.id,
+    userId,
+    record: type === "upsert" ? normalizeHistoryRecord(operation.record) : null,
+    queuedAt: Number.isFinite(Number(operation.queuedAt)) ? Number(operation.queuedAt) : Date.now()
+  };
+}
+
+function loadHistorySyncQueue() {
+  const parsed = safeJsonParse(localStorage.getItem(HISTORY_SYNC_QUEUE_KEY));
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map(normalizeHistorySyncOperation)
+    .filter(Boolean)
+    .sort((a, b) => a.queuedAt - b.queuedAt);
+}
+
+function saveHistorySyncQueue(operations) {
+  const normalized = operations
+    .map(normalizeHistorySyncOperation)
+    .filter(Boolean)
+    .sort((a, b) => a.queuedAt - b.queuedAt);
+  if (normalized.length) localStorage.setItem(HISTORY_SYNC_QUEUE_KEY, JSON.stringify(normalized));
+  else localStorage.removeItem(HISTORY_SYNC_QUEUE_KEY);
+  updateHistorySyncStatus();
+}
+
+function queueHistoryUpsert(record) {
+  const userId = getHistorySyncUserId();
+  if (!userId) return;
+  const normalized = normalizeHistoryRecord(record);
+  const operations = loadHistorySyncQueue().filter((operation) => operation.userId !== userId || operation.id !== normalized.id);
+  operations.push({
+    queueId: syncOperationUid(),
+    type: "upsert",
+    id: normalized.id,
+    userId,
+    record: normalized,
+    queuedAt: Date.now()
+  });
+  saveHistorySyncQueue(operations);
+}
+
+function queueHistoryDelete(id) {
+  const userId = getHistorySyncUserId();
+  if (!userId) return;
+  const operations = loadHistorySyncQueue().filter((operation) => operation.userId !== userId || operation.id !== id);
+  operations.push({
+    queueId: syncOperationUid(),
+    type: "delete",
+    id,
+    userId,
+    queuedAt: Date.now()
+  });
+  saveHistorySyncQueue(operations);
+}
+
+function queueHistoryDeleteAll() {
+  const userId = getHistorySyncUserId();
+  if (!userId) return;
+  const otherUsersOperations = loadHistorySyncQueue().filter((operation) => operation.userId !== userId);
+  otherUsersOperations.push({
+    queueId: syncOperationUid(),
+    type: "delete-all",
+    id: "*",
+    userId,
+    queuedAt: Date.now()
+  });
+  saveHistorySyncQueue(otherUsersOperations);
+}
+
+function sessionToCloudRow(record) {
+  const normalized = normalizeHistoryRecord(record);
+  return {
+    id: normalized.id,
+    user_id: authSession.user.id,
+    workout_name: normalized.workoutName,
+    started_at: new Date(normalized.startedAt).toISOString(),
+    ended_at: new Date(normalized.endedAt).toISOString(),
+    status: normalized.status,
+    duration_seconds: normalized.durationSeconds,
+    planned_rounds: normalized.plannedRounds,
+    completed_rounds: normalized.completedRounds,
+    exercises: normalized.exercises,
+    rpe: normalized.rpe,
+    zone_1_seconds: normalized.zone1Seconds,
+    zone_2_seconds: normalized.zone2Seconds,
+    zone_3_seconds: normalized.zone3Seconds,
+    zone_4_seconds: normalized.zone4Seconds,
+    zone_5_seconds: normalized.zone5Seconds,
+    notes: normalized.notes
+  };
+}
+
+function cloudRowToSession(row) {
+  return normalizeHistoryRecord({
+    id: row.id,
+    startedAt: Date.parse(row.started_at),
+    endedAt: Date.parse(row.ended_at),
+    status: row.status,
+    workoutName: row.workout_name,
+    durationSeconds: row.duration_seconds,
+    plannedRounds: row.planned_rounds,
+    completedRounds: row.completed_rounds,
+    exercises: row.exercises,
+    rpe: row.rpe,
+    zone1Seconds: row.zone_1_seconds,
+    zone2Seconds: row.zone_2_seconds,
+    zone3Seconds: row.zone_3_seconds,
+    zone4Seconds: row.zone_4_seconds,
+    zone5Seconds: row.zone_5_seconds,
+    notes: row.notes
+  });
+}
+
+function formatLastHistorySync(timestamp) {
+  if (!timestamp) return "";
+  const elapsedSeconds = Math.max(0, Math.round((Date.now() - Number(timestamp)) / 1000));
+  if (elapsedSeconds < 60) return "Synced just now";
+  const elapsedMinutes = Math.round(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) return `Synced ${elapsedMinutes}m ago`;
+  return `Last synced ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(Number(timestamp)))}`;
+}
+
+function setHistorySyncStatus(message, state = "") {
+  if (!dom.historySyncStatus) return;
+  dom.historySyncStatus.textContent = message;
+  dom.historySyncStatus.classList.toggle("is-error", state === "error");
+  dom.historySyncStatus.classList.toggle("is-waiting", state === "waiting");
+  dom.historySyncStatus.classList.toggle("is-success", state === "success");
+  dom.syncHistoryButton.disabled = historySyncInProgress || !authSession || !navigator.onLine;
+}
+
+function updateHistorySyncStatus() {
+  if (!dom.historySyncStatus) return;
+  const userId = getHistorySyncUserId();
+  const pending = loadHistorySyncQueue().filter((operation) => operation.userId === userId).length;
+  if (!navigator.onLine || !authSession) {
+    setHistorySyncStatus(pending ? `${pending} ${pending === 1 ? "change" : "changes"} waiting for connection` : "Offline — local history is available", "waiting");
+    return;
+  }
+  if (historySyncInProgress) {
+    setHistorySyncStatus("Syncing workout history…", "waiting");
+    return;
+  }
+  if (pending) {
+    setHistorySyncStatus(`${pending} ${pending === 1 ? "change" : "changes"} waiting to sync`, "waiting");
+    return;
+  }
+  const lastSyncKey = historyLastSyncKey(userId);
+  const lastSync = lastSyncKey ? Number(localStorage.getItem(lastSyncKey)) : 0;
+  setHistorySyncStatus(lastSync ? formatLastHistorySync(lastSync) : "Ready to sync", lastSync ? "success" : "");
+}
+
+async function processHistorySyncQueue() {
+  const userId = authSession.user.id;
+  const operations = loadHistorySyncQueue().filter((operation) => operation.userId === userId);
+  for (const operation of operations) {
+    let response;
+    if (operation.type === "upsert") {
+      response = await authClient
+        .from("workout_sessions")
+        .upsert(sessionToCloudRow(operation.record), { onConflict: "id" });
+    } else if (operation.type === "delete") {
+      response = await authClient
+        .from("workout_sessions")
+        .delete()
+        .eq("id", operation.id);
+    } else {
+      response = await authClient
+        .from("workout_sessions")
+        .delete()
+        .eq("user_id", authSession.user.id);
+    }
+    if (response.error) throw response.error;
+    const latest = loadHistorySyncQueue();
+    saveHistorySyncQueue(latest.filter((item) => item.queueId !== operation.queueId));
+  }
+}
+
+async function pullWorkoutHistoryFromCloud() {
+  const { data, error } = await authClient
+    .from("workout_sessions")
+    .select("id, workout_name, started_at, ended_at, status, duration_seconds, planned_rounds, completed_rounds, exercises, rpe, zone_1_seconds, zone_2_seconds, zone_3_seconds, zone_4_seconds, zone_5_seconds, notes, updated_at")
+    .order("ended_at", { ascending: false });
+  if (error) throw error;
+
+  const previousCloudIds = loadHistoryCloudIds(authSession.user.id);
+  const cloudRecords = (data || []).map(cloudRowToSession);
+  const currentCloudIds = new Set(cloudRecords.map((record) => record.id));
+  const preservedLocalRecords = loadWorkoutHistory().filter((record) => !previousCloudIds.has(record.id) || currentCloudIds.has(record.id));
+  const merged = new Map(preservedLocalRecords.map((record) => [record.id, record]));
+  cloudRecords.forEach((record) => merged.set(record.id, record));
+  saveWorkoutHistory([...merged.values()]);
+  saveHistoryCloudIds(currentCloudIds, authSession.user.id);
+  return data?.length || 0;
+}
+
+function friendlyHistorySyncError(error) {
+  const message = String(error?.message || "").trim();
+  if (!navigator.onLine || message.toLocaleLowerCase().includes("failed to fetch")) {
+    return "Waiting for an internet connection";
+  }
+  if (message.toLocaleLowerCase().includes("row-level security")) {
+    return "Sync was blocked by the database security policy";
+  }
+  return message ? `Sync failed: ${message}` : "Workout history could not be synced";
+}
+
+async function syncWorkoutHistory(options = {}) {
+  if (historySyncInProgress) {
+    historySyncRequested = true;
+    return;
+  }
+  if (!authClient || !authSession || !navigator.onLine) {
+    updateHistorySyncStatus();
+    if (options.manual) showToast("History will sync when you are online and signed in.");
+    return;
+  }
+
+  historySyncInProgress = true;
+  historySyncRequested = false;
+  updateHistorySyncStatus();
+  try {
+    await processHistorySyncQueue();
+    const cloudCount = await pullWorkoutHistoryFromCloud();
+    const syncedAt = Date.now();
+    localStorage.setItem(historyLastSyncKey(authSession.user.id), String(syncedAt));
+    renderTrends();
+    renderSettingsSummary();
+    setHistorySyncStatus(cloudCount
+      ? `${formatLastHistorySync(syncedAt)} • ${cloudCount} cloud ${cloudCount === 1 ? "session" : "sessions"}`
+      : formatLastHistorySync(syncedAt), "success");
+    if (options.manual) showToast("Workout history synced.");
+  } catch (error) {
+    setHistorySyncStatus(friendlyHistorySyncError(error), "error");
+    if (options.manual) showToast("Workout history sync failed.");
+  } finally {
+    historySyncInProgress = false;
+    dom.syncHistoryButton.disabled = !authSession || !navigator.onLine;
+    if (historySyncRequested && authSession && navigator.onLine) {
+      window.setTimeout(() => syncWorkoutHistory(), 0);
+    }
+  }
 }
 
 function getElapsedDurationMs(now = Date.now()) {
@@ -659,8 +981,10 @@ function recordWorkoutSession(status) {
   const history = loadWorkoutHistory();
   history.unshift(record);
   saveWorkoutHistory(history);
+  queueHistoryUpsert(record);
   runtime.historyRecorded = true;
   renderTrends();
+  syncWorkoutHistory().catch(() => {});
   return record;
 }
 
@@ -1493,7 +1817,10 @@ function showScreen(name) {
 
   if (name === "saved") renderSavedWorkouts();
   if (name === "trends") renderTrends();
-  if (name === "settings") renderSettingsSummary();
+  if (name === "settings") {
+    renderSettingsSummary();
+    updateHistorySyncStatus();
+  }
   window.scrollTo({ top: 0, behavior: "auto" });
 }
 
@@ -2489,7 +2816,9 @@ function deleteHistorySession(id) {
   if (!record) return;
   if (!window.confirm(`Delete the ${formatSessionDate(record.endedAt)} session for “${record.workoutName}”?`)) return;
   saveWorkoutHistory(records.filter((item) => item.id !== id));
+  queueHistoryDelete(id);
   renderTrends();
+  syncWorkoutHistory().catch(() => {});
   showToast("Workout session deleted.");
 }
 
@@ -2497,8 +2826,10 @@ function clearWorkoutHistory() {
   const records = loadWorkoutHistory();
   if (!records.length) return;
   if (!window.confirm("Clear all workout history? This cannot be undone.")) return;
+  queueHistoryDeleteAll();
   localStorage.removeItem(HISTORY_KEY);
   renderTrends();
+  syncWorkoutHistory().catch(() => {});
   showToast("Workout history cleared.");
 }
 
@@ -2677,6 +3008,7 @@ function bindEvents() {
   dom.exportBackupButton.addEventListener("click", exportBackup);
   dom.importBackupButton.addEventListener("click", () => dom.importBackupInput.click());
   dom.importBackupInput.addEventListener("change", importBackupFile);
+  dom.syncHistoryButton.addEventListener("click", () => syncWorkoutHistory({ manual: true }));
   dom.exerciseTrendSelect.addEventListener("change", () => renderExerciseTrend(loadWorkoutHistory()));
   dom.trendRangeButtons.addEventListener("click", (event) => {
     const button = event.target.closest(".range-button");
@@ -2728,6 +3060,7 @@ function bindEvents() {
     if (user) {
       updateAccountPanel(user, true);
       setAccountMessage("You are offline. Workout data on this device remains available.");
+      updateHistorySyncStatus();
     }
   });
 }

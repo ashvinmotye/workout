@@ -22,6 +22,9 @@ A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 - Supabase email/password account creation and sign-in
 - Persistent authenticated sessions with a current-device sign-out control
 - Previously authenticated devices retain access to local workout data while offline
+- Automatic cloud sync for newly completed workout sessions
+- Cloud history download when the same account signs in on another device
+- Offline history-operation queue with automatic retry after reconnection
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
 - Installable PWA with offline app-shell caching
@@ -83,6 +86,10 @@ Use **Import JSON** to restore a backup. The app validates the file and shows it
 
 The app uses Supabase email/password authentication. Create an account from the opening screen, confirm the email if required, and return to sign in. The browser stores the authenticated session so the app remains signed in between launches. **Settings → Account** shows the current email and provides a current-device sign-out action.
 
-This version proves authentication only. Workout routines and history continue to use local browser storage and are not yet synchronized to the Supabase database.
+Newly completed workout sessions are saved locally first and then synchronized to the Supabase `workout_sessions` table. Signing into the same account on another device downloads cloud sessions and merges them into that device's local history. Individual history deletion and **Clear all** are also synchronized, with offline changes queued for retry.
+
+Existing sessions that predate this sync version remain local and are not automatically uploaded. Saved workout routines, the current draft, settings and active session also remain local during this milestone.
+
+The reproducible table definition and Row Level Security policies are stored in `supabase/migrations/20260816_create_workout_sessions.sql`.
 
 For the first account test, use an email address that belongs to a member of the Supabase organization. Supabase's built-in test email service only sends authentication messages to project members. Configure custom SMTP later before inviting other users.
