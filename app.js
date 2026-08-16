@@ -7,6 +7,9 @@ const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const BACKUP_APP_ID = "voice-workout";
+const BACKUP_SCHEMA_VERSION = 1;
+const MAX_BACKUP_FILE_SIZE = 5 * 1024 * 1024;
 
 const PHASE = Object.freeze({
   PREP: "prep",
@@ -21,10 +24,12 @@ const dom = {
   setupScreen: document.querySelector("#setupScreen"),
   savedWorkoutsScreen: document.querySelector("#savedWorkoutsScreen"),
   trendsScreen: document.querySelector("#trendsScreen"),
+  settingsScreen: document.querySelector("#settingsScreen"),
   mainNavigation: document.querySelector("#mainNavigation"),
   setupNavButton: document.querySelector("#setupNavButton"),
   savedWorkoutsNavButton: document.querySelector("#savedWorkoutsNavButton"),
   trendsNavButton: document.querySelector("#trendsNavButton"),
+  settingsNavButton: document.querySelector("#settingsNavButton"),
   savedWorkoutNavCount: document.querySelector("#savedWorkoutNavCount"),
   workoutScreen: document.querySelector("#workoutScreen"),
   completeScreen: document.querySelector("#completeScreen"),
@@ -114,6 +119,13 @@ const dom = {
   historyCount: document.querySelector("#historyCount"),
   historyList: document.querySelector("#historyList"),
   clearHistoryButton: document.querySelector("#clearHistoryButton"),
+  settingsSavedWorkoutCount: document.querySelector("#settingsSavedWorkoutCount"),
+  settingsHistoryCount: document.querySelector("#settingsHistoryCount"),
+  settingsActiveSession: document.querySelector("#settingsActiveSession"),
+  exportBackupButton: document.querySelector("#exportBackupButton"),
+  importBackupButton: document.querySelector("#importBackupButton"),
+  importBackupInput: document.querySelector("#importBackupInput"),
+  backupStatus: document.querySelector("#backupStatus"),
   confirmDialogTitle: document.querySelector("#confirmDialogTitle"),
   confirmDialogMessage: document.querySelector("#confirmDialogMessage")
 };
@@ -388,6 +400,208 @@ function saveSavedWorkouts(records) {
     .map(normalizeSavedWorkoutRecord)
     .filter(Boolean);
   localStorage.setItem(SAVED_WORKOUTS_KEY, JSON.stringify(normalized));
+}
+
+function getStoredJson(key) {
+  return safeJsonParse(localStorage.getItem(key));
+}
+
+function isObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function createBackupPayload() {
+  saveFormDraft();
+  return {
+    app: BACKUP_APP_ID,
+    schemaVersion: BACKUP_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    data: {
+      settings: loadSettings(),
+      savedWorkouts: loadSavedWorkouts(),
+      activeSavedWorkoutId: loadActiveSavedWorkoutId(),
+      workoutHistory: loadWorkoutHistory(),
+      activeSession: getStoredJson(SESSION_KEY),
+      theme: loadTheme()
+    }
+  };
+}
+
+function backupFilename(date = new Date()) {
+  const datePart = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+  return `voice-workout-backup-${datePart}.json`;
+}
+
+function updateBackupStatus(message, isError = false) {
+  dom.backupStatus.textContent = message;
+  dom.backupStatus.classList.toggle("is-error", isError);
+}
+
+function exportBackup() {
+  try {
+    const payload = createBackupPayload();
+    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = backupFilename();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+    updateBackupStatus(`Backup created with ${payload.data.savedWorkouts.length} saved ${payload.data.savedWorkouts.length === 1 ? "workout" : "workouts"} and ${payload.data.workoutHistory.length} ${payload.data.workoutHistory.length === 1 ? "session" : "sessions"}.`);
+    showToast("Workout backup exported.");
+  } catch {
+    updateBackupStatus("The backup could not be created. Please try again.", true);
+    showToast("Backup export failed.");
+  }
+}
+
+function validateBackupPayload(candidate) {
+  if (!isObject(candidate) || candidate.app !== BACKUP_APP_ID) {
+    throw new Error("This is not a Voice Workout backup file.");
+  }
+  if (candidate.schemaVersion !== BACKUP_SCHEMA_VERSION) {
+    throw new Error("This backup version is not supported by this version of the app.");
+  }
+  if (!isObject(candidate.data)) {
+    throw new Error("The backup does not contain app data.");
+  }
+
+  const data = candidate.data;
+  if (!isObject(data.settings) || !Array.isArray(data.settings.exercises)) {
+    throw new Error("The workout settings in this backup are invalid.");
+  }
+  if (!Array.isArray(data.savedWorkouts)) {
+    throw new Error("The saved workouts in this backup are invalid.");
+  }
+  if (!Array.isArray(data.workoutHistory)) {
+    throw new Error("The workout history in this backup is invalid.");
+  }
+  if (data.theme !== "light" && data.theme !== "dark") {
+    throw new Error("The theme setting in this backup is invalid.");
+  }
+  if (data.activeSavedWorkoutId !== null && typeof data.activeSavedWorkoutId !== "string") {
+    throw new Error("The loaded workout reference in this backup is invalid.");
+  }
+  if (data.activeSession !== null && (!isObject(data.activeSession) || !isObject(data.activeSession.workout) || !isObject(data.activeSession.runtime))) {
+    throw new Error("The resumable workout session in this backup is invalid.");
+  }
+
+  const savedWorkouts = data.savedWorkouts.map((record) => {
+    const sourceWorkout = isObject(record) && isObject(record.workout) ? record.workout : record;
+    if (!isObject(record) || !isObject(sourceWorkout) || !Array.isArray(sourceWorkout.exercises)) {
+      throw new Error("One or more saved workouts in this backup are invalid.");
+    }
+    return normalizeSavedWorkoutRecord(record);
+  });
+
+  const workoutHistory = data.workoutHistory.map((record) => {
+    if (!isObject(record) || !Array.isArray(record.exercises)) {
+      throw new Error("One or more workout sessions in this backup are invalid.");
+    }
+    return normalizeHistoryRecord(record);
+  });
+
+  const activeSavedWorkoutId = savedWorkouts.some((record) => record.id === data.activeSavedWorkoutId)
+    ? data.activeSavedWorkoutId
+    : null;
+
+  return {
+    settings: normalizeWorkout(data.settings),
+    savedWorkouts,
+    activeSavedWorkoutId,
+    workoutHistory,
+    activeSession: data.activeSession,
+    theme: data.theme,
+    exportedAt: typeof candidate.exportedAt === "string" ? candidate.exportedAt : ""
+  };
+}
+
+function restoreStorageSnapshot(snapshot) {
+  snapshot.forEach((value, key) => {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  });
+}
+
+function applyImportedBackup(data) {
+  const keys = [STORAGE_KEY, SAVED_WORKOUTS_KEY, ACTIVE_SAVED_WORKOUT_KEY, HISTORY_KEY, SESSION_KEY, THEME_KEY];
+  const snapshot = new Map(keys.map((key) => [key, localStorage.getItem(key)]));
+
+  try {
+    saveSettings(data.settings);
+    saveSavedWorkouts(data.savedWorkouts);
+    saveWorkoutHistory(data.workoutHistory);
+    if (data.activeSavedWorkoutId) localStorage.setItem(ACTIVE_SAVED_WORKOUT_KEY, data.activeSavedWorkoutId);
+    else localStorage.removeItem(ACTIVE_SAVED_WORKOUT_KEY);
+    if (data.activeSession) localStorage.setItem(SESSION_KEY, JSON.stringify(data.activeSession));
+    else localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(THEME_KEY, data.theme);
+  } catch (error) {
+    restoreStorageSnapshot(snapshot);
+    throw error;
+  }
+
+  workout = null;
+  runtime = createEmptyRuntime();
+  activeSavedWorkoutId = data.activeSavedWorkoutId;
+  applyTheme(data.theme, false);
+  populateForm(data.settings);
+  renderSavedWorkouts();
+  renderTrends();
+  showSavedSessionBanner();
+  renderSettingsSummary();
+}
+
+function formatBackupTimestamp(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return "an unknown date";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+async function importBackupFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    if (file.size > MAX_BACKUP_FILE_SIZE) {
+      throw new Error("This backup file is too large to import.");
+    }
+    const candidate = JSON.parse(await file.text());
+    const imported = validateBackupPayload(candidate);
+    const confirmed = window.confirm(
+      `Import the backup from ${formatBackupTimestamp(imported.exportedAt)}?\n\n` +
+      `It contains ${imported.savedWorkouts.length} saved ${imported.savedWorkouts.length === 1 ? "workout" : "workouts"} and ` +
+      `${imported.workoutHistory.length} workout ${imported.workoutHistory.length === 1 ? "session" : "sessions"}.\n\n` +
+      "This will replace the Workout data currently stored on this device."
+    );
+    if (!confirmed) {
+      updateBackupStatus("Import cancelled. Your current data was not changed.");
+      return;
+    }
+
+    applyImportedBackup(imported);
+    updateBackupStatus(`Backup restored: ${imported.savedWorkouts.length} saved ${imported.savedWorkouts.length === 1 ? "workout" : "workouts"} and ${imported.workoutHistory.length} ${imported.workoutHistory.length === 1 ? "session" : "sessions"}.`);
+    showToast("Workout backup imported.");
+  } catch (error) {
+    const message = error instanceof SyntaxError
+      ? "The selected file is not valid JSON."
+      : (error?.message || "The backup could not be imported.");
+    updateBackupStatus(message, true);
+    showToast("Backup import failed.");
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function renderSettingsSummary() {
+  const savedWorkouts = loadSavedWorkouts();
+  const history = loadWorkoutHistory();
+  const activeSession = getSavedSession();
+  dom.settingsSavedWorkoutCount.textContent = String(savedWorkouts.length);
+  dom.settingsHistoryCount.textContent = String(history.length);
+  dom.settingsActiveSession.textContent = activeSession ? "Available" : "None";
 }
 
 function cloneWorkout(candidate, regenerateExerciseIds = false) {
@@ -966,20 +1180,24 @@ function showScreen(name) {
   dom.setupScreen.hidden = name !== "setup";
   dom.savedWorkoutsScreen.hidden = name !== "saved";
   dom.trendsScreen.hidden = name !== "trends";
+  dom.settingsScreen.hidden = name !== "settings";
   dom.workoutScreen.hidden = name !== "workout";
   dom.completeScreen.hidden = name !== "complete";
 
-  const showNavigation = name === "setup" || name === "saved" || name === "trends";
+  const showNavigation = name === "setup" || name === "saved" || name === "trends" || name === "settings";
   dom.mainNavigation.hidden = !showNavigation;
   dom.setupNavButton.classList.toggle("is-active", name === "setup");
   dom.savedWorkoutsNavButton.classList.toggle("is-active", name === "saved");
   dom.trendsNavButton.classList.toggle("is-active", name === "trends");
+  dom.settingsNavButton.classList.toggle("is-active", name === "settings");
   dom.setupNavButton.toggleAttribute("aria-current", name === "setup");
   dom.savedWorkoutsNavButton.toggleAttribute("aria-current", name === "saved");
   dom.trendsNavButton.toggleAttribute("aria-current", name === "trends");
+  dom.settingsNavButton.toggleAttribute("aria-current", name === "settings");
 
   if (name === "saved") renderSavedWorkouts();
   if (name === "trends") renderTrends();
+  if (name === "settings") renderSettingsSummary();
   window.scrollTo({ top: 0, behavior: "auto" });
 }
 
@@ -2149,12 +2367,16 @@ function bindEvents() {
   dom.setupNavButton.addEventListener("click", () => showScreen("setup"));
   dom.savedWorkoutsNavButton.addEventListener("click", () => showScreen("saved"));
   dom.trendsNavButton.addEventListener("click", () => showScreen("trends"));
+  dom.settingsNavButton.addEventListener("click", () => showScreen("settings"));
   dom.saveWorkoutButton.addEventListener("click", () => saveCurrentWorkout(false));
   dom.saveWorkoutAsButton.addEventListener("click", () => saveCurrentWorkout(true));
   dom.newWorkoutButton.addEventListener("click", startNewWorkout);
   dom.emptyStateSetupButton.addEventListener("click", () => showScreen("setup"));
   dom.trendsStartWorkoutButton.addEventListener("click", () => showScreen("setup"));
   dom.clearHistoryButton.addEventListener("click", clearWorkoutHistory);
+  dom.exportBackupButton.addEventListener("click", exportBackup);
+  dom.importBackupButton.addEventListener("click", () => dom.importBackupInput.click());
+  dom.importBackupInput.addEventListener("change", importBackupFile);
   dom.exerciseTrendSelect.addEventListener("change", () => renderExerciseTrend(loadWorkoutHistory()));
   dom.trendRangeButtons.addEventListener("click", (event) => {
     const button = event.target.closest(".range-button");
@@ -2212,6 +2434,7 @@ function init() {
   populateForm(loadSettings());
   renderSavedWorkouts();
   renderTrends();
+  renderSettingsSummary();
   setupVoiceSelection();
   bindEvents();
   showSavedSessionBanner();
