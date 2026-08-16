@@ -2044,3 +2044,922 @@ select,
     text-align: left;
   }
 }
+
+/* AuraOS v1 --------------------------------------------------------------- */
+:root {
+  --aura-bg-2: #deeff8;
+  --aura-accent: #065b98;
+  --aura-accent-2: #1b7fdc;
+  --aura-highlight: #087d95;
+  --aura-accent-rgb: 6 91 152;
+  --aura-accent-2-rgb: 27 127 220;
+  --aura-highlight-rgb: 8 125 149;
+  --bg: #e9f8fb;
+  --surface: #ffffff;
+  --surface-muted: rgba(6, 91, 152, 0.07);
+  --text: #193546;
+  --text-muted: #597786;
+  --line: rgba(25, 53, 70, 0.11);
+  --primary: var(--aura-accent);
+  --primary-dark: #193546;
+  --primary-soft: rgba(6, 91, 152, 0.11);
+  --danger: #b53653;
+  --success: #288760;
+  --body-glow: rgb(var(--aura-accent-rgb) / 0.18);
+  --surface-elevated: rgba(255, 255, 255, 0.84);
+  --surface-floating: rgba(255, 255, 255, 0.86);
+  --surface-next: rgba(255, 255, 255, 0.72);
+  --surface-input: rgba(255, 255, 255, 0.76);
+  --surface-exercise: rgba(255, 255, 255, 0.58);
+  --surface-sticky: rgba(233, 248, 251, 0.78);
+  --panel-border: rgba(25, 53, 70, 0.11);
+  --floating-border: rgba(25, 53, 70, 0.12);
+  --hover-line: rgba(6, 91, 152, 0.38);
+  --focus-soft: rgb(var(--aura-accent-rgb) / 0.12);
+  --ring-track: rgb(var(--aura-accent-rgb) / 0.10);
+  --rest-ring: #67828f;
+  --danger-soft: rgba(181, 54, 83, 0.10);
+  --success-soft: rgba(40, 135, 96, 0.11);
+  --contrast-surface: #193546;
+  --contrast-text: #effcff;
+  --shadow: 0 18px 50px rgba(25, 53, 70, 0.14);
+  --timer-shadow: 0 24px 70px rgb(var(--aura-accent-rgb) / 0.22);
+  --dialog-shadow: 0 30px 100px rgba(25, 53, 70, 0.28);
+  --radius-lg: 28px;
+  --radius-md: 24px;
+  --radius-sm: 15px;
+}
+
+:root[data-theme="dark"] {
+  --aura-bg-2: #102c3d;
+  --aura-accent: #0db8d3;
+  --aura-accent-2: #1b7fdc;
+  --aura-highlight: #78e2ef;
+  --aura-accent-rgb: 13 184 211;
+  --aura-accent-2-rgb: 27 127 220;
+  --aura-highlight-rgb: 120 226 239;
+  --bg: #193546;
+  --surface: #1b4053;
+  --surface-muted: rgba(255, 255, 255, 0.045);
+  --text: #effcff;
+  --text-muted: #9bbec8;
+  --line: rgba(255, 255, 255, 0.09);
+  --primary: var(--aura-accent);
+  --primary-dark: #70dce9;
+  --primary-soft: rgb(var(--aura-accent-rgb) / 0.12);
+  --danger: #ff7692;
+  --success: #70dbad;
+  --body-glow: rgb(var(--aura-accent-rgb) / 0.24);
+  --surface-elevated: rgba(25, 53, 70, 0.76);
+  --surface-floating: rgba(18, 45, 61, 0.88);
+  --surface-next: rgba(27, 64, 83, 0.72);
+  --surface-input: rgba(255, 255, 255, 0.045);
+  --surface-exercise: rgba(255, 255, 255, 0.035);
+  --surface-sticky: rgba(18, 45, 61, 0.82);
+  --panel-border: rgba(255, 255, 255, 0.09);
+  --floating-border: rgba(255, 255, 255, 0.10);
+  --hover-line: rgb(var(--aura-accent-rgb) / 0.42);
+  --focus-soft: rgb(var(--aura-accent-rgb) / 0.13);
+  --ring-track: rgb(var(--aura-accent-rgb) / 0.10);
+  --rest-ring: #9bbec8;
+  --danger-soft: rgba(255, 118, 146, 0.11);
+  --success-soft: rgba(112, 219, 173, 0.11);
+  --contrast-surface: #effcff;
+  --contrast-text: #193546;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+  --timer-shadow: 0 28px 80px rgb(var(--aura-accent-rgb) / 0.18);
+  --dialog-shadow: 0 30px 100px rgba(0, 0, 0, 0.50);
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+  background: linear-gradient(155deg, var(--bg), var(--aura-bg-2));
+  transition: background 350ms ease, color 350ms ease;
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  z-index: 0;
+  width: 62vmax;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(4px);
+  will-change: transform;
+}
+
+body::before {
+  top: -23vmax;
+  left: -22vmax;
+  background: radial-gradient(circle, rgb(var(--aura-accent-rgb) / 0.30) 0%, rgb(var(--aura-accent-rgb) / 0.13) 37%, transparent 70%);
+  animation: auraAmbientOne 32s ease-in-out infinite alternate;
+}
+
+body::after {
+  top: 24vh;
+  right: -27vmax;
+  background: radial-gradient(circle, rgb(var(--aura-accent-2-rgb) / 0.22) 0%, rgb(var(--aura-accent-2-rgb) / 0.09) 39%, transparent 70%);
+  animation: auraAmbientTwo 38s ease-in-out infinite alternate;
+}
+
+:root[data-theme="light"] body::before,
+:root[data-theme="light"] body::after {
+  opacity: 0.62;
+}
+
+@keyframes auraAmbientOne {
+  0% { transform: translate3d(-3vw, -4vh, 0) scale(0.88); }
+  35% { transform: translate3d(32vw, 16vh, 0) scale(1.08); }
+  70% { transform: translate3d(18vw, 52vh, 0) scale(0.96); }
+  100% { transform: translate3d(49vw, 74vh, 0) scale(1.13); }
+}
+
+@keyframes auraAmbientTwo {
+  0% { transform: translate3d(5vw, 8vh, 0) scale(1.06); }
+  40% { transform: translate3d(-38vw, 29vh, 0) scale(0.86); }
+  72% { transform: translate3d(-16vw, -18vh, 0) scale(1.12); }
+  100% { transform: translate3d(-50vw, 20vh, 0) scale(0.94); }
+}
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 760px);
+  padding: env(safe-area-inset-top) 18px calc(112px + var(--safe-bottom));
+}
+
+.app-header {
+  min-height: 94px;
+  padding: 14px 2px;
+}
+
+.aura-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.aura-brand-mark {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.30);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgb(var(--aura-accent-rgb) / 0.23), var(--surface-elevated));
+  box-shadow: 0 10px 28px rgb(var(--aura-accent-rgb) / 0.18), inset 0 0 18px rgb(var(--aura-highlight-rgb) / 0.08);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.app-header h1 {
+  overflow: hidden;
+  font-size: clamp(1.25rem, 4vw, 1.55rem);
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eyebrow {
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.20em;
+}
+
+.header-actions {
+  gap: 8px;
+}
+
+.icon-button,
+.theme-toggle-button {
+  border-color: var(--line);
+  background: var(--surface-elevated);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.theme-toggle-button {
+  width: 42px;
+  height: 42px;
+}
+
+.install-button {
+  min-height: 42px;
+  border-radius: 14px;
+}
+
+.screen {
+  animation: auraViewIn 350ms ease both;
+}
+
+@keyframes auraViewIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.app-navigation {
+  position: fixed;
+  right: auto;
+  bottom: max(12px, var(--safe-bottom));
+  left: 50%;
+  z-index: 30;
+  width: min(calc(100% - 24px), 720px);
+  margin: 0;
+  padding: 7px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface-floating);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(24px);
+  transform: translateX(-50%);
+}
+
+.nav-button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 58px;
+  place-items: center;
+  align-content: center;
+  gap: 1px;
+  padding: 6px 4px;
+  border-radius: 17px;
+  color: var(--text-muted);
+}
+
+.nav-button .nav-icon {
+  display: block;
+  font-size: 1.08rem;
+  line-height: 1.15;
+  transition: transform 250ms ease;
+}
+
+.nav-button small {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 0.58rem;
+  font-weight: 850;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-button.is-active {
+  background: rgb(var(--aura-accent-rgb) / 0.13);
+  color: var(--text);
+}
+
+.nav-button.is-active .nav-icon {
+  transform: translateY(-2px) scale(1.08);
+}
+
+.nav-count {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.6rem;
+}
+
+.nav-button.is-active .nav-count {
+  background: var(--aura-accent);
+  color: #fff;
+}
+
+.hero-card,
+.panel,
+.resume-banner,
+.auth-card {
+  border: 1px solid var(--line);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+}
+
+.hero-card {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(22px, 5vw, 30px);
+  border-radius: 28px;
+}
+
+.hero-card::before {
+  content: "";
+  position: absolute;
+  top: -70px;
+  right: -50px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(var(--aura-accent-rgb) / 0.16), transparent 69%);
+  pointer-events: none;
+}
+
+.hero-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-card h2 {
+  font-size: clamp(1.8rem, 7vw, 2.75rem);
+  letter-spacing: -0.055em;
+}
+
+.subtle {
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.hero-badge {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  overflow: visible;
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.24);
+  background: radial-gradient(circle, rgb(var(--aura-highlight-rgb) / 0.16), rgb(var(--aura-accent-rgb) / 0.09) 58%, transparent 72%);
+  box-shadow: 0 0 34px rgb(var(--aura-accent-rgb) / 0.17);
+}
+
+.hero-badge::before,
+.hero-badge::after {
+  content: "";
+  position: absolute;
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.40);
+  pointer-events: none;
+}
+
+.hero-badge::before {
+  inset: -7px;
+  border-radius: 48% 52% 46% 54% / 52% 45% 55% 48%;
+  animation: auraHaloOne 12s linear infinite;
+}
+
+.hero-badge::after {
+  inset: -12px;
+  border-color: rgb(var(--aura-accent-2-rgb) / 0.28);
+  border-radius: 54% 46% 51% 49% / 45% 53% 47% 55%;
+  animation: auraHaloTwo 16s linear infinite reverse;
+}
+
+.panel {
+  margin-bottom: 18px;
+  padding: 22px;
+  border-radius: 24px;
+}
+
+.panel-heading {
+  margin-bottom: 18px;
+}
+
+.panel-heading h3 {
+  font-size: 1.18rem;
+  letter-spacing: -0.025em;
+}
+
+.exercise-card,
+.saved-workout-card,
+.period-summary-card,
+.history-card,
+.settings-data-grid div,
+.account-row,
+.history-sync-row,
+.exercise-trend-stats div,
+.history-meta-grid div,
+.import-warning {
+  border-color: var(--line);
+  background: var(--surface-exercise);
+}
+
+.exercise-card,
+.saved-workout-card,
+.history-card,
+.period-summary-card {
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.10);
+}
+
+.exercise-card,
+.saved-workout-card {
+  transition: transform 200ms ease, border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+}
+
+.exercise-card:hover,
+.saved-workout-card:hover {
+  transform: translateY(-1px);
+}
+
+.exercise-number {
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.25);
+  background: rgb(var(--aura-accent-rgb) / 0.12);
+  color: var(--primary-dark);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+select {
+  min-height: 52px;
+  border-color: var(--line);
+  border-radius: 15px;
+  background: var(--surface-input);
+  backdrop-filter: blur(12px);
+}
+
+input:focus,
+select:focus {
+  border-color: rgb(var(--aura-accent-rgb) / 0.62);
+  box-shadow: 0 0 0 3px rgb(var(--aura-accent-rgb) / 0.11);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid rgb(var(--aura-accent-rgb) / 0.30);
+  outline-offset: 2px;
+}
+
+.toggle-row input[type="checkbox"] {
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 26px;
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.toggle-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.22);
+  transition: transform 180ms ease, background 180ms ease;
+}
+
+.toggle-row input[type="checkbox"]:checked {
+  border-color: rgb(var(--aura-accent-rgb) / 0.45);
+  background: rgb(var(--aura-accent-rgb) / 0.22);
+  box-shadow: 0 0 16px rgb(var(--aura-accent-rgb) / 0.12);
+}
+
+.toggle-row input[type="checkbox"]:checked::after {
+  background: var(--aura-accent);
+  transform: translateX(20px);
+}
+
+.button {
+  border-radius: 16px;
+}
+
+.button-primary {
+  background: linear-gradient(135deg, var(--aura-accent), var(--aura-accent-2));
+  box-shadow: 0 11px 28px rgb(var(--aura-accent-rgb) / 0.24);
+}
+
+.button-primary:hover {
+  background: linear-gradient(135deg, var(--aura-accent-2), var(--aura-accent));
+}
+
+.button-secondary {
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.22);
+  background: rgb(var(--aura-accent-rgb) / 0.12);
+  color: var(--primary-dark);
+}
+
+.button-ghost,
+.mini-icon {
+  border-color: var(--line);
+  background: var(--surface-input);
+  color: var(--text);
+}
+
+.button-large {
+  min-height: 60px;
+  border-radius: 18px;
+  letter-spacing: 0.08em;
+}
+
+.counter-pill,
+.saved-workout-active-badge {
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.18);
+  background: rgb(var(--aura-accent-rgb) / 0.10);
+  color: var(--primary-dark);
+}
+
+.workout-save-bar,
+.sticky-action,
+.next-card,
+.workout-controls {
+  border-color: var(--line);
+  background: var(--surface-floating);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(24px);
+}
+
+.workout-save-bar {
+  border-radius: 20px;
+}
+
+.sticky-action {
+  bottom: calc(94px + var(--safe-bottom));
+  border: 1px solid var(--line);
+  border-radius: 24px;
+}
+
+.auth-screen {
+  padding-top: clamp(12px, 5vh, 48px);
+}
+
+.auth-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+}
+
+.auth-card::before {
+  content: "";
+  position: absolute;
+  top: -130px;
+  left: 50%;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(var(--aura-accent-rgb) / 0.20), transparent 68%);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.auth-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-mark {
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.32);
+  background: radial-gradient(circle, rgb(var(--aura-highlight-rgb) / 0.18), rgb(var(--aura-accent-rgb) / 0.11) 58%, var(--surface-elevated));
+  box-shadow: 0 0 38px rgb(var(--aura-accent-rgb) / 0.22);
+}
+
+.auth-mode-switch,
+.segmented-control {
+  border: 1px solid var(--line);
+  background: var(--surface-muted);
+}
+
+.auth-mode-button.is-active,
+.range-button.is-active {
+  background: rgb(var(--aura-accent-rgb) / 0.14);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.timer-stage {
+  position: relative;
+  min-height: min(78vw, 360px);
+  padding: 24px 0 28px;
+  isolation: isolate;
+}
+
+.timer-halos {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: min(75vw, 340px);
+  aspect-ratio: 1;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.timer-halos i {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border: 2px solid rgb(var(--aura-accent-rgb) / 0.55);
+  border-radius: 48% 52% 46% 54% / 52% 45% 55% 48%;
+  box-shadow: 0 0 16px rgb(var(--aura-accent-rgb) / 0.23), inset 0 0 13px rgb(var(--aura-accent-rgb) / 0.09);
+  filter: drop-shadow(0 0 8px rgb(var(--aura-accent-rgb) / 0.17));
+  will-change: transform, border-radius;
+}
+
+.timer-halos i:nth-child(1) {
+  animation: auraHaloOne 12s linear infinite;
+}
+
+.timer-halos i:nth-child(2) {
+  inset: 7px;
+  border-color: rgb(var(--aura-accent-2-rgb) / 0.52);
+  animation: auraHaloTwo 16s linear infinite reverse;
+}
+
+.timer-halos i:nth-child(3) {
+  inset: 14px;
+  border-color: rgb(var(--aura-highlight-rgb) / 0.38);
+  animation: auraHaloThree 9s linear infinite;
+}
+
+@keyframes auraHaloOne {
+  0% { transform: rotate(0deg) scaleX(1.02) scaleY(0.96); border-radius: 48% 52% 46% 54% / 52% 45% 55% 48%; }
+  25% { transform: rotate(90deg) scaleX(0.97) scaleY(1.04); border-radius: 55% 45% 52% 48% / 46% 56% 44% 54%; }
+  50% { transform: rotate(180deg) scaleX(1.04) scaleY(0.98); border-radius: 45% 55% 49% 51% / 57% 43% 53% 47%; }
+  75% { transform: rotate(270deg) scaleX(0.96) scaleY(1.03); border-radius: 52% 48% 56% 44% / 48% 54% 46% 52%; }
+  100% { transform: rotate(360deg) scaleX(1.02) scaleY(0.96); border-radius: 48% 52% 46% 54% / 52% 45% 55% 48%; }
+}
+
+@keyframes auraHaloTwo {
+  0% { transform: rotate(18deg) scaleX(0.95) scaleY(1.03); border-radius: 54% 46% 51% 49% / 45% 53% 47% 55%; }
+  33% { transform: rotate(138deg) scaleX(1.04) scaleY(0.97); border-radius: 46% 54% 44% 56% / 55% 47% 53% 45%; }
+  66% { transform: rotate(258deg) scaleX(0.98) scaleY(1.05); border-radius: 51% 49% 57% 43% / 48% 56% 44% 52%; }
+  100% { transform: rotate(378deg) scaleX(0.95) scaleY(1.03); border-radius: 54% 46% 51% 49% / 45% 53% 47% 55%; }
+}
+
+@keyframes auraHaloThree {
+  0% { transform: rotate(-12deg) scaleX(1.03) scaleY(0.97); border-radius: 47% 53% 55% 45% / 56% 44% 50% 50%; }
+  50% { transform: rotate(168deg) scaleX(0.96) scaleY(1.04); border-radius: 56% 44% 46% 54% / 45% 55% 53% 47%; }
+  100% { transform: rotate(348deg) scaleX(1.03) scaleY(0.97); border-radius: 47% 53% 55% 45% / 56% 44% 50% 50%; }
+}
+
+.timer-ring {
+  z-index: 2;
+  width: min(67vw, 300px);
+  border: 0;
+  background: conic-gradient(var(--aura-accent) var(--progress), var(--ring-track) 0);
+  box-shadow: var(--timer-shadow), 0 0 28px rgb(var(--aura-accent-2-rgb) / 0.11);
+}
+
+.timer-ring::before {
+  inset: 10px;
+  border: 1px solid var(--line);
+  background: radial-gradient(circle at 50% 38%, rgb(var(--aura-highlight-rgb) / 0.10), var(--surface) 66%);
+  box-shadow: inset 0 0 45px rgb(var(--aura-accent-rgb) / 0.08);
+}
+
+.timer-ring[data-phase="rest"] {
+  background: conic-gradient(var(--rest-ring) var(--progress), var(--ring-track) 0);
+}
+
+.timer-value {
+  background-image:
+    radial-gradient(ellipse at center, rgb(var(--aura-highlight-rgb) / 0.30), rgb(var(--aura-accent-rgb) / 0.13) 42%, transparent 82%),
+    linear-gradient(155deg, var(--text) 16%, var(--aura-highlight) 50%, var(--aura-accent) 76%, var(--aura-accent-2));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 12px 24px rgb(var(--aura-accent-rgb) / 0.34));
+  animation: auraNumberBreathe 5.2s ease-in-out infinite;
+}
+
+@keyframes auraNumberBreathe {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 12px 24px rgb(var(--aura-accent-rgb) / 0.32)); }
+  50% { transform: scale(1.035); filter: drop-shadow(0 16px 30px rgb(var(--aura-accent-rgb) / 0.45)); }
+}
+
+.phase-label {
+  color: var(--primary-dark);
+  font-size: 0.72rem;
+  letter-spacing: 0.20em;
+}
+
+.exercise-focus h2 {
+  letter-spacing: -0.055em;
+}
+
+.current-target {
+  color: var(--primary-dark);
+}
+
+.done-button {
+  background: linear-gradient(135deg, var(--aura-accent), var(--aura-accent-2));
+  box-shadow: 0 16px 36px rgb(var(--aura-accent-rgb) / 0.25);
+}
+
+.next-card {
+  border-radius: 20px;
+}
+
+.workout-controls {
+  border-radius: 24px;
+}
+
+.control-button-main {
+  background: rgb(var(--aura-accent-rgb) / 0.15);
+  color: var(--text);
+}
+
+.complete-mark {
+  position: relative;
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.28);
+  background: radial-gradient(circle, rgb(var(--aura-highlight-rgb) / 0.18), rgb(var(--aura-accent-rgb) / 0.10) 60%, transparent 72%);
+  box-shadow: 0 0 52px rgb(var(--aura-accent-rgb) / 0.22);
+  color: var(--aura-highlight);
+  animation: auraNumberBreathe 5.2s ease-in-out infinite;
+}
+
+.complete-screen h2 {
+  letter-spacing: -0.055em;
+}
+
+.confirm-dialog {
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(3, 7, 18, 0.67);
+  backdrop-filter: blur(8px);
+}
+
+.period-summary-card,
+.settings-data-grid div,
+.exercise-trend-stats div,
+.history-meta-grid div {
+  background: rgb(var(--aura-accent-rgb) / 0.055);
+}
+
+.activity-chart {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgb(var(--aura-accent-rgb) / 0.10), transparent 72%);
+}
+
+.chart-bar {
+  fill: var(--aura-accent);
+}
+
+.history-details summary,
+.backup-status {
+  color: var(--primary-dark);
+}
+
+.account-status {
+  border: 1px solid rgba(40, 135, 96, 0.20);
+}
+
+.history-migration-row {
+  border-color: rgb(var(--aura-accent-rgb) / 0.30);
+  background: rgb(var(--aura-accent-rgb) / 0.09);
+}
+
+.empty-state-icon {
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.20);
+  background: radial-gradient(circle, rgb(var(--aura-highlight-rgb) / 0.14), rgb(var(--aura-accent-rgb) / 0.08));
+  color: var(--primary-dark);
+  box-shadow: 0 0 28px rgb(var(--aura-accent-rgb) / 0.12);
+}
+
+.toast {
+  right: auto;
+  bottom: calc(104px + var(--safe-bottom));
+  left: 50%;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  transform: translateX(-50%);
+  animation: auraToastIn 220ms ease-out;
+}
+
+@keyframes auraToastIn {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (max-width: 620px) {
+  .app-shell {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .app-header {
+    min-height: 78px;
+    padding-top: 8px;
+  }
+
+  .aura-brand {
+    gap: 9px;
+  }
+
+  .aura-brand-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+  }
+
+  .app-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .hero-card {
+    padding: 22px 20px;
+  }
+
+  .hero-badge {
+    width: 64px;
+    height: 64px;
+    font-size: 1.55rem;
+  }
+
+  .app-navigation {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .app-shell {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .aura-brand-mark {
+    display: none;
+  }
+
+  .app-header .eyebrow {
+    font-size: 0.55rem;
+  }
+
+  .header-actions {
+    flex: 0 0 auto;
+  }
+
+  .hero-card {
+    gap: 14px;
+  }
+
+  .hero-card h2 {
+    font-size: 1.75rem;
+  }
+
+  .hero-badge {
+    display: grid;
+    width: 56px;
+    height: 56px;
+  }
+
+  .panel {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .nav-count {
+    right: 5px;
+  }
+
+  .timer-stage {
+    min-height: 310px;
+  }
+
+  .timer-ring {
+    width: min(70vw, 276px);
+  }
+
+  .timer-halos {
+    width: min(79vw, 314px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after,
+  .hero-badge::before,
+  .hero-badge::after,
+  .timer-halos i,
+  .timer-value,
+  .complete-mark {
+    animation: none !important;
+  }
+}

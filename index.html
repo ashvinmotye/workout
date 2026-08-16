@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta id="themeColorMeta" name="theme-color" content="#0b6ea8" />
+  <meta id="themeColorMeta" name="theme-color" content="#193546" />
   <meta name="description" content="A mobile-friendly circuit workout timer with voice guidance." />
   <title>Voice Workout</title>
   <script>
     (() => {
       try {
         const savedTheme = localStorage.getItem("voiceWorkout.theme.v1");
-        document.documentElement.dataset.theme = savedTheme === "dark" ? "dark" : "light";
+        document.documentElement.dataset.theme = savedTheme === "light" ? "light" : "dark";
       } catch {
-        document.documentElement.dataset.theme = "light";
+        document.documentElement.dataset.theme = "dark";
       }
     })();
   </script>
@@ -20,12 +20,15 @@
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body data-design-system="auraos">
   <div class="app-shell">
     <header class="app-header">
-      <div>
-        <p class="eyebrow">VOICE-GUIDED CIRCUITS</p>
-        <h1>Voice Workout</h1>
+      <div class="aura-brand">
+        <span class="aura-brand-mark" aria-hidden="true">W</span>
+        <div>
+          <p class="eyebrow">AURAOS · TRAINING</p>
+          <h1>Voice Workout</h1>
+        </div>
       </div>
       <div class="header-actions">
         <button id="themeToggleButton" class="icon-button theme-toggle-button" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
@@ -39,17 +42,21 @@
 
     <nav id="mainNavigation" class="app-navigation" aria-label="Workout app sections" hidden>
       <button id="setupNavButton" class="nav-button is-active" type="button" aria-current="page">
-        Setup
+        <span class="nav-icon" aria-hidden="true">⚡</span>
+        <small>Setup</small>
       </button>
       <button id="savedWorkoutsNavButton" class="nav-button" type="button">
-        Saved workouts
+        <span class="nav-icon" aria-hidden="true">📋</span>
+        <small>Routines</small>
         <span id="savedWorkoutNavCount" class="nav-count">0</span>
       </button>
       <button id="trendsNavButton" class="nav-button" type="button">
-        Trends
+        <span class="nav-icon" aria-hidden="true">📈</span>
+        <small>Trends</small>
       </button>
       <button id="settingsNavButton" class="nav-button" type="button">
-        Settings
+        <span class="nav-icon" aria-hidden="true">⚙️</span>
+        <small>Settings</small>
       </button>
     </nav>
 
@@ -526,6 +533,7 @@
         </div>
 
         <div class="timer-stage">
+          <div class="timer-halos" aria-hidden="true"><i></i><i></i><i></i></div>
           <div id="timerRing" class="timer-ring" style="--progress: 0deg;">
             <div class="timer-inner">
               <span id="phaseLabel" class="phase-label">READY</span>

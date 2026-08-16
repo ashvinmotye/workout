@@ -3442,9 +3442,9 @@ function renderTrends() {
 
 function loadTheme() {
   try {
-    return localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
+    return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
   } catch {
-    return "light";
+    return "dark";
   }
 }
 
@@ -3457,7 +3457,7 @@ function applyTheme(theme, persist = true) {
   dom.themeToggleButton.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
   dom.themeToggleButton.title = isDark ? "Switch to light mode" : "Switch to dark mode";
   dom.themeToggleButton.setAttribute("aria-pressed", String(isDark));
-  dom.themeColorMeta.content = isDark ? "#07131c" : "#0b6ea8";
+  dom.themeColorMeta.content = isDark ? "#193546" : "#e9f8fb";
 
   if (persist) {
     try {

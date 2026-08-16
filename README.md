@@ -2,6 +2,8 @@
 
 A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 
+The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
+
 ## Included
 
 - Setup and active-workout screens
