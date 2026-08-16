@@ -107,6 +107,9 @@ const dom = {
   voiceToggleButton: document.querySelector("#voiceToggleButton"),
   completeWorkoutName: document.querySelector("#completeWorkoutName"),
   completeSummary: document.querySelector("#completeSummary"),
+  completeReviewForm: document.querySelector("#completeReviewForm"),
+  saveCompleteReviewButton: document.querySelector("#saveCompleteReviewButton"),
+  completeReviewStatus: document.querySelector("#completeReviewStatus"),
   repeatWorkoutButton: document.querySelector("#repeatWorkoutButton"),
   editWorkoutButton: document.querySelector("#editWorkoutButton"),
   confirmDialog: document.querySelector("#confirmDialog"),
@@ -189,6 +192,7 @@ let savedWorkoutMigrationInProgress = false;
 let automaticCloudRefreshTimer = null;
 let automaticCloudRefreshDueAt = 0;
 let lastAutomaticCloudRefreshAt = 0;
+let completeSessionId = null;
 
 function createEmptyRuntime() {
   return {
@@ -2505,7 +2509,8 @@ function startRoundRest(seconds) {
 function completeWorkout() {
   clearTimer();
   runtime.completedRounds = workout.rounds;
-  recordWorkoutSession("completed");
+  const completedRecord = recordWorkoutSession("completed");
+  prepareCompleteSessionReview(completedRecord);
   runtime.phase = PHASE.COMPLETE;
   clearSavedSession();
   releaseWakeLock();
@@ -3352,11 +3357,394 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+const HEART_RATE_ZONES = [
+  { number: 1, key: "zone1Seconds", name: "Recovery" },
+  { number: 2, key: "zone2Seconds", name: "Endurance" },
+  { number: 3, key: "zone3Seconds", name: "Tempo" },
+  { number: 4, key: "zone4Seconds", name: "Threshold" },
+  { number: 5, key: "zone5Seconds", name: "Maximum" }
+];
+
+function completedSetCount(record) {
+  return record.exercises.reduce((sum, exercise) => sum + exercise.completedSets, 0);
+}
+
+function getSessionLoad(record) {
+  if (!Number.isFinite(record.rpe)) return null;
+  return Math.round((record.durationSeconds / 60) * record.rpe);
+}
+
+function getHeartRateZoneData(record) {
+  return HEART_RATE_ZONES.map((zone) => ({
+    ...zone,
+    seconds: Math.max(0, Number(record[zone.key]) || 0)
+  }));
+}
+
+function getTotalZoneSeconds(record) {
+  return getHeartRateZoneData(record).reduce((sum, zone) => sum + zone.seconds, 0);
+}
+
+function formatZoneDuration(seconds) {
+  const safe = Math.max(0, Math.round(Number(seconds) || 0));
+  if (safe < 60) return `${safe}s`;
+  const minutes = Math.floor(safe / 60);
+  const remainder = safe % 60;
+  return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
+}
+
+function formatZoneInputValue(seconds) {
+  if (seconds === null || seconds === undefined || seconds === "") return "";
+  const minutes = Math.max(0, Number(seconds) || 0) / 60;
+  return String(Math.round(minutes * 10) / 10);
+}
+
+function getDominantZone(record) {
+  const zones = getHeartRateZoneData(record);
+  const total = zones.reduce((sum, zone) => sum + zone.seconds, 0);
+  if (!total) return null;
+  return zones.reduce((winner, zone) => zone.seconds > winner.seconds ? zone : winner, zones[0]);
+}
+
+function routineComparisonKey(record) {
+  return String(record.workoutName || "").trim().toLocaleLowerCase();
+}
+
+function findPreviousRoutineSession(record, records) {
+  const key = routineComparisonKey(record);
+  return records.find((candidate) =>
+    candidate.id !== record.id
+    && candidate.endedAt < record.endedAt
+    && routineComparisonKey(candidate) === key
+  ) || null;
+}
+
+function formatSignedDuration(seconds) {
+  const rounded = Math.round(Number(seconds) || 0);
+  if (!rounded) return "No change";
+  return `${rounded > 0 ? "+" : "−"}${formatZoneDuration(Math.abs(rounded))}`;
+}
+
+function formatSignedValue(value, suffix = "") {
+  const rounded = Math.round(Number(value) || 0);
+  if (!rounded) return "No change";
+  return `${rounded > 0 ? "+" : "−"}${Math.abs(rounded)}${suffix}`;
+}
+
+function renderZoneDistribution(record) {
+  const zones = getHeartRateZoneData(record);
+  const total = zones.reduce((sum, zone) => sum + zone.seconds, 0);
+  if (!total) {
+    return `
+      <section class="session-zone-analysis is-empty">
+        <div class="session-analysis-heading">
+          <strong>Heart-rate zones</strong>
+          <span>No zone time recorded</span>
+        </div>
+        <p>Add your zone minutes in Session review to see the distribution.</p>
+      </section>
+    `;
+  }
+
+  const segments = zones
+    .filter((zone) => zone.seconds > 0)
+    .map((zone) => `<span class="zone-segment zone-${zone.number}" style="width: ${(zone.seconds / total * 100).toFixed(2)}%"></span>`)
+    .join("");
+  const legend = zones.map((zone) => {
+    const percent = Math.round(zone.seconds / total * 100);
+    return `
+      <div class="zone-legend-item">
+        <span class="zone-swatch zone-${zone.number}"></span>
+        <strong>Z${zone.number}</strong>
+        <small>${formatZoneDuration(zone.seconds)} · ${percent}%</small>
+      </div>
+    `;
+  }).join("");
+  const ariaSummary = zones
+    .map((zone) => `Zone ${zone.number} ${Math.round(zone.seconds / total * 100)} percent`)
+    .join(", ");
+
+  return `
+    <section class="session-zone-analysis">
+      <div class="session-analysis-heading">
+        <strong>Heart-rate zones</strong>
+        <span>${formatZoneDuration(total)} logged</span>
+      </div>
+      <div class="zone-distribution-bar" role="img" aria-label="${escapeHtml(ariaSummary)}">${segments}</div>
+      <div class="zone-legend">${legend}</div>
+    </section>
+  `;
+}
+
+function comparisonMetric(label, delta, previous, current, tone = "") {
+  return `
+    <div class="comparison-metric ${tone}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(delta)}</strong>
+      <small>${escapeHtml(previous)} → ${escapeHtml(current)}</small>
+    </div>
+  `;
+}
+
+function buildComparisonInsight(record, previous) {
+  if (record.status === "completed" && previous.status === "partial") return "Full routine completed after the previous partial session.";
+  const currentRoundShare = record.completedRounds / Math.max(1, record.plannedRounds);
+  const previousRoundShare = previous.completedRounds / Math.max(1, previous.plannedRounds);
+  if (currentRoundShare > previousRoundShare) return "A greater share of the planned rounds was completed.";
+  if (currentRoundShare < previousRoundShare) return "A smaller share of the planned rounds was completed.";
+  const setDifference = completedSetCount(record) - completedSetCount(previous);
+  if (setDifference > 0) return "More exercise sets were completed than last time.";
+  if (setDifference < 0) return "Fewer exercise sets were completed than last time.";
+  return "Completed work matched the previous session.";
+}
+
+function renderSessionComparison(record, previous) {
+  if (!previous) {
+    return `
+      <section class="session-comparison is-first">
+        <div class="session-analysis-heading">
+          <strong>Routine comparison</strong>
+          <span>First recorded session</span>
+        </div>
+        <p>Your next “${escapeHtml(record.workoutName)}” session will be compared with this one.</p>
+      </section>
+    `;
+  }
+
+  const currentSets = completedSetCount(record);
+  const previousSets = completedSetCount(previous);
+  const currentRoundShare = Math.round(record.completedRounds / Math.max(1, record.plannedRounds) * 100);
+  const previousRoundShare = Math.round(previous.completedRounds / Math.max(1, previous.plannedRounds) * 100);
+  const metrics = [
+    comparisonMetric(
+      "Duration",
+      formatSignedDuration(record.durationSeconds - previous.durationSeconds),
+      formatDuration(previous.durationSeconds),
+      formatDuration(record.durationSeconds)
+    ),
+    comparisonMetric(
+      "Exercise sets",
+      formatSignedValue(currentSets - previousSets),
+      String(previousSets),
+      String(currentSets),
+      currentSets > previousSets ? "is-positive" : currentSets < previousSets ? "is-negative" : ""
+    ),
+    comparisonMetric(
+      "Round completion",
+      formatSignedValue(currentRoundShare - previousRoundShare, " pp"),
+      `${previousRoundShare}%`,
+      `${currentRoundShare}%`,
+      currentRoundShare > previousRoundShare ? "is-positive" : currentRoundShare < previousRoundShare ? "is-negative" : ""
+    )
+  ];
+
+  if (Number.isFinite(record.rpe) && Number.isFinite(previous.rpe)) {
+    metrics.push(comparisonMetric(
+      "RPE",
+      formatSignedValue(record.rpe - previous.rpe),
+      `${previous.rpe}/10`,
+      `${record.rpe}/10`
+    ));
+  }
+
+  const currentLoad = getSessionLoad(record);
+  const previousLoad = getSessionLoad(previous);
+  if (currentLoad !== null && previousLoad !== null) {
+    metrics.push(comparisonMetric(
+      "Session load",
+      formatSignedValue(currentLoad - previousLoad),
+      String(previousLoad),
+      String(currentLoad)
+    ));
+  }
+
+  const currentZoneTotal = getTotalZoneSeconds(record);
+  const previousZoneTotal = getTotalZoneSeconds(previous);
+  if (currentZoneTotal && previousZoneTotal) {
+    const currentHighShare = Math.round((Number(record.zone4Seconds || 0) + Number(record.zone5Seconds || 0)) / currentZoneTotal * 100);
+    const previousHighShare = Math.round((Number(previous.zone4Seconds || 0) + Number(previous.zone5Seconds || 0)) / previousZoneTotal * 100);
+    metrics.push(comparisonMetric(
+      "Z4–Z5 share",
+      formatSignedValue(currentHighShare - previousHighShare, " pp"),
+      `${previousHighShare}%`,
+      `${currentHighShare}%`
+    ));
+  }
+
+  const currentDominantZone = getDominantZone(record);
+  const previousDominantZone = getDominantZone(previous);
+  const focusText = currentDominantZone && previousDominantZone
+    ? ` · Zone focus Z${previousDominantZone.number} → Z${currentDominantZone.number}`
+    : "";
+
+  return `
+    <section class="session-comparison">
+      <div class="session-analysis-heading">
+        <strong>Compared with previous</strong>
+        <span>${formatSessionDate(previous.endedAt)}</span>
+      </div>
+      <p class="comparison-insight">${escapeHtml(buildComparisonInsight(record, previous))}${escapeHtml(focusText)}</p>
+      <div class="comparison-grid">${metrics.join("")}</div>
+    </section>
+  `;
+}
+
+function renderRpeOptions(rpe) {
+  const labels = new Map([
+    [1, "Very easy"],
+    [3, "Easy"],
+    [5, "Moderate"],
+    [7, "Hard"],
+    [9, "Very hard"],
+    [10, "Maximum"]
+  ]);
+  const options = [`<option value=""${Number.isFinite(rpe) ? "" : " selected"}>Not recorded</option>`];
+  for (let value = 1; value <= 10; value += 1) {
+    const label = labels.has(value) ? `${value} — ${labels.get(value)}` : String(value);
+    options.push(`<option value="${value}"${rpe === value ? " selected" : ""}>${label}</option>`);
+  }
+  return options.join("");
+}
+
+function hasSessionReviewData(record) {
+  return Number.isFinite(record.rpe) || getTotalZoneSeconds(record) > 0 || Boolean(record.notes.trim());
+}
+
+function renderSessionReviewForm(record) {
+  const zoneInputs = HEART_RATE_ZONES.map((zone) => `
+    <label>
+      <span>Z${zone.number}</span>
+      <input name="zone${zone.number}Minutes" type="number" min="0" max="2880" step="0.1" inputmode="decimal" value="${formatZoneInputValue(record[zone.key])}" placeholder="0" />
+    </label>
+  `).join("");
+
+  return `
+    <details class="session-review-details">
+      <summary>${hasSessionReviewData(record) ? "Edit session review" : "Add RPE, zones & notes"}</summary>
+      <form class="session-review-form history-session-review-form" data-session-id="${escapeHtml(record.id)}">
+        <label class="field session-rpe-field">
+          <span>Effort <small>RPE 1–10</small></span>
+          <select name="rpe" aria-label="Rate of perceived exertion">${renderRpeOptions(record.rpe)}</select>
+        </label>
+        <fieldset class="zone-input-fieldset">
+          <legend>Heart-rate zone time <small>minutes</small></legend>
+          <div class="zone-input-grid">${zoneInputs}</div>
+        </fieldset>
+        <label class="field field-wide session-notes-field">
+          <span>Notes <small>optional</small></span>
+          <textarea name="notes" rows="3" maxlength="500" placeholder="Energy, technique, or anything worth remembering">${escapeHtml(record.notes)}</textarea>
+        </label>
+        <button class="button button-secondary button-small save-session-review" type="submit">Save review</button>
+      </form>
+    </details>
+  `;
+}
+
+function collectSessionReview(form) {
+  const data = new FormData(form);
+  const rpeValue = String(data.get("rpe") ?? "").trim();
+  const rpe = rpeValue === "" ? null : Number.parseInt(rpeValue, 10);
+  if (rpe !== null && (!Number.isFinite(rpe) || rpe < 1 || rpe > 10)) throw new Error("Choose an RPE from 1 to 10.");
+
+  const review = {
+    rpe,
+    notes: String(data.get("notes") ?? "").trim().slice(0, 500)
+  };
+  HEART_RATE_ZONES.forEach((zone) => {
+    const raw = String(data.get(`zone${zone.number}Minutes`) ?? "").trim();
+    if (raw === "") {
+      review[zone.key] = null;
+      return;
+    }
+    const minutes = Number(raw);
+    if (!Number.isFinite(minutes) || minutes < 0 || minutes > 2880) throw new Error(`Zone ${zone.number} time must be between 0 and 2,880 minutes.`);
+    review[zone.key] = Math.round(minutes * 60);
+  });
+  return review;
+}
+
+function saveSessionReview(sessionId, review) {
+  const records = loadWorkoutHistory();
+  const index = records.findIndex((record) => record.id === sessionId);
+  if (index < 0) throw new Error("This workout session is no longer available.");
+  const updated = normalizeHistoryRecord({ ...records[index], ...review });
+  records[index] = updated;
+  saveWorkoutHistory(records);
+  queueHistoryUpsert(updated);
+  renderTrends();
+  syncWorkoutHistory().catch(() => {});
+  return updated;
+}
+
+function prepareCompleteSessionReview(record) {
+  completeSessionId = record?.id || null;
+  if (!dom.completeReviewForm) return;
+  dom.completeReviewForm.reset();
+  dom.completeReviewStatus.textContent = "";
+  dom.saveCompleteReviewButton.disabled = !record;
+  if (!record) return;
+  dom.completeReviewForm.elements.rpe.value = Number.isFinite(record.rpe) ? String(record.rpe) : "";
+  HEART_RATE_ZONES.forEach((zone) => {
+    dom.completeReviewForm.elements[`zone${zone.number}Minutes`].value = formatZoneInputValue(record[zone.key]);
+  });
+  dom.completeReviewForm.elements.notes.value = record.notes || "";
+}
+
+function submitCompleteSessionReview(event) {
+  event.preventDefault();
+  if (!completeSessionId) return;
+  dom.saveCompleteReviewButton.disabled = true;
+  try {
+    const updated = saveSessionReview(completeSessionId, collectSessionReview(dom.completeReviewForm));
+    prepareCompleteSessionReview(updated);
+    dom.completeReviewStatus.textContent = navigator.onLine ? "Saved · syncing automatically" : "Saved on this device · sync pending";
+    showToast("Session review saved.");
+  } catch (error) {
+    dom.completeReviewStatus.textContent = error instanceof Error ? error.message : "Session review could not be saved.";
+  } finally {
+    dom.saveCompleteReviewButton.disabled = false;
+  }
+}
+
+function submitHistorySessionReview(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector(".save-session-review");
+  button.disabled = true;
+  try {
+    saveSessionReview(form.dataset.sessionId, collectSessionReview(form));
+    showToast(navigator.onLine ? "Session review saved and syncing." : "Session review saved. Sync pending.");
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "Session review could not be saved.");
+    button.disabled = false;
+  }
+}
+
+function renderSessionAnalysis(record, previous) {
+  const completedSets = completedSetCount(record);
+  const sessionLoad = getSessionLoad(record);
+  const notes = record.notes.trim();
+  return `
+    <section class="session-analysis" aria-label="Session analysis">
+      <div class="session-analysis-metrics">
+        <div><strong>${formatDuration(record.durationSeconds)}</strong><span>Duration</span></div>
+        <div><strong>${Number.isFinite(record.rpe) ? `${record.rpe}/10` : "—"}</strong><span>RPE</span></div>
+        <div><strong>${sessionLoad === null ? "—" : sessionLoad}</strong><span>Session load</span><small>minutes × RPE</small></div>
+        <div><strong>${record.completedRounds}/${record.plannedRounds}</strong><span>Rounds</span></div>
+        <div><strong>${completedSets}</strong><span>Exercise sets</span></div>
+      </div>
+      ${renderZoneDistribution(record)}
+      ${renderSessionComparison(record, previous)}
+      ${notes ? `<div class="session-note"><strong>Session note</strong><p>${escapeHtml(notes)}</p></div>` : ""}
+    </section>
+  `;
+}
+
 function renderHistoryList(records) {
   dom.historyList.replaceChildren();
   dom.historyCount.textContent = `${records.length} ${records.length === 1 ? "session" : "sessions"}`;
   records.forEach((record) => {
-    const completedSets = record.exercises.reduce((sum, exercise) => sum + exercise.completedSets, 0);
+    const previous = findPreviousRoutineSession(record, records);
     const article = document.createElement("article");
     article.className = "history-card";
     const completedExercises = record.exercises.filter((exercise) => exercise.completedSets > 0);
@@ -3379,17 +3767,15 @@ function renderHistoryList(records) {
         </div>
         <button class="mini-icon delete-history-session" type="button" aria-label="Delete this workout session">×</button>
       </div>
-      <div class="history-meta-grid">
-        <div><strong>${formatDuration(record.durationSeconds)}</strong><span>Duration</span></div>
-        <div><strong>${record.completedRounds}/${record.plannedRounds}</strong><span>Rounds</span></div>
-        <div><strong>${completedSets}</strong><span>Exercise sets</span></div>
-      </div>
+      ${renderSessionAnalysis(record, previous)}
       <details class="history-details">
-        <summary>View exercise details</summary>
+        <summary>Exercise breakdown</summary>
         <ul>${exerciseDetails}</ul>
       </details>
+      ${renderSessionReviewForm(record)}
     `;
     article.querySelector(".delete-history-session").addEventListener("click", () => deleteHistorySession(record.id));
+    article.querySelector(".history-session-review-form").addEventListener("submit", submitHistorySessionReview);
     dom.historyList.appendChild(article);
   });
 }
@@ -3634,6 +4020,7 @@ function bindEvents() {
   dom.skipButton.addEventListener("click", skipStep);
   dom.voiceToggleButton.addEventListener("click", toggleVoice);
   dom.backToSetupButton.addEventListener("click", confirmEndWorkout);
+  dom.completeReviewForm.addEventListener("submit", submitCompleteSessionReview);
   dom.repeatWorkoutButton.addEventListener("click", () => startWorkout(workout));
   dom.editWorkoutButton.addEventListener("click", endWorkoutAndReturnToSetup);
   dom.resumeSavedSession.addEventListener("click", resumeSavedSession);

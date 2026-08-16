@@ -31,6 +31,9 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Automatic saved-routine CRUD and custom-order sync with offline retry
 - One-time migration control for uploading existing local routines
 - Silent history and routine refresh when the app opens, returns to the foreground, regains focus or reconnects
+- Optional post-workout review for RPE, heart-rate zone minutes and session notes
+- Per-session analysis with zone distribution and duration × RPE session load
+- Same-routine comparison against the previous recorded session
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
 - Installable PWA with offline app-shell caching
@@ -78,9 +81,12 @@ Trends includes:
 - Most active training day
 - Exercise-specific targets, completed sets, and recent sessions
 - Detailed workout history with completed and ended-early status
+- Per-session RPE, session load, heart-rate zone distribution and notes
+- Previous-session comparison for duration, completed work, round completion, RPE, load and high-intensity share
+- An editable Session review on the completion screen and every history card
 - Individual history deletion and a clear-all option
 
-Workout history is stored in `localStorage`, so it remains on the current browser and device.
+Workout history is stored locally first and synchronized to the signed-in Supabase account. Review edits use the same offline-first queue as new and deleted sessions.
 
 ## Backup and restore
 

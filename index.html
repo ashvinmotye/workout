@@ -581,6 +581,57 @@
         <p class="eyebrow">WORKOUT COMPLETE</p>
         <h2 id="completeWorkoutName">Great work</h2>
         <p id="completeSummary" class="complete-summary">3 rounds completed</p>
+
+        <section class="session-review-card complete-review-card" aria-labelledby="completeReviewTitle">
+          <div class="session-review-heading">
+            <div>
+              <p class="eyebrow">SESSION REVIEW</p>
+              <h3 id="completeReviewTitle">Add workout context</h3>
+            </div>
+            <span class="session-review-optional">Optional</span>
+          </div>
+          <p class="session-review-intro">RPE and heart-rate zone time unlock your session load and comparison insights.</p>
+          <form id="completeReviewForm" class="session-review-form">
+            <label class="field session-rpe-field">
+              <span>Effort <small>RPE 1–10</small></span>
+              <select name="rpe" aria-label="Rate of perceived exertion">
+                <option value="">Not recorded</option>
+                <option value="1">1 — Very easy</option>
+                <option value="2">2</option>
+                <option value="3">3 — Easy</option>
+                <option value="4">4</option>
+                <option value="5">5 — Moderate</option>
+                <option value="6">6</option>
+                <option value="7">7 — Hard</option>
+                <option value="8">8</option>
+                <option value="9">9 — Very hard</option>
+                <option value="10">10 — Maximum</option>
+              </select>
+            </label>
+
+            <fieldset class="zone-input-fieldset">
+              <legend>Heart-rate zone time <small>minutes</small></legend>
+              <div class="zone-input-grid">
+                <label><span>Z1</span><input name="zone1Minutes" type="number" min="0" max="2880" step="0.1" inputmode="decimal" placeholder="0" /></label>
+                <label><span>Z2</span><input name="zone2Minutes" type="number" min="0" max="2880" step="0.1" inputmode="decimal" placeholder="0" /></label>
+                <label><span>Z3</span><input name="zone3Minutes" type="number" min="0" max="2880" step="0.1" inputmode="decimal" placeholder="0" /></label>
+                <label><span>Z4</span><input name="zone4Minutes" type="number" min="0" max="2880" step="0.1" inputmode="decimal" placeholder="0" /></label>
+                <label><span>Z5</span><input name="zone5Minutes" type="number" min="0" max="2880" step="0.1" inputmode="decimal" placeholder="0" /></label>
+              </div>
+            </fieldset>
+
+            <label class="field field-wide session-notes-field">
+              <span>Notes <small>optional</small></span>
+              <textarea name="notes" rows="3" maxlength="500" placeholder="Energy, technique, or anything worth remembering"></textarea>
+            </label>
+
+            <div class="session-review-actions">
+              <button id="saveCompleteReviewButton" class="button button-secondary" type="submit">Save session review</button>
+              <span id="completeReviewStatus" class="session-review-status" role="status" aria-live="polite"></span>
+            </div>
+          </form>
+        </section>
+
         <div class="complete-actions">
           <button id="repeatWorkoutButton" class="button button-primary button-full" type="button">Repeat workout</button>
           <button id="editWorkoutButton" class="button button-ghost button-full" type="button">Back to setup</button>
