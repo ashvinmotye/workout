@@ -17,6 +17,7 @@ const HISTORY_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.historyCloudIds.v1";
 const SAVED_WORKOUT_SYNC_QUEUE_KEY = "voiceWorkout.savedWorkoutSyncQueue.v1";
 const SAVED_WORKOUT_LAST_SYNC_KEY_PREFIX = "voiceWorkout.savedWorkoutLastSync.v1";
 const SAVED_WORKOUT_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutCloudIds.v1";
+const SAVED_WORKOUT_PULL_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutPullIds.v1";
 const SUPABASE_URL = "https://xacwgipxqujbqvhzogbd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-_rGsscYv3ipNd7hW23-RQ_bUCB9hTf";
 
@@ -1156,6 +1157,10 @@ function savedWorkoutLastSyncKey(userId = getAccountSyncUserId()) {
   return userId ? `${SAVED_WORKOUT_LAST_SYNC_KEY_PREFIX}.${userId}` : null;
 }
 
+function savedWorkoutPullIdsKey(userId = getAccountSyncUserId()) {
+  return userId ? `${SAVED_WORKOUT_PULL_IDS_KEY_PREFIX}.${userId}` : null;
+}
+
 function loadSavedWorkoutCloudIds(userId = getAccountSyncUserId()) {
   const key = savedWorkoutCloudIdsKey(userId);
   if (!key) return new Set();
@@ -1165,6 +1170,19 @@ function loadSavedWorkoutCloudIds(userId = getAccountSyncUserId()) {
 
 function saveSavedWorkoutCloudIds(ids, userId = getAccountSyncUserId()) {
   const key = savedWorkoutCloudIdsKey(userId);
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify([...new Set(ids)].sort()));
+}
+
+function loadSavedWorkoutPullIds(userId = getAccountSyncUserId()) {
+  const key = savedWorkoutPullIdsKey(userId);
+  if (!key) return new Set();
+  const parsed = safeJsonParse(localStorage.getItem(key));
+  return new Set(Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string" && id) : []);
+}
+
+function saveSavedWorkoutPullIds(ids, userId = getAccountSyncUserId()) {
+  const key = savedWorkoutPullIdsKey(userId);
   if (!key) return;
   localStorage.setItem(key, JSON.stringify([...new Set(ids)].sort()));
 }
@@ -1340,6 +1358,10 @@ function updateSavedWorkoutSyncStatus() {
 async function processSavedWorkoutSyncQueue() {
   const userId = authSession.user.id;
   const operations = loadSavedWorkoutSyncQueue().filter((operation) => operation.userId === userId);
+  const completed = {
+    upsertedIds: new Set(),
+    deletedIds: new Set()
+  };
   for (const operation of operations) {
     const response = operation.type === "upsert"
       ? await authClient
@@ -1351,12 +1373,15 @@ async function processSavedWorkoutSyncQueue() {
         .eq("id", operation.id);
     if (response.error) throw response.error;
     recordSuccessfulSavedWorkoutSyncOperation(operation, userId);
+    if (operation.type === "upsert") completed.upsertedIds.add(operation.id);
+    else completed.deletedIds.add(operation.id);
     const latest = loadSavedWorkoutSyncQueue();
     saveSavedWorkoutSyncQueue(latest.filter((item) => item.queueId !== operation.queueId));
   }
+  return completed;
 }
 
-async function pullSavedWorkoutsFromCloud() {
+async function pullSavedWorkoutsFromCloud(recentChanges = {}) {
   const { data, error } = await authClient
     .from("saved_workouts")
     .select("id, name, workout, sort_order, client_created_at, client_updated_at, updated_at")
@@ -1365,13 +1390,23 @@ async function pullSavedWorkoutsFromCloud() {
   if (error) throw error;
 
   const userId = authSession.user.id;
+  const recentUpsertIds = recentChanges.upsertedIds instanceof Set ? recentChanges.upsertedIds : new Set();
+  const recentDeleteIds = recentChanges.deletedIds instanceof Set ? recentChanges.deletedIds : new Set();
   const previousCloudIds = loadSavedWorkoutCloudIds(userId);
-  const cloudRecords = (data || []).map(cloudRowToSavedWorkout);
+  const previousPullIds = loadSavedWorkoutPullIds(userId);
+  const cloudRecords = (data || [])
+    .filter((row) => !recentDeleteIds.has(row.id))
+    .map(cloudRowToSavedWorkout);
   const currentCloudIds = new Set(cloudRecords.map((record) => record.id));
   const merged = new Map();
 
   loadSavedWorkouts().forEach((record, index) => {
-    if (previousCloudIds.has(record.id) && !currentCloudIds.has(record.id)) return;
+    // Only infer a remote deletion for a routine that this device previously
+    // observed in a completed cloud pull. A successful upload marker alone is
+    // not enough because a stale or delayed read must never erase local data.
+    if (previousPullIds.has(record.id)
+      && !currentCloudIds.has(record.id)
+      && !recentUpsertIds.has(record.id)) return;
     merged.set(record.id, { record, sortOrder: record.sortOrder ?? index, source: 1, index });
   });
   cloudRecords.forEach((record, index) => {
@@ -1382,7 +1417,16 @@ async function pullSavedWorkoutsFromCloud() {
     .sort((a, b) => a.sortOrder - b.sortOrder || a.source - b.source || a.index - b.index)
     .map((entry) => entry.record);
   saveSavedWorkouts(nextRecords);
-  saveSavedWorkoutCloudIds(currentCloudIds, userId);
+
+  // Keep successful uploads marked as migrated until they have appeared in a
+  // pull at least once. Once observed, the live cloud snapshot becomes the
+  // authority and can also confirm genuine deletions from another device.
+  const knownCloudIds = new Set(currentCloudIds);
+  previousCloudIds.forEach((id) => {
+    if (!previousPullIds.has(id) || recentUpsertIds.has(id)) knownCloudIds.add(id);
+  });
+  saveSavedWorkoutCloudIds(knownCloudIds, userId);
+  saveSavedWorkoutPullIds(currentCloudIds, userId);
 
   if (activeSavedWorkoutId && !nextRecords.some((record) => record.id === activeSavedWorkoutId)) {
     activeSavedWorkoutId = null;
@@ -1420,8 +1464,8 @@ async function syncSavedWorkouts(options = {}) {
   savedWorkoutSyncRequested = false;
   updateSavedWorkoutSyncStatus();
   try {
-    await processSavedWorkoutSyncQueue();
-    const cloudCount = await pullSavedWorkoutsFromCloud();
+    const recentChanges = await processSavedWorkoutSyncQueue();
+    const cloudCount = await pullSavedWorkoutsFromCloud(recentChanges);
     const syncedAt = Date.now();
     localStorage.setItem(savedWorkoutLastSyncKey(authSession.user.id), String(syncedAt));
     renderSavedWorkouts();

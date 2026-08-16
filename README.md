@@ -95,6 +95,8 @@ Existing sessions that predate cloud sync remain local until **Settings → Acco
 
 Saved workout changes—including create, edit, rename, duplicate, delete and custom order—synchronize through the `saved_workouts` table. Existing routines remain local until **Settings → Account → Upload existing routines** is confirmed. When two devices save the same routine, the change with the latest client update timestamp wins; the database prevents an older delayed upsert from replacing it.
 
+Supabase API responses bypass the PWA cache so every sync reads the current database state. The app also distinguishes a successful upload from a routine observed in a completed cloud pull, preventing a stale or delayed empty response from being mistaken for a remote deletion.
+
 The current workout draft, preferences and active workout session remain device-local during this milestone.
 
 The reproducible table definitions and Row Level Security policies are stored in:

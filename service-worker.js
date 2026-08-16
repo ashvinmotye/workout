@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "voice-workout-v12";
+const CACHE_NAME = "voice-workout-v13";
 const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3";
 const APP_SHELL = [
   "./",
@@ -32,6 +32,15 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  const requestUrl = new URL(event.request.url);
+  const isAppAsset = requestUrl.origin === self.location.origin;
+  const isSupabaseSdk = event.request.url === SUPABASE_SDK_URL;
+
+  // Cache only the local app shell and the pinned SDK file. Supabase REST
+  // responses are user data and must always reach the network rather than a
+  // stale service-worker cache entry.
+  if (!isAppAsset && !isSupabaseSdk) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
