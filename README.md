@@ -49,12 +49,15 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Installable PWA with offline app-shell caching
 - Responsive mobile layout
 
-## Navigation icon credits
+## Icon credits
 
 - Setup: [Iconsax](https://github.com/lusaxweb/iconsax), MIT License
 - Routines: [Muhammad Tajudin](https://dribbble.com/tcodesign), CC Attribution
 - Recovery: [Gabriele Malaspina](https://www.figma.com/@gabriele), public domain
 - Trends: [Unicons](https://github.com/Iconscout/unicons), Apache License 2.0
+- Settings: [Dmitriy Novikov](https://www.figma.com/@novaslide), CC Attribution
+- Dark mode: [Circum Icons](https://github.com/Klarr-Agency/Circum-icons), Mozilla Public License 2.0
+- Light mode: [Ligature Symbols](https://github.com/kudakurage/LigatureSymbols), SIL Open Font License
 
 ## Run locally
 

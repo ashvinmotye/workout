@@ -1299,11 +1299,37 @@ select,
   height: 42px;
 }
 
+.header-svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+  color: currentColor;
+  transition: color 180ms ease, transform 220ms ease;
+}
+
+.theme-icon-light {
+  display: none;
+}
+
+html[data-theme="dark"] .theme-icon-dark {
+  display: none;
+}
+
+html[data-theme="dark"] .theme-icon-light {
+  display: block;
+}
+
+.theme-toggle-button:hover .header-svg,
+.settings-header-button:not(.is-active):hover .header-svg {
+  color: var(--aura-highlight);
+  transform: scale(1.06);
+}
+
 .settings-header-button.is-active {
   border-color: rgb(var(--aura-accent-rgb) / 0.62);
   background: rgb(var(--aura-accent-rgb) / 0.16);
   box-shadow: 0 0 0 3px rgb(var(--aura-accent-rgb) / 0.12), 0 10px 28px rgb(var(--aura-accent-rgb) / 0.22);
-  color: var(--primary-dark);
+  color: var(--aura-accent);
 }
 
 .suggested-routines-panel {

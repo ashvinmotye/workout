@@ -4389,7 +4389,6 @@ function applyTheme(theme, persist = true) {
   document.documentElement.dataset.theme = resolvedTheme;
 
   const isDark = resolvedTheme === "dark";
-  dom.themeToggleButton.textContent = isDark ? "☀️" : "🌙";
   dom.themeToggleButton.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
   dom.themeToggleButton.title = isDark ? "Switch to light mode" : "Switch to dark mode";
   dom.themeToggleButton.setAttribute("aria-pressed", String(isDark));
