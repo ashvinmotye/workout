@@ -32,6 +32,11 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - One-time migration control for uploading existing local routines
 - Silent history and routine refresh when the app opens, returns to the foreground, regains focus or reconnects
 - Optional post-workout review for RPE, heart-rate zone minutes and session notes
+- Daily Recovery Readiness check-ins using sleep, energy, soreness, stress and motivation
+- Live 0–100 readiness score with practical training guidance and editable check-in history
+- Body-weight logging in kilograms with latest change, 7-day average and a 30-entry trend chart
+- Automatic cross-device sync for recovery check-ins and body-weight measurements
+- Recovery and body-weight context inside overall Trends
 - Per-session analysis with zone distribution and duration × RPE session load
 - Same-routine comparison against the previous recorded session
 - Weekly and monthly session-load and average-RPE summaries
@@ -94,6 +99,12 @@ Trends includes:
 
 Workout history is stored locally first and synchronized to the signed-in Supabase account. Review edits use the same offline-first queue as new and deleted sessions.
 
+## Recovery and body weight
+
+Open **Recovery** to record one check-in and one body-weight measurement per day. The readiness score combines five equally weighted signals: sleep quality, energy, muscle soreness, stress and training motivation. Soreness and stress are reverse-scored, so higher values lower readiness. The result is guidance rather than a medical diagnosis; use pain, illness and unusual symptoms as reasons to stop or seek appropriate care regardless of the score.
+
+Recovery check-ins and body-weight entries are saved locally first. Create, edit and delete changes are queued while offline and synchronized automatically after reconnection. The Recovery screen shows recent history and the latest 30 body-weight measurements, while Trends adds the latest readiness, 7-day readiness average, latest weight and available 30-day weight change.
+
 ## Backup and restore
 
 Open **Settings** and use **Export JSON** to download a complete backup. The file includes the current workout draft, saved routines and their custom order, workout history, theme, the currently loaded routine, and any resumable session.
@@ -120,5 +131,8 @@ The reproducible table definitions and Row Level Security policies are stored in
 
 - `supabase/migrations/20260816_create_workout_sessions.sql`
 - `supabase/migrations/20260816220000_create_saved_workouts.sql`
+- `supabase/migrations/20260820_create_recovery_and_body_weight.sql`
+
+Before using Recovery sync for the first time, run `20260820_create_recovery_and_body_weight.sql` in the Supabase SQL Editor. The migration creates the two per-user tables, conflict-safe update triggers, indexes and Row Level Security policies. Existing workout sessions and routines are not changed.
 
 For the first account test, use an email address that belongs to a member of the Supabase organization. Supabase's built-in test email service only sends authentication messages to project members. Configure custom SMTP later before inviting other users.

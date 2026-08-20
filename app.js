@@ -45,11 +45,13 @@ const dom = {
   signUpModeButton: document.querySelector("#signUpModeButton"),
   setupScreen: document.querySelector("#setupScreen"),
   savedWorkoutsScreen: document.querySelector("#savedWorkoutsScreen"),
+  recoveryScreen: document.querySelector("#recoveryScreen"),
   trendsScreen: document.querySelector("#trendsScreen"),
   settingsScreen: document.querySelector("#settingsScreen"),
   mainNavigation: document.querySelector("#mainNavigation"),
   setupNavButton: document.querySelector("#setupNavButton"),
   savedWorkoutsNavButton: document.querySelector("#savedWorkoutsNavButton"),
+  recoveryNavButton: document.querySelector("#recoveryNavButton"),
   trendsNavButton: document.querySelector("#trendsNavButton"),
   settingsNavButton: document.querySelector("#settingsNavButton"),
   savedWorkoutNavCount: document.querySelector("#savedWorkoutNavCount"),
@@ -401,6 +403,7 @@ function showAuthenticatedApp(session, options = {}) {
   if (!dom.authScreen.hidden) showScreen("setup");
   updateHistorySyncStatus();
   updateSavedWorkoutSyncStatus();
+  updateWellnessSyncStatus();
   requestAutomaticCloudRefresh();
 }
 
@@ -428,6 +431,7 @@ function handleAuthStateChange(event, session) {
     clearCachedAuthUser();
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
+    updateWellnessSyncStatus();
     setAuthMode("signin", false);
     showAuthForm("You have been signed out.", "success");
   }
@@ -562,6 +566,7 @@ async function refreshAuthenticationAfterReconnect() {
     updateAccountPanel(authSession.user);
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
+    updateWellnessSyncStatus();
     requestAutomaticCloudRefresh({ force: true });
     return;
   }
@@ -615,7 +620,8 @@ function requestAutomaticCloudRefresh(options = {}) {
     lastAutomaticCloudRefreshAt = Date.now();
     await Promise.allSettled([
       syncWorkoutHistory(),
-      syncSavedWorkouts()
+      syncSavedWorkouts(),
+      syncWellnessData()
     ]);
   }, delay);
 }
@@ -1625,6 +1631,7 @@ function createBackupPayload() {
       savedWorkouts: loadSavedWorkouts(),
       activeSavedWorkoutId: loadActiveSavedWorkoutId(),
       workoutHistory: loadWorkoutHistory(),
+      ...getWellnessBackupData(),
       activeSession: getStoredJson(SESSION_KEY),
       theme: loadTheme()
     }
@@ -1653,7 +1660,12 @@ function exportBackup() {
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-    updateBackupStatus(`Backup created with ${payload.data.savedWorkouts.length} saved ${payload.data.savedWorkouts.length === 1 ? "workout" : "workouts"} and ${payload.data.workoutHistory.length} ${payload.data.workoutHistory.length === 1 ? "session" : "sessions"}.`);
+    updateBackupStatus(
+      `Backup created with ${payload.data.savedWorkouts.length} saved ${payload.data.savedWorkouts.length === 1 ? "workout" : "workouts"}, ` +
+      `${payload.data.workoutHistory.length} ${payload.data.workoutHistory.length === 1 ? "session" : "sessions"}, ` +
+      `${payload.data.recoveryCheckins.length} recovery ${payload.data.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, and ` +
+      `${payload.data.bodyWeightEntries.length} weight ${payload.data.bodyWeightEntries.length === 1 ? "entry" : "entries"}.`
+    );
     showToast("Workout backup exported.");
   } catch {
     updateBackupStatus("The backup could not be created. Please try again.", true);
@@ -1706,6 +1718,7 @@ function validateBackupPayload(candidate) {
     }
     return normalizeHistoryRecord(record);
   });
+  const wellnessData = validateWellnessBackupData(data);
 
   const activeSavedWorkoutId = savedWorkouts.some((record) => record.id === data.activeSavedWorkoutId)
     ? data.activeSavedWorkoutId
@@ -1716,6 +1729,7 @@ function validateBackupPayload(candidate) {
     savedWorkouts,
     activeSavedWorkoutId,
     workoutHistory,
+    ...wellnessData,
     activeSession: data.activeSession,
     theme: data.theme,
     exportedAt: typeof candidate.exportedAt === "string" ? candidate.exportedAt : ""
@@ -1730,13 +1744,24 @@ function restoreStorageSnapshot(snapshot) {
 }
 
 function applyImportedBackup(data) {
-  const keys = [STORAGE_KEY, SAVED_WORKOUTS_KEY, ACTIVE_SAVED_WORKOUT_KEY, HISTORY_KEY, SESSION_KEY, THEME_KEY];
+  const keys = [
+    STORAGE_KEY,
+    SAVED_WORKOUTS_KEY,
+    ACTIVE_SAVED_WORKOUT_KEY,
+    HISTORY_KEY,
+    RECOVERY_CHECKINS_KEY,
+    BODY_WEIGHT_ENTRIES_KEY,
+    WELLNESS_SYNC_QUEUE_KEY,
+    SESSION_KEY,
+    THEME_KEY
+  ];
   const snapshot = new Map(keys.map((key) => [key, localStorage.getItem(key)]));
 
   try {
     saveSettings(data.settings);
     saveSavedWorkouts(data.savedWorkouts);
     saveWorkoutHistory(data.workoutHistory);
+    applyWellnessBackupData(data);
     if (data.activeSavedWorkoutId) localStorage.setItem(ACTIVE_SAVED_WORKOUT_KEY, data.activeSavedWorkoutId);
     else localStorage.removeItem(ACTIVE_SAVED_WORKOUT_KEY);
     if (data.activeSession) localStorage.setItem(SESSION_KEY, JSON.stringify(data.activeSession));
@@ -1753,6 +1778,7 @@ function applyImportedBackup(data) {
   applyTheme(data.theme, false);
   populateForm(data.settings);
   renderSavedWorkouts();
+  renderRecoveryScreen();
   renderTrends();
   showSavedSessionBanner();
   renderSettingsSummary();
@@ -1777,7 +1803,9 @@ async function importBackupFile(event) {
     const confirmed = window.confirm(
       `Import the backup from ${formatBackupTimestamp(imported.exportedAt)}?\n\n` +
       `It contains ${imported.savedWorkouts.length} saved ${imported.savedWorkouts.length === 1 ? "workout" : "workouts"} and ` +
-      `${imported.workoutHistory.length} workout ${imported.workoutHistory.length === 1 ? "session" : "sessions"}.\n\n` +
+      `${imported.workoutHistory.length} workout ${imported.workoutHistory.length === 1 ? "session" : "sessions"}, ` +
+      `${imported.recoveryCheckins.length} recovery ${imported.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, and ` +
+      `${imported.bodyWeightEntries.length} weight ${imported.bodyWeightEntries.length === 1 ? "entry" : "entries"}.\n\n` +
       "This will replace the Workout data currently stored on this device."
     );
     if (!confirmed) {
@@ -1786,7 +1814,12 @@ async function importBackupFile(event) {
     }
 
     applyImportedBackup(imported);
-    updateBackupStatus(`Backup restored: ${imported.savedWorkouts.length} saved ${imported.savedWorkouts.length === 1 ? "workout" : "workouts"} and ${imported.workoutHistory.length} ${imported.workoutHistory.length === 1 ? "session" : "sessions"}.`);
+    updateBackupStatus(
+      `Backup restored: ${imported.savedWorkouts.length} saved ${imported.savedWorkouts.length === 1 ? "workout" : "workouts"}, ` +
+      `${imported.workoutHistory.length} ${imported.workoutHistory.length === 1 ? "session" : "sessions"}, ` +
+      `${imported.recoveryCheckins.length} recovery ${imported.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, and ` +
+      `${imported.bodyWeightEntries.length} weight ${imported.bodyWeightEntries.length === 1 ? "entry" : "entries"}.`
+    );
     showToast("Workout backup imported.");
   } catch (error) {
     const message = error instanceof SyntaxError
@@ -1808,6 +1841,7 @@ function renderSettingsSummary() {
   dom.settingsActiveSession.textContent = activeSession ? "Available" : "None";
   updateHistoryMigrationUI();
   updateSavedWorkoutMigrationUI();
+  renderWellnessSettingsSummary();
 }
 
 function cloneWorkout(candidate, regenerateExerciseIds = false) {
@@ -2403,28 +2437,33 @@ function showScreen(name) {
   dom.authScreen.hidden = name !== "auth";
   dom.setupScreen.hidden = name !== "setup";
   dom.savedWorkoutsScreen.hidden = name !== "saved";
+  dom.recoveryScreen.hidden = name !== "recovery";
   dom.trendsScreen.hidden = name !== "trends";
   dom.settingsScreen.hidden = name !== "settings";
   dom.workoutScreen.hidden = name !== "workout";
   dom.completeScreen.hidden = name !== "complete";
 
-  const showNavigation = name === "setup" || name === "saved" || name === "trends" || name === "settings";
+  const showNavigation = name === "setup" || name === "saved" || name === "recovery" || name === "trends" || name === "settings";
   dom.mainNavigation.hidden = !showNavigation;
   dom.setupNavButton.classList.toggle("is-active", name === "setup");
   dom.savedWorkoutsNavButton.classList.toggle("is-active", name === "saved");
+  dom.recoveryNavButton.classList.toggle("is-active", name === "recovery");
   dom.trendsNavButton.classList.toggle("is-active", name === "trends");
   dom.settingsNavButton.classList.toggle("is-active", name === "settings");
   dom.setupNavButton.toggleAttribute("aria-current", name === "setup");
   dom.savedWorkoutsNavButton.toggleAttribute("aria-current", name === "saved");
+  dom.recoveryNavButton.toggleAttribute("aria-current", name === "recovery");
   dom.trendsNavButton.toggleAttribute("aria-current", name === "trends");
   dom.settingsNavButton.toggleAttribute("aria-current", name === "settings");
 
   if (name === "saved") renderSavedWorkouts();
+  if (name === "recovery") renderRecoveryScreen();
   if (name === "trends") renderTrends();
   if (name === "settings") {
     renderSettingsSummary();
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
+    updateWellnessSyncStatus();
   }
   window.scrollTo({ top: 0, behavior: "auto" });
 }
@@ -3912,6 +3951,7 @@ function submitHistorySessionReview(event) {
 function renderSessionAnalysis(record, previous) {
   const completedSets = completedSetCount(record);
   const sessionLoad = getSessionLoad(record);
+  const recoveryCheckin = getRecoveryCheckinForTimestamp(record.endedAt);
   const notes = record.notes.trim();
   return `
     <section class="session-analysis" aria-label="Session analysis">
@@ -3921,6 +3961,7 @@ function renderSessionAnalysis(record, previous) {
         <div><strong>${sessionLoad === null ? "—" : sessionLoad}</strong><span>Session load</span><small>minutes × RPE</small></div>
         <div><strong>${record.completedRounds}/${record.plannedRounds}</strong><span>Rounds</span></div>
         <div><strong>${completedSets}</strong><span>Exercise sets</span></div>
+        ${recoveryCheckin ? `<div><strong>${recoveryCheckin.readinessScore}/100</strong><span>Readiness</span><small>${escapeHtml(getReadinessLevel(recoveryCheckin.readinessScore).label)}</small></div>` : ""}
       </div>
       ${renderZoneDistribution(record)}
       ${renderSessionComparison(record, previous)}
@@ -4013,6 +4054,7 @@ function renderTrends() {
   updateExpandedConsistency(records);
   renderActivityChart(records);
   renderOverallAnalytics(records);
+  renderWellnessTrendSummary();
   renderExerciseTrend(records);
   renderHistoryList(records);
 }
@@ -4158,6 +4200,7 @@ function bindEvents() {
   dom.signOutButton.addEventListener("click", signOutCurrentDevice);
   dom.setupNavButton.addEventListener("click", () => showScreen("setup"));
   dom.savedWorkoutsNavButton.addEventListener("click", () => showScreen("saved"));
+  dom.recoveryNavButton.addEventListener("click", () => showScreen("recovery"));
   dom.trendsNavButton.addEventListener("click", () => showScreen("trends"));
   dom.settingsNavButton.addEventListener("click", () => showScreen("settings"));
   dom.saveWorkoutButton.addEventListener("click", () => saveCurrentWorkout(false));
@@ -4218,6 +4261,7 @@ function bindEvents() {
   dom.editWorkoutButton.addEventListener("click", endWorkoutAndReturnToSetup);
   dom.resumeSavedSession.addEventListener("click", resumeSavedSession);
   dom.discardSavedSession.addEventListener("click", clearSavedSession);
+  bindWellnessEvents();
 
   document.addEventListener("visibilitychange", handleAppVisibilityChange);
   window.addEventListener("beforeunload", persistSession);
@@ -4230,6 +4274,7 @@ function bindEvents() {
       setAccountMessage("You are offline. Workout data on this device remains available.");
       updateHistorySyncStatus();
       updateSavedWorkoutSyncStatus();
+      updateWellnessSyncStatus();
     }
   });
 }
@@ -4243,6 +4288,7 @@ async function init() {
 
   populateForm(loadSettings());
   renderSavedWorkouts();
+  initializeWellness();
   renderTrends();
   renderSettingsSummary();
   setupVoiceSelection();

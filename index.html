@@ -50,6 +50,10 @@
         <small>Routines</small>
         <span id="savedWorkoutNavCount" class="nav-count">0</span>
       </button>
+      <button id="recoveryNavButton" class="nav-button" type="button">
+        <span class="nav-icon" aria-hidden="true">◉</span>
+        <small>Recovery</small>
+      </button>
       <button id="trendsNavButton" class="nav-button" type="button">
         <span class="nav-icon" aria-hidden="true">📈</span>
         <small>Trends</small>
@@ -286,6 +290,150 @@
 
 
 
+      <section id="recoveryScreen" class="screen recovery-screen" aria-labelledby="recoveryTitle" hidden>
+        <div class="hero-card recovery-hero">
+          <div>
+            <p class="eyebrow">RECOVERY &amp; BODY</p>
+            <h2 id="recoveryTitle">Check in with yourself</h2>
+            <p class="subtle">Use a quick daily check-in to guide today’s effort, and follow body-weight change without overreacting to a single reading.</p>
+          </div>
+          <div class="hero-badge recovery-hero-badge" aria-hidden="true">◉</div>
+        </div>
+
+        <div class="recovery-layout">
+          <section class="panel readiness-panel" aria-labelledby="readinessTitle">
+            <div class="panel-heading readiness-panel-heading">
+              <div>
+                <p class="eyebrow">DAILY CHECK-IN</p>
+                <h3 id="readinessTitle">Recovery readiness</h3>
+              </div>
+              <span id="readinessSavedBadge" class="recovery-saved-badge" hidden>Saved</span>
+            </div>
+
+            <div id="readinessResult" class="readiness-result" data-level="moderate" aria-live="polite">
+              <div class="readiness-orb" aria-hidden="true">
+                <strong id="readinessScore">50</strong>
+                <small>/100</small>
+              </div>
+              <div>
+                <span id="readinessLabel" class="readiness-label">Moderate readiness</span>
+                <p id="readinessGuidance">Use your warm-up as a final check and adjust the session if needed.</p>
+              </div>
+            </div>
+
+            <form id="readinessForm" class="readiness-form">
+              <label class="field readiness-date-field">
+                <span>Check-in date</span>
+                <input name="checkinDate" type="date" required />
+              </label>
+
+              <div class="recovery-factor-list">
+                <label class="recovery-factor">
+                  <span><strong>Sleep quality</strong><small>Restless → restorative</small></span>
+                  <span class="factor-control">
+                    <input name="sleepQuality" type="range" min="1" max="5" step="1" value="3" aria-label="Sleep quality from 1 to 5" />
+                    <output data-for="sleepQuality">3</output>
+                  </span>
+                </label>
+                <label class="recovery-factor">
+                  <span><strong>Energy</strong><small>Drained → energised</small></span>
+                  <span class="factor-control">
+                    <input name="energyLevel" type="range" min="1" max="5" step="1" value="3" aria-label="Energy level from 1 to 5" />
+                    <output data-for="energyLevel">3</output>
+                  </span>
+                </label>
+                <label class="recovery-factor">
+                  <span><strong>Muscle soreness</strong><small>Fresh → very sore</small></span>
+                  <span class="factor-control">
+                    <input name="muscleSoreness" type="range" min="1" max="5" step="1" value="3" aria-label="Muscle soreness from 1 to 5" />
+                    <output data-for="muscleSoreness">3</output>
+                  </span>
+                </label>
+                <label class="recovery-factor">
+                  <span><strong>Stress</strong><small>Calm → very stressed</small></span>
+                  <span class="factor-control">
+                    <input name="stressLevel" type="range" min="1" max="5" step="1" value="3" aria-label="Stress level from 1 to 5" />
+                    <output data-for="stressLevel">3</output>
+                  </span>
+                </label>
+                <label class="recovery-factor">
+                  <span><strong>Motivation</strong><small>Reluctant → eager</small></span>
+                  <span class="factor-control">
+                    <input name="motivationLevel" type="range" min="1" max="5" step="1" value="3" aria-label="Training motivation from 1 to 5" />
+                    <output data-for="motivationLevel">3</output>
+                  </span>
+                </label>
+              </div>
+
+              <label class="field field-wide recovery-notes-field">
+                <span>Context <small>optional</small></span>
+                <textarea name="notes" rows="3" maxlength="500" placeholder="Sleep disruption, pain, illness, travel, or anything that affects today"></textarea>
+              </label>
+
+              <div class="recovery-form-actions">
+                <button id="saveReadinessButton" class="button button-primary" type="submit">Save check-in</button>
+                <button id="resetReadinessButton" class="button button-ghost" type="button">Today</button>
+                <span id="readinessFormStatus" class="recovery-form-status" role="status" aria-live="polite"></span>
+              </div>
+            </form>
+
+            <div class="recovery-history-heading">
+              <h4>Recent check-ins</h4>
+              <span id="readinessHistoryCount">0 entries</span>
+            </div>
+            <div id="readinessHistory" class="recovery-history-list"></div>
+          </section>
+
+          <section class="panel weight-panel" aria-labelledby="weightTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">BODY WEIGHT</p>
+                <h3 id="weightTitle">Follow the trend</h3>
+              </div>
+            </div>
+
+            <div class="weight-stat-grid">
+              <div><strong id="latestWeight">—</strong><span>Latest</span></div>
+              <div><strong id="weightChange">—</strong><span>Since previous</span></div>
+              <div><strong id="weightSevenDayAverage">—</strong><span>7-day average</span></div>
+            </div>
+
+            <div id="weightChart" class="weight-chart" role="img" aria-label="Body-weight trend"></div>
+            <p id="weightChartSummary" class="chart-summary">Add your first measurement to begin the trend.</p>
+
+            <form id="weightForm" class="weight-form">
+              <div class="weight-form-grid">
+                <label class="field">
+                  <span>Measurement date</span>
+                  <input name="measurementDate" type="date" required />
+                </label>
+                <label class="field">
+                  <span>Weight <small>kg</small></span>
+                  <input name="weightKg" type="number" min="30" max="300" step="0.1" inputmode="decimal" placeholder="69.2" required />
+                </label>
+              </div>
+              <label class="field field-wide">
+                <span>Note <small>optional</small></span>
+                <input name="notes" type="text" maxlength="200" placeholder="Morning measurement" />
+              </label>
+              <div class="recovery-form-actions">
+                <button id="saveWeightButton" class="button button-secondary" type="submit">Save weight</button>
+                <button id="resetWeightButton" class="button button-ghost" type="button">Today</button>
+                <span id="weightFormStatus" class="recovery-form-status" role="status" aria-live="polite"></span>
+              </div>
+            </form>
+
+            <div class="recovery-history-heading">
+              <h4>Measurement history</h4>
+              <span id="weightHistoryCount">0 entries</span>
+            </div>
+            <div id="weightHistory" class="recovery-history-list weight-history-list"></div>
+          </section>
+        </div>
+      </section>
+
+
+
       <section id="trendsScreen" class="screen trends-screen" aria-labelledby="trendsTitle" hidden>
         <div class="hero-card trends-hero">
           <div>
@@ -343,6 +491,22 @@
                 </div>
               </article>
             </div>
+          </section>
+
+          <section id="wellnessTrendPanel" class="panel wellness-trend-panel" aria-labelledby="wellnessTrendTitle" hidden>
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">RECOVERY &amp; BODY</p>
+                <h3 id="wellnessTrendTitle">Readiness context</h3>
+              </div>
+            </div>
+            <div class="wellness-trend-grid">
+              <div><strong id="trendLatestReadiness">—</strong><span>Latest readiness</span><small id="trendLatestReadinessDate">No check-in</small></div>
+              <div><strong id="trendAverageReadiness">—</strong><span>7-day average</span><small id="trendReadinessCoverage">0 check-ins</small></div>
+              <div><strong id="trendLatestWeight">—</strong><span>Latest weight</span><small id="trendLatestWeightDate">No measurement</small></div>
+              <div><strong id="trendWeightChange">—</strong><span>30-day change</span><small>Based on available measurements</small></div>
+            </div>
+            <p id="wellnessTrendInsight" class="wellness-trend-insight"></p>
           </section>
 
           <section class="panel" aria-labelledby="activityTitle">
@@ -476,7 +640,7 @@
             <div>
               <span class="account-label">Email</span>
               <strong id="accountEmail">—</strong>
-              <small>Workout history and saved routines can sync to this account. The current draft and active workout remain on this device.</small>
+              <small>Workout history, recovery data and saved routines can sync to this account. The current draft and active workout remain on this device.</small>
             </div>
             <button id="signOutButton" class="button button-ghost" type="button">Sign out</button>
           </div>
@@ -516,6 +680,15 @@
             </div>
             <button id="uploadExistingSavedWorkoutsButton" class="button button-primary button-small" type="button">Upload routines</button>
           </div>
+
+          <div class="history-sync-row">
+            <div>
+              <strong>Recovery &amp; body</strong>
+              <span id="wellnessSyncStatus">Preparing recovery sync…</span>
+              <small>Readiness check-ins and body-weight measurements sync automatically.</small>
+            </div>
+            <button id="syncWellnessButton" class="button button-secondary button-small" type="button">Sync recovery</button>
+          </div>
           <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
         </section>
 
@@ -537,6 +710,14 @@
               <span>Workout sessions</span>
             </div>
             <div>
+              <strong id="settingsReadinessCount">0</strong>
+              <span>Recovery check-ins</span>
+            </div>
+            <div>
+              <strong id="settingsWeightCount">0</strong>
+              <span>Weight entries</span>
+            </div>
+            <div>
               <strong id="settingsActiveSession">None</strong>
               <span>Resumable session</span>
             </div>
@@ -553,7 +734,7 @@
 
           <p class="subtle backup-description">
             Export creates one JSON file containing your current workout draft, saved routines, workout history,
-            preferences, and any resumable session.
+            recovery check-ins, body-weight measurements, preferences, and any resumable session.
           </p>
 
           <div class="backup-actions">
@@ -784,6 +965,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
+  <script src="wellness.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
