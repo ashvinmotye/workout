@@ -27,7 +27,7 @@ AuraOS is the shared interface language established by Level90 and adapted here 
 
 - App shell: centered, mobile-first and no wider than 760px.
 - Header: compact brand or greeting with small translucent icon actions.
-- Navigation: fixed floating glass dock with icon-first destinations and a soft active state.
+- Navigation: fixed four-destination floating glass dock with icon-first destinations and a soft active state; Settings is a compact header action.
 - Panels: 20–28px radii, translucent fill, subtle border and deep soft shadow.
 - Primary actions: accent gradient, 16–18px radius and restrained glow.
 - Inputs: translucent inset surfaces with an accent focus halo.
@@ -36,7 +36,7 @@ AuraOS is the shared interface language established by Level90 and adapted here 
 
 ## Workout adaptation
 
-The active timer is Voice Workout’s primary Aura orb. Setup, routines, trends and settings use the same glass hierarchy and floating navigation while keeping all workout controls and data density intact.
+The active timer is Voice Workout’s primary Aura orb. Setup, routines, recovery, trends and settings use the same glass hierarchy; the four primary destinations use floating navigation while Settings remains globally available in the header.
 
 ## Motion and accessibility
 

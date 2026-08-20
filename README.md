@@ -20,6 +20,8 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Saved workout library for loading routines on another day
 - Rename, duplicate, update and delete saved workouts
 - Reorder saved workouts with Move Up / Move Down controls
+- Assign any saved routine to multiple weekdays and see today’s routines in **Suggested today**
+- Four-item bottom navigation with Settings available beside the appearance toggle in the header
 - Settings page with full JSON export and validated JSON import
 - Supabase email/password account creation and sign-in
 - Persistent authenticated sessions with a current-device sign-out control
@@ -38,7 +40,7 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Automatic cross-device sync for recovery check-ins and body-weight measurements
 - Recovery and body-weight context inside overall Trends
 - Per-session analysis with zone distribution and duration × RPE session load
-- Same-routine comparison against the previous recorded session
+- Same-routine comparison by stable routine identity, even after the routine is renamed
 - Weekly and monthly session-load and average-RPE summaries
 - Range-based overall load progression and aggregate heart-rate zone analysis
 - Review coverage, four-week frequency, 30-day active days and completion rate
@@ -69,7 +71,7 @@ The project uses only relative paths, so it also works when deployed under a rep
 
 ## Saved workouts
 
-Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Use **Move Up** and **Move Down** in the Saved workouts tab to arrange routines in your preferred order (for example Monday through Sunday). Routines and their custom order are saved locally first and synchronized to the signed-in account, with offline changes queued for retry.
+Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Use **Move Up** and **Move Down** to arrange the library, and **Schedule** to designate one or more weekdays plus a Pre-workout, Main workout or Post-workout order. Routines scheduled for the current day also appear in **Suggested today**, ordered Pre → Main → Post, while remaining in the full library. Schedules, routines and custom order are saved locally first and synchronized to the signed-in account, with offline changes queued for retry.
 
 ## Notes
 
@@ -99,6 +101,8 @@ Trends includes:
 
 Workout history is stored locally first and synchronized to the signed-in Supabase account. Review edits use the same offline-first queue as new and deleted sessions.
 
+Each new session stores the stable saved-routine ID used to start it while retaining `workout_name` as the historical name snapshot. Renaming a routine therefore does not break future previous-session comparisons. Older sessions are linked automatically only when the current name or exercise structure gives one unambiguous match; any remaining previous names can be reviewed manually in **Settings → Account**. Linking never rewrites the saved session name or workout details.
+
 ## Recovery and body weight
 
 Open **Recovery** to record one check-in and one body-weight measurement per day. The readiness score combines five equally weighted signals: sleep quality, energy, muscle soreness, stress and training motivation. Soreness and stress are reverse-scored, so higher values lower readiness. The result is guidance rather than a medical diagnosis; use pain, illness and unusual symptoms as reasons to stop or seek appropriate care regardless of the score.
@@ -107,7 +111,7 @@ Recovery check-ins and body-weight entries are saved locally first. Create, edit
 
 ## Backup and restore
 
-Open **Settings** and use **Export JSON** to download a complete backup. The file includes the current workout draft, saved routines and their custom order, workout history, theme, the currently loaded routine, and any resumable session.
+Open Settings from the header beside the light/dark toggle, then use **Export JSON** to download a complete backup. The file includes the current workout draft, saved routines, designated weekdays and custom order, workout history and routine links, theme, the currently loaded routine, and any resumable session.
 
 Use **Import JSON** to restore a backup. The app validates the file and shows its saved-workout and session counts before asking for confirmation. Import replaces the Workout data stored on the current browser or device.
 
@@ -132,7 +136,10 @@ The reproducible table definitions and Row Level Security policies are stored in
 - `supabase/migrations/20260816_create_workout_sessions.sql`
 - `supabase/migrations/20260816220000_create_saved_workouts.sql`
 - `supabase/migrations/20260820_create_recovery_and_body_weight.sql`
+- `supabase/migrations/20260820_add_routine_scheduling_and_identity.sql`
 
 Before using Recovery sync for the first time, run `20260820_create_recovery_and_body_weight.sql` in the Supabase SQL Editor. The migration creates the two per-user tables, conflict-safe update triggers, indexes and Row Level Security policies. Existing workout sessions and routines are not changed.
+
+Before using routine schedules or stable cross-device comparisons, run `20260820_add_routine_scheduling_and_identity.sql`. It is additive: it adds schedule metadata to `saved_workouts`, a nullable `routine_id` to `workout_sessions`, validation checks and an index. It does not drop tables, delete rows, rename snapshots or attach a cascading foreign key.
 
 For the first account test, use an email address that belongs to a member of the Supabase organization. Supabase's built-in test email service only sends authentication messages to project members. Configure custom SMTP later before inviting other users.

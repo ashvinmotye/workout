@@ -34,6 +34,9 @@
         <button id="themeToggleButton" class="icon-button theme-toggle-button" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
           🌙
         </button>
+        <button id="settingsNavButton" class="icon-button settings-header-button" type="button" aria-label="Open settings" aria-pressed="false" title="Settings" hidden>
+          ⚙️
+        </button>
         <button id="installButton" class="button button-ghost install-button" type="button" hidden>
           Install
         </button>
@@ -57,10 +60,6 @@
       <button id="trendsNavButton" class="nav-button" type="button">
         <span class="nav-icon" aria-hidden="true">📈</span>
         <small>Trends</small>
-      </button>
-      <button id="settingsNavButton" class="nav-button" type="button">
-        <span class="nav-icon" aria-hidden="true">⚙️</span>
-        <small>Settings</small>
       </button>
     </nav>
 
@@ -267,6 +266,17 @@
           </div>
           <button id="newWorkoutButton" class="button button-primary" type="button">New workout</button>
         </div>
+
+        <section id="suggestedRoutinesSection" class="panel suggested-routines-panel" aria-labelledby="suggestedRoutinesTitle" hidden>
+          <div class="panel-heading suggested-routines-heading">
+            <div>
+              <p class="eyebrow">SUGGESTED TODAY</p>
+              <h3 id="suggestedRoutinesTitle">Ready for today</h3>
+            </div>
+            <span id="suggestedRoutinesDate" class="suggested-routines-date"></span>
+          </div>
+          <div id="suggestedRoutineList" class="suggested-routine-list"></div>
+        </section>
 
         <section class="panel saved-workouts-panel" aria-labelledby="savedWorkoutListTitle">
           <div class="panel-heading">
@@ -681,6 +691,27 @@
             <button id="uploadExistingSavedWorkoutsButton" class="button button-primary button-small" type="button">Upload routines</button>
           </div>
 
+          <div id="routineIdentityMigrationRow" class="history-sync-row history-migration-row" hidden>
+            <div>
+              <strong>Previous routine names</strong>
+              <span id="routineIdentityMigrationStatus">Checking session history…</span>
+              <small>Connect older sessions to a current routine so comparisons continue after a rename. Session names and workout data stay unchanged.</small>
+            </div>
+            <button id="reviewRoutineLinksButton" class="button button-secondary button-small" type="button">Review links</button>
+          </div>
+
+          <div id="routineIdentityMigrationPanel" class="routine-identity-panel" hidden>
+            <div class="routine-identity-panel-heading">
+              <div>
+                <strong>Link previous routine names</strong>
+                <small>Choose only matches you recognize. Unselected sessions will remain unchanged.</small>
+              </div>
+              <button id="closeRoutineLinksButton" class="mini-icon" type="button" aria-label="Close routine links">×</button>
+            </div>
+            <div id="routineIdentityMigrationList" class="routine-identity-list"></div>
+            <button id="applyRoutineLinksButton" class="button button-primary button-small" type="button">Save selected links</button>
+          </div>
+
           <div class="history-sync-row">
             <div>
               <strong>Recovery &amp; body</strong>
@@ -932,6 +963,7 @@
           <span class="saved-workout-active-badge" hidden>Loaded</span>
         </div>
         <p class="saved-workout-summary"></p>
+        <p class="saved-workout-schedule-summary"></p>
         <p class="saved-workout-preview"></p>
         <small class="saved-workout-date"></small>
       </div>
@@ -942,9 +974,34 @@
         </div>
         <div class="saved-workout-actions">
         <button class="button button-primary button-small load-saved-workout" type="button">Load</button>
+        <button class="button button-ghost button-small schedule-saved-workout" type="button">Schedule</button>
         <button class="button button-ghost button-small rename-saved-workout" type="button">Rename</button>
         <button class="button button-ghost button-small duplicate-saved-workout" type="button">Duplicate</button>
         <button class="button button-ghost button-small delete-saved-workout danger-text" type="button">Delete</button>
+        </div>
+      </div>
+      <div class="saved-workout-schedule-editor" hidden>
+        <span class="saved-workout-schedule-label">Designated days</span>
+        <div class="weekday-picker" role="group" aria-label="Designated workout days">
+          <button class="weekday-button" type="button" data-day="1" aria-pressed="false" title="Monday">M</button>
+          <button class="weekday-button" type="button" data-day="2" aria-pressed="false" title="Tuesday">T</button>
+          <button class="weekday-button" type="button" data-day="3" aria-pressed="false" title="Wednesday">W</button>
+          <button class="weekday-button" type="button" data-day="4" aria-pressed="false" title="Thursday">T</button>
+          <button class="weekday-button" type="button" data-day="5" aria-pressed="false" title="Friday">F</button>
+          <button class="weekday-button" type="button" data-day="6" aria-pressed="false" title="Saturday">S</button>
+          <button class="weekday-button" type="button" data-day="0" aria-pressed="false" title="Sunday">S</button>
+        </div>
+        <label class="routine-role-field">
+          <span>Session order</span>
+          <select class="routine-role-select">
+            <option value="pre">Pre-workout</option>
+            <option value="main">Main workout</option>
+            <option value="post">Post-workout</option>
+          </select>
+        </label>
+        <div class="inline-actions">
+          <button class="button button-primary button-small save-routine-schedule" type="button">Save schedule</button>
+          <button class="button button-ghost button-small cancel-routine-schedule" type="button">Cancel</button>
         </div>
       </div>
     </article>

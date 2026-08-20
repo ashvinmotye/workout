@@ -21,6 +21,16 @@ const SAVED_WORKOUT_PULL_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutPullIds.v1";
 const AUTOMATIC_CLOUD_REFRESH_THROTTLE_MS = 15 * 1000;
 const SUPABASE_URL = "https://xacwgipxqujbqvhzogbd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-_rGsscYv3ipNd7hW23-RQ_bUCB9hTf";
+const ROUTINE_WEEKDAYS = Object.freeze([
+  { value: 1, short: "M", label: "Monday", compact: "Mon" },
+  { value: 2, short: "T", label: "Tuesday", compact: "Tue" },
+  { value: 3, short: "W", label: "Wednesday", compact: "Wed" },
+  { value: 4, short: "T", label: "Thursday", compact: "Thu" },
+  { value: 5, short: "F", label: "Friday", compact: "Fri" },
+  { value: 6, short: "S", label: "Saturday", compact: "Sat" },
+  { value: 0, short: "S", label: "Sunday", compact: "Sun" }
+]);
+const ROUTINE_ROLE_ORDER = Object.freeze({ pre: 0, main: 1, post: 2 });
 
 const PHASE = Object.freeze({
   PREP: "prep",
@@ -83,6 +93,9 @@ const dom = {
   savedWorkoutTemplate: document.querySelector("#savedWorkoutTemplate"),
   savedWorkoutEmptyState: document.querySelector("#savedWorkoutEmptyState"),
   savedWorkoutCount: document.querySelector("#savedWorkoutCount"),
+  suggestedRoutinesSection: document.querySelector("#suggestedRoutinesSection"),
+  suggestedRoutinesDate: document.querySelector("#suggestedRoutinesDate"),
+  suggestedRoutineList: document.querySelector("#suggestedRoutineList"),
   newWorkoutButton: document.querySelector("#newWorkoutButton"),
   emptyStateSetupButton: document.querySelector("#emptyStateSetupButton"),
   toast: document.querySelector("#toast"),
@@ -183,6 +196,13 @@ const dom = {
   savedWorkoutMigrationRow: document.querySelector("#savedWorkoutMigrationRow"),
   savedWorkoutMigrationStatus: document.querySelector("#savedWorkoutMigrationStatus"),
   uploadExistingSavedWorkoutsButton: document.querySelector("#uploadExistingSavedWorkoutsButton"),
+  routineIdentityMigrationRow: document.querySelector("#routineIdentityMigrationRow"),
+  routineIdentityMigrationStatus: document.querySelector("#routineIdentityMigrationStatus"),
+  reviewRoutineLinksButton: document.querySelector("#reviewRoutineLinksButton"),
+  routineIdentityMigrationPanel: document.querySelector("#routineIdentityMigrationPanel"),
+  routineIdentityMigrationList: document.querySelector("#routineIdentityMigrationList"),
+  applyRoutineLinksButton: document.querySelector("#applyRoutineLinksButton"),
+  closeRoutineLinksButton: document.querySelector("#closeRoutineLinksButton"),
   accountMessage: document.querySelector("#accountMessage"),
   confirmDialogTitle: document.querySelector("#confirmDialogTitle"),
   confirmDialogMessage: document.querySelector("#confirmDialogMessage")
@@ -215,6 +235,7 @@ let completeSessionId = null;
 
 function createEmptyRuntime() {
   return {
+    routineId: null,
     phase: null,
     roundIndex: 0,
     exerciseIndex: 0,
@@ -397,6 +418,7 @@ function showAuthenticatedApp(session, options = {}) {
   if (!user) return;
   authSession = session?.user ? session : null;
   cacheAuthUser(user);
+  const linkedLegacySessions = authSession ? autoLinkLegacyRoutineSessions() : 0;
   updateAccountPanel(user, Boolean(options.offline));
   setAccountMessage(options.offline ? "Using the last account saved on this device. Cloud access will resume when you reconnect." : "");
   dom.authPassword.value = "";
@@ -404,6 +426,7 @@ function showAuthenticatedApp(session, options = {}) {
   updateHistorySyncStatus();
   updateSavedWorkoutSyncStatus();
   updateWellnessSyncStatus();
+  if (linkedLegacySessions) renderTrends();
   requestAutomaticCloudRefresh();
 }
 
@@ -670,6 +693,31 @@ function clampInteger(value, min, max, fallback) {
   return Math.min(max, Math.max(min, parsed));
 }
 
+function normalizeDesignatedDays(value) {
+  const source = Array.isArray(value) ? value : [];
+  const selected = new Set(source
+    .map((day) => Number.parseInt(day, 10))
+    .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6));
+  return ROUTINE_WEEKDAYS.map((day) => day.value).filter((day) => selected.has(day));
+}
+
+function normalizeRoutineRole(value) {
+  return Object.prototype.hasOwnProperty.call(ROUTINE_ROLE_ORDER, value) ? value : "main";
+}
+
+function formatRoutineSchedule(days) {
+  const normalized = normalizeDesignatedDays(days);
+  if (!normalized.length) return "No scheduled days";
+  return `Suggested ${normalized
+    .map((value) => ROUTINE_WEEKDAYS.find((day) => day.value === value)?.compact)
+    .filter(Boolean)
+    .join(" · ")}`;
+}
+
+function formatRoutineRole(role) {
+  return { pre: "Pre-workout", main: "Main workout", post: "Post-workout" }[normalizeRoutineRole(role)];
+}
+
 function loadSettings() {
   const saved = safeJsonParse(localStorage.getItem(STORAGE_KEY));
   return normalizeWorkout(saved);
@@ -712,6 +760,9 @@ function normalizeHistoryRecord(record) {
 
   return {
     id: typeof record.id === "string" && record.id ? record.id : sessionUid(),
+    routineId: typeof (record.routineId ?? record.routine_id) === "string" && String(record.routineId ?? record.routine_id).trim()
+      ? String(record.routineId ?? record.routine_id).trim()
+      : null,
     startedAt: Number.isFinite(Number(record.startedAt)) ? Number(record.startedAt) : endedAt - durationSeconds * 1000,
     endedAt,
     status: record.status === "partial" ? "partial" : "completed",
@@ -887,6 +938,7 @@ function sessionToCloudRow(record) {
   return {
     id: normalized.id,
     user_id: authSession.user.id,
+    routine_id: normalized.routineId,
     workout_name: normalized.workoutName,
     started_at: new Date(normalized.startedAt).toISOString(),
     ended_at: new Date(normalized.endedAt).toISOString(),
@@ -908,6 +960,7 @@ function sessionToCloudRow(record) {
 function cloudRowToSession(row) {
   return normalizeHistoryRecord({
     id: row.id,
+    routineId: row.routine_id,
     startedAt: Date.parse(row.started_at),
     endedAt: Date.parse(row.ended_at),
     status: row.status,
@@ -1023,7 +1076,7 @@ async function processHistorySyncQueue() {
 async function pullWorkoutHistoryFromCloud() {
   const { data, error } = await authClient
     .from("workout_sessions")
-    .select("id, workout_name, started_at, ended_at, status, duration_seconds, planned_rounds, completed_rounds, exercises, rpe, zone_1_seconds, zone_2_seconds, zone_3_seconds, zone_4_seconds, zone_5_seconds, notes, updated_at")
+    .select("id, routine_id, workout_name, started_at, ended_at, status, duration_seconds, planned_rounds, completed_rounds, exercises, rpe, zone_1_seconds, zone_2_seconds, zone_3_seconds, zone_4_seconds, zone_5_seconds, notes, updated_at")
     .order("ended_at", { ascending: false });
   if (error) throw error;
 
@@ -1035,15 +1088,20 @@ async function pullWorkoutHistoryFromCloud() {
   cloudRecords.forEach((record) => merged.set(record.id, record));
   saveWorkoutHistory([...merged.values()]);
   saveHistoryCloudIds(currentCloudIds, authSession.user.id);
+  if (autoLinkLegacyRoutineSessions()) historySyncRequested = true;
   return data?.length || 0;
 }
 
 function friendlyHistorySyncError(error) {
   const message = String(error?.message || "").trim();
-  if (!navigator.onLine || message.toLocaleLowerCase().includes("failed to fetch")) {
+  const normalized = message.toLocaleLowerCase();
+  if (!navigator.onLine || normalized.includes("failed to fetch")) {
     return "Waiting for an internet connection";
   }
-  if (message.toLocaleLowerCase().includes("row-level security")) {
+  if (normalized.includes("routine_id") && (normalized.includes("column") || normalized.includes("schema cache"))) {
+    return "Routine comparisons need the included Supabase migration";
+  }
+  if (normalized.includes("row-level security")) {
     return "Sync was blocked by the database security policy";
   }
   return message ? `Sync failed: ${message}` : "Workout history could not be synced";
@@ -1156,6 +1214,7 @@ function recordWorkoutSession(status) {
   const counts = workout.exercises.map((_, index) => clampInteger(runtime.exerciseCompletionCounts[index], 0, 9999, 0));
   const record = {
     id: sessionUid(),
+    routineId: runtime.routineId || null,
     startedAt: runtime.startedAt || endedAt,
     endedAt,
     status: status === "partial" ? "partial" : "completed",
@@ -1198,6 +1257,8 @@ function normalizeSavedWorkoutRecord(record) {
     createdAt,
     updatedAt,
     sortOrder: clampInteger(record.sortOrder, 0, 999999, 0),
+    designatedDays: normalizeDesignatedDays(record.designatedDays ?? record.designated_days),
+    routineRole: normalizeRoutineRole(record.routineRole ?? record.routine_role),
     workout: cloneWorkout(sourceWorkout, false)
   };
 }
@@ -1221,6 +1282,137 @@ function saveSavedWorkouts(records) {
     })
     .filter(Boolean);
   localStorage.setItem(SAVED_WORKOUTS_KEY, JSON.stringify(normalized));
+}
+
+function normalizeRoutineIdentityText(value) {
+  return String(value || "").trim().toLocaleLowerCase().replace(/\s+/g, " ");
+}
+
+function routineExerciseFingerprint(exercises) {
+  if (!Array.isArray(exercises) || !exercises.length) return "";
+  return exercises.map((exercise) => [
+    normalizeRoutineIdentityText(exercise?.name),
+    exercise?.mode === "time" ? "time" : "reps",
+    clampInteger(exercise?.value, 1, 9999, 1),
+    Boolean(exercise?.perSide) ? "side" : "total"
+  ].join(":"))
+    .join("|");
+}
+
+function addRoutineIdentityCandidate(index, key, routine) {
+  if (!key) return;
+  if (!index.has(key)) index.set(key, new Map());
+  index.get(key).set(routine.id, routine);
+}
+
+function autoLinkLegacyRoutineSessions() {
+  const routines = loadSavedWorkouts();
+  const history = loadWorkoutHistory();
+  if (!routines.length || !history.some((record) => !record.routineId)) return 0;
+
+  const byName = new Map();
+  const byFingerprint = new Map();
+  routines.forEach((routine) => {
+    addRoutineIdentityCandidate(byName, normalizeRoutineIdentityText(routine.workout.name), routine);
+    addRoutineIdentityCandidate(byFingerprint, routineExerciseFingerprint(routine.workout.exercises), routine);
+  });
+
+  const changed = [];
+  const nextHistory = history.map((record) => {
+    if (record.routineId) return record;
+    const candidates = new Map();
+    const nameMatches = byName.get(normalizeRoutineIdentityText(record.workoutName));
+    const fingerprintMatches = byFingerprint.get(routineExerciseFingerprint(record.exercises));
+    if (nameMatches?.size === 1) nameMatches.forEach((routine, id) => candidates.set(id, routine));
+    if (fingerprintMatches?.size === 1) fingerprintMatches.forEach((routine, id) => candidates.set(id, routine));
+    if (candidates.size !== 1) return record;
+    const [routineId] = candidates.keys();
+    const linked = normalizeHistoryRecord({ ...record, routineId });
+    changed.push(linked);
+    return linked;
+  });
+
+  if (!changed.length) return 0;
+  saveWorkoutHistory(nextHistory);
+  queueHistoryUpserts(changed);
+  return changed.length;
+}
+
+function getUnlinkedRoutineHistoryGroups() {
+  const groups = new Map();
+  loadWorkoutHistory().forEach((record) => {
+    if (record.routineId) return;
+    const key = normalizeRoutineIdentityText(record.workoutName);
+    if (!key) return;
+    if (!groups.has(key)) groups.set(key, { key, name: record.workoutName, records: [] });
+    groups.get(key).records.push(record);
+  });
+  return [...groups.values()].sort((a, b) => b.records.length - a.records.length || a.name.localeCompare(b.name));
+}
+
+function updateRoutineIdentityMigrationUI() {
+  if (!dom.routineIdentityMigrationRow) return;
+  const groups = getUnlinkedRoutineHistoryGroups();
+  const sessionCount = groups.reduce((sum, group) => sum + group.records.length, 0);
+  const canReview = groups.length > 0 && loadSavedWorkouts().length > 0;
+  dom.routineIdentityMigrationRow.hidden = !canReview;
+  if (!canReview) {
+    dom.routineIdentityMigrationPanel.hidden = true;
+    return;
+  }
+  dom.routineIdentityMigrationStatus.textContent = `${sessionCount} older ${sessionCount === 1 ? "session needs" : "sessions need"} a routine link`;
+  dom.reviewRoutineLinksButton.textContent = `Review ${groups.length} ${groups.length === 1 ? "name" : "names"}`;
+}
+
+function renderRoutineIdentityMigrationPanel() {
+  const groups = getUnlinkedRoutineHistoryGroups();
+  const routines = loadSavedWorkouts();
+  dom.routineIdentityMigrationList.replaceChildren();
+  groups.forEach((group) => {
+    const label = document.createElement("label");
+    label.className = "routine-identity-row";
+    const description = document.createElement("span");
+    const title = document.createElement("strong");
+    const count = document.createElement("small");
+    title.textContent = group.name;
+    count.textContent = `${group.records.length} ${group.records.length === 1 ? "session" : "sessions"}`;
+    description.append(title, count);
+    const select = document.createElement("select");
+    select.dataset.historyName = group.key;
+    select.setAttribute("aria-label", `Current routine for ${group.name}`);
+    select.append(new Option("Leave unchanged", ""));
+    routines.forEach((routine) => select.append(new Option(routine.workout.name, routine.id)));
+    label.append(description, select);
+    dom.routineIdentityMigrationList.append(label);
+  });
+  dom.routineIdentityMigrationPanel.hidden = false;
+}
+
+function applyManualRoutineLinks() {
+  const selections = new Map([...dom.routineIdentityMigrationList.querySelectorAll("select[data-history-name]")]
+    .filter((select) => select.value)
+    .map((select) => [select.dataset.historyName, select.value]));
+  if (!selections.size) {
+    showToast("Choose at least one routine link.");
+    return;
+  }
+
+  const changed = [];
+  const nextHistory = loadWorkoutHistory().map((record) => {
+    const routineId = !record.routineId ? selections.get(normalizeRoutineIdentityText(record.workoutName)) : null;
+    if (!routineId) return record;
+    const linked = normalizeHistoryRecord({ ...record, routineId });
+    changed.push(linked);
+    return linked;
+  });
+  if (!changed.length) return;
+  saveWorkoutHistory(nextHistory);
+  queueHistoryUpserts(changed);
+  dom.routineIdentityMigrationPanel.hidden = true;
+  updateRoutineIdentityMigrationUI();
+  renderTrends();
+  syncWorkoutHistory().catch(() => {});
+  showToast(`${changed.length} older ${changed.length === 1 ? "session" : "sessions"} linked. Names and workout details were preserved.`);
 }
 
 function getAccountSyncUserId() {
@@ -1353,6 +1545,8 @@ function savedWorkoutToCloudRow(record, sortOrder = record.sortOrder) {
     name: normalized.workout.name,
     workout: normalized.workout,
     sort_order: clampInteger(sortOrder, 0, 999999, 0),
+    designated_days: normalized.designatedDays,
+    routine_role: normalized.routineRole,
     client_created_at: new Date(normalized.createdAt).toISOString(),
     client_updated_at: new Date(normalized.updatedAt).toISOString()
   };
@@ -1364,6 +1558,8 @@ function cloudRowToSavedWorkout(row) {
     createdAt: Date.parse(row.client_created_at),
     updatedAt: Date.parse(row.client_updated_at),
     sortOrder: row.sort_order,
+    designatedDays: row.designated_days,
+    routineRole: row.routine_role,
     workout: row.workout
   });
 }
@@ -1462,7 +1658,7 @@ async function processSavedWorkoutSyncQueue() {
 async function pullSavedWorkoutsFromCloud(recentChanges = {}) {
   const { data, error } = await authClient
     .from("saved_workouts")
-    .select("id, name, workout, sort_order, client_created_at, client_updated_at, updated_at")
+    .select("id, name, workout, sort_order, designated_days, routine_role, client_created_at, client_updated_at, updated_at")
     .order("sort_order", { ascending: true })
     .order("client_updated_at", { ascending: true });
   if (error) throw error;
@@ -1511,6 +1707,7 @@ async function pullSavedWorkoutsFromCloud(recentChanges = {}) {
     localStorage.removeItem(ACTIVE_SAVED_WORKOUT_KEY);
     updateSavedWorkoutStatus();
   }
+  if (autoLinkLegacyRoutineSessions()) syncWorkoutHistory().catch(() => {});
   return data?.length || 0;
 }
 
@@ -1522,6 +1719,10 @@ function friendlySavedWorkoutSyncError(error) {
   }
   if (normalized.includes("saved_workouts") && (normalized.includes("not find") || normalized.includes("does not exist") || normalized.includes("relation"))) {
     return "Saved-routine sync needs its Supabase table";
+  }
+  if ((normalized.includes("designated_days") || normalized.includes("routine_role"))
+    && (normalized.includes("column") || normalized.includes("schema cache"))) {
+    return "Routine scheduling needs the included Supabase migration";
   }
   if (normalized.includes("row-level security")) return "Routine sync was blocked by the database security policy";
   return message ? `Routine sync failed: ${message}` : "Saved routines could not be synced";
@@ -1775,6 +1976,7 @@ function applyImportedBackup(data) {
   workout = null;
   runtime = createEmptyRuntime();
   activeSavedWorkoutId = data.activeSavedWorkoutId;
+  if (authSession) autoLinkLegacyRoutineSessions();
   applyTheme(data.theme, false);
   populateForm(data.settings);
   renderSavedWorkouts();
@@ -1841,6 +2043,7 @@ function renderSettingsSummary() {
   dom.settingsActiveSession.textContent = activeSession ? "Available" : "None";
   updateHistoryMigrationUI();
   updateSavedWorkoutMigrationUI();
+  updateRoutineIdentityMigrationUI();
   renderWellnessSettingsSummary();
 }
 
@@ -1935,12 +2138,107 @@ function updateSavedWorkoutStatus() {
   }
 }
 
+function renderSuggestedRoutines(records) {
+  const today = new Date().getDay();
+  const suggested = records
+    .filter((record) => record.designatedDays.includes(today))
+    .sort((a, b) => ROUTINE_ROLE_ORDER[a.routineRole] - ROUTINE_ROLE_ORDER[b.routineRole]
+      || a.sortOrder - b.sortOrder);
+  dom.suggestedRoutinesSection.hidden = suggested.length === 0;
+  dom.suggestedRoutineList.replaceChildren();
+  if (!suggested.length) return;
+
+  dom.suggestedRoutinesDate.textContent = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "short",
+    day: "numeric"
+  }).format(new Date());
+
+  suggested.forEach((record) => {
+    const card = document.createElement("article");
+    card.className = "suggested-routine-card";
+    const copy = document.createElement("div");
+    const name = document.createElement("strong");
+    const summary = document.createElement("span");
+    name.textContent = record.workout.name;
+    summary.textContent = `${formatRoutineRole(record.routineRole)} · ${record.workout.exercises.length} ${record.workout.exercises.length === 1 ? "exercise" : "exercises"} · ${record.workout.rounds} ${record.workout.rounds === 1 ? "round" : "rounds"}`;
+    copy.append(name, summary);
+    const loadButton = document.createElement("button");
+    loadButton.className = "button button-primary button-small";
+    loadButton.type = "button";
+    loadButton.textContent = "Load";
+    loadButton.addEventListener("click", () => loadSavedWorkout(record.id));
+    card.append(copy, loadButton);
+    dom.suggestedRoutineList.append(card);
+  });
+}
+
+function saveRoutineSchedule(id, designatedDays, routineRole) {
+  const records = loadSavedWorkouts();
+  const index = records.findIndex((record) => record.id === id);
+  if (index < 0) return;
+  records[index] = {
+    ...records[index],
+    designatedDays: normalizeDesignatedDays(designatedDays),
+    routineRole: normalizeRoutineRole(routineRole),
+    updatedAt: Date.now()
+  };
+  saveSavedWorkouts(records);
+  const saved = findSavedWorkout(id);
+  queueSavedWorkoutUpserts([saved]);
+  syncSavedWorkouts().catch(() => {});
+  renderSavedWorkouts();
+  showToast(saved.designatedDays.length ? "Routine schedule saved." : "Routine schedule cleared.");
+}
+
+function configureRoutineScheduleEditor(card, record) {
+  const editor = card.querySelector(".saved-workout-schedule-editor");
+  const scheduleButton = card.querySelector(".schedule-saved-workout");
+  const dayButtons = [...editor.querySelectorAll(".weekday-button")];
+  const roleSelect = editor.querySelector(".routine-role-select");
+  scheduleButton.setAttribute("aria-expanded", "false");
+  const resetSelection = () => dayButtons.forEach((button) => {
+    const isSelected = record.designatedDays.includes(Number(button.dataset.day));
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
+  const resetEditor = () => {
+    resetSelection();
+    roleSelect.value = record.routineRole;
+  };
+  resetEditor();
+
+  scheduleButton.addEventListener("click", () => {
+    const opening = editor.hidden;
+    editor.hidden = !opening;
+    scheduleButton.setAttribute("aria-expanded", String(opening));
+    if (opening) dayButtons[0]?.focus();
+  });
+  dayButtons.forEach((button) => button.addEventListener("click", () => {
+    const selected = button.getAttribute("aria-pressed") !== "true";
+    button.setAttribute("aria-pressed", String(selected));
+    button.classList.toggle("is-selected", selected);
+  }));
+  editor.querySelector(".save-routine-schedule").addEventListener("click", () => {
+    saveRoutineSchedule(record.id, dayButtons
+      .filter((button) => button.getAttribute("aria-pressed") === "true")
+      .map((button) => Number(button.dataset.day)), roleSelect.value);
+  });
+  editor.querySelector(".cancel-routine-schedule").addEventListener("click", () => {
+    resetEditor();
+    editor.hidden = true;
+    scheduleButton.setAttribute("aria-expanded", "false");
+    scheduleButton.focus();
+  });
+}
+
 function renderSavedWorkouts() {
   const records = loadSavedWorkouts();
   dom.savedWorkoutList.replaceChildren();
   dom.savedWorkoutEmptyState.hidden = records.length > 0;
   dom.savedWorkoutCount.textContent = `${records.length} ${records.length === 1 ? "workout" : "workouts"}`;
   dom.savedWorkoutNavCount.textContent = String(records.length);
+  renderSuggestedRoutines(records);
 
   const fragment = document.createDocumentFragment();
   records.forEach((record, index) => {
@@ -1954,6 +2252,10 @@ function renderSavedWorkouts() {
     card.classList.toggle("is-active", record.id === activeSavedWorkoutId);
     card.querySelector(".saved-workout-name").textContent = record.workout.name;
     card.querySelector(".saved-workout-summary").textContent = `${record.workout.exercises.length} ${record.workout.exercises.length === 1 ? "exercise" : "exercises"} • ${record.workout.rounds} ${record.workout.rounds === 1 ? "round" : "rounds"}`;
+    card.querySelector(".saved-workout-schedule-summary").textContent = record.designatedDays.length
+      ? `${formatRoutineSchedule(record.designatedDays)} · ${formatRoutineRole(record.routineRole)}`
+      : formatRoutineSchedule(record.designatedDays);
+    card.querySelector(".saved-workout-schedule-summary").classList.toggle("is-empty", record.designatedDays.length === 0);
     card.querySelector(".saved-workout-preview").textContent = preview
       ? `${preview}${remaining ? ` • +${remaining} more` : ""}`
       : "No named exercises";
@@ -1968,6 +2270,7 @@ function renderSavedWorkouts() {
     moveDownButton.addEventListener("click", () => moveSavedWorkout(record.id, 1));
 
     card.querySelector(".load-saved-workout").addEventListener("click", () => loadSavedWorkout(record.id));
+    configureRoutineScheduleEditor(card, record);
     card.querySelector(".rename-saved-workout").addEventListener("click", () => renameSavedWorkout(record.id));
     card.querySelector(".duplicate-saved-workout").addEventListener("click", () => duplicateSavedWorkout(record.id));
     card.querySelector(".delete-saved-workout").addEventListener("click", () => deleteSavedWorkout(record.id));
@@ -2052,6 +2355,7 @@ function saveCurrentWorkout(asNew = false) {
       workout: cloneWorkout(candidate, false)
     };
     saveSavedWorkouts(records);
+    if (autoLinkLegacyRoutineSessions()) syncWorkoutHistory().catch(() => {});
     queueSavedWorkoutUpserts([loadSavedWorkouts()[targetIndex]]);
     syncSavedWorkouts().catch(() => {});
     setActiveSavedWorkoutId(targetId);
@@ -2068,6 +2372,7 @@ function saveCurrentWorkout(asNew = false) {
   };
   records.push(record);
   saveSavedWorkouts(records);
+  if (autoLinkLegacyRoutineSessions()) syncWorkoutHistory().catch(() => {});
   queueSavedWorkoutUpserts([findSavedWorkout(record.id)]);
   syncSavedWorkouts().catch(() => {});
   dom.workoutName.value = record.workout.name;
@@ -2174,6 +2479,7 @@ function renameSavedWorkout(id) {
     }
   };
   saveSavedWorkouts(records);
+  if (autoLinkLegacyRoutineSessions()) syncWorkoutHistory().catch(() => {});
   queueSavedWorkoutUpserts([findSavedWorkout(id)]);
   syncSavedWorkouts().catch(() => {});
 
@@ -2445,6 +2751,7 @@ function showScreen(name) {
 
   const showNavigation = name === "setup" || name === "saved" || name === "recovery" || name === "trends" || name === "settings";
   dom.mainNavigation.hidden = !showNavigation;
+  dom.settingsNavButton.hidden = !showNavigation;
   dom.setupNavButton.classList.toggle("is-active", name === "setup");
   dom.savedWorkoutsNavButton.classList.toggle("is-active", name === "saved");
   dom.recoveryNavButton.classList.toggle("is-active", name === "recovery");
@@ -2454,7 +2761,7 @@ function showScreen(name) {
   dom.savedWorkoutsNavButton.toggleAttribute("aria-current", name === "saved");
   dom.recoveryNavButton.toggleAttribute("aria-current", name === "recovery");
   dom.trendsNavButton.toggleAttribute("aria-current", name === "trends");
-  dom.settingsNavButton.toggleAttribute("aria-current", name === "settings");
+  dom.settingsNavButton.setAttribute("aria-pressed", String(name === "settings"));
 
   if (name === "saved") renderSavedWorkouts();
   if (name === "recovery") renderRecoveryScreen();
@@ -2471,6 +2778,9 @@ function showScreen(name) {
 async function startWorkout(candidate = null) {
   workout = normalizeWorkout(candidate || collectWorkoutFromForm());
   runtime = createEmptyRuntime();
+  runtime.routineId = activeSavedWorkoutId && findSavedWorkout(activeSavedWorkoutId)
+    ? activeSavedWorkoutId
+    : null;
   runtime.voiceEnabled = workout.voiceEnabled;
   runtime.startedAt = Date.now();
   runtime.exerciseCompletionCounts = workout.exercises.map(() => 0);
@@ -2957,6 +3267,7 @@ function persistSession() {
     savedAt: Date.now(),
     workout,
     runtime: {
+      routineId: runtime.routineId,
       phase: runtime.phase,
       roundIndex: runtime.roundIndex,
       exerciseIndex: runtime.exerciseIndex,
@@ -2998,6 +3309,9 @@ async function resumeSavedSession() {
   runtime = createEmptyRuntime();
   const elapsedDurationMs = Math.max(0, Number(saved.runtime?.elapsedDurationMs) || 0);
   Object.assign(runtime, saved.runtime, {
+    routineId: typeof saved.runtime?.routineId === "string" && saved.runtime.routineId
+      ? saved.runtime.routineId
+      : null,
     timerId: null,
     paused: true,
     announcedCountdown: new Set(),
@@ -3639,11 +3953,14 @@ function routineComparisonKey(record) {
 }
 
 function findPreviousRoutineSession(record, records) {
-  const key = routineComparisonKey(record);
+  const routineId = record.routineId || null;
+  const key = routineId ? "" : routineComparisonKey(record);
   return records.find((candidate) =>
     candidate.id !== record.id
     && candidate.endedAt < record.endedAt
-    && routineComparisonKey(candidate) === key
+    && (routineId
+      ? candidate.routineId === routineId
+      : !candidate.routineId && routineComparisonKey(candidate) === key)
   ) || null;
 }
 
@@ -4216,6 +4533,11 @@ function bindEvents() {
   dom.uploadExistingHistoryButton.addEventListener("click", uploadExistingWorkoutHistory);
   dom.syncSavedWorkoutsButton.addEventListener("click", () => syncSavedWorkouts({ manual: true }));
   dom.uploadExistingSavedWorkoutsButton.addEventListener("click", uploadExistingSavedWorkouts);
+  dom.reviewRoutineLinksButton.addEventListener("click", renderRoutineIdentityMigrationPanel);
+  dom.closeRoutineLinksButton.addEventListener("click", () => {
+    dom.routineIdentityMigrationPanel.hidden = true;
+  });
+  dom.applyRoutineLinksButton.addEventListener("click", applyManualRoutineLinks);
   dom.exerciseTrendSelect.addEventListener("change", () => renderExerciseTrend(loadWorkoutHistory()));
   dom.trendRangeButtons.addEventListener("click", (event) => {
     const button = event.target.closest(".range-button");
