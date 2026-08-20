@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "voice-workout-v22";
+const CACHE_NAME = "voice-workout-v23";
 const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3";
 const APP_SHELL = [
   "./",
@@ -9,8 +9,15 @@ const APP_SHELL = [
   "./wellness.js",
   "./app.js",
   "./manifest.webmanifest",
+  "./icons/favicon.ico",
+  "./icons/favicon-16.png",
+  "./icons/favicon-32.png",
+  "./icons/favicon-48.png",
+  "./icons/apple-touch-icon.png",
   "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icons/icon-512.png",
+  "./icons/icon-maskable-192.png",
+  "./icons/icon-maskable-512.png"
 ];
 
 self.addEventListener("install", (event) => {

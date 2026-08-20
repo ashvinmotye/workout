@@ -51,6 +51,11 @@ The interface uses **AuraOS**, the shared design language established by Level90
 
 ## Icon credits
 
+The app icon set is generated from the selected Aura Core artwork in
+`icons/workout-icon-master.png`. It includes 16, 32, and 48 px favicons, a
+multi-size `.ico`, a 180 px Apple touch icon, and standard plus maskable PWA
+icons at 192 and 512 px.
+
 - Setup: [Iconsax](https://github.com/lusaxweb/iconsax), MIT License
 - Routines: [Muhammad Tajudin](https://dribbble.com/tcodesign), CC Attribution
 - Recovery: [Gabriele Malaspina](https://www.figma.com/@gabriele), public domain
