@@ -45,20 +45,33 @@
 
     <nav id="mainNavigation" class="app-navigation" aria-label="Workout app sections" hidden>
       <button id="setupNavButton" class="nav-button is-active" type="button" aria-current="page">
-        <span class="nav-icon" aria-hidden="true">⚡</span>
+        <!-- Iconsax, MIT: https://github.com/lusaxweb/iconsax -->
+        <svg class="nav-icon nav-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+          <path d="M3 9.11011V14.8801C3 17.0001 3 17.0001 5 18.3501L10.5 21.5301C11.33 22.0101 12.68 22.0101 13.5 21.5301L19 18.3501C21 17.0001 21 17.0001 21 14.8901V9.11011C21 7.00011 21 7.00011 19 5.65011L13.5 2.47011C12.68 1.99011 11.33 1.99011 10.5 2.47011L5 5.65011C3 7.00011 3 7.00011 3 9.11011Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
         <small>Setup</small>
       </button>
       <button id="savedWorkoutsNavButton" class="nav-button" type="button">
-        <span class="nav-icon" aria-hidden="true">📋</span>
+        <!-- Muhammad Tajudin, CC Attribution: https://dribbble.com/tcodesign -->
+        <svg class="nav-icon nav-svg nav-svg-routines" viewBox="0 0 32 32" fill="none" aria-hidden="true" focusable="false">
+          <path d="M29.123 10.2749L28.4938 9.6457L28.7274 9.4121C29.8924 8.2475 29.8924 6.3516 28.7274 5.186L26.4081 2.8676C25.2792 1.7392 23.3114 1.7372 22.1825 2.8676L21.9491 3.101L21.8007 2.9526C20.6679 1.8203 18.6923 1.8193 17.5585 2.9526L16.4726 4.039C15.9062 4.6054 15.5937 5.3588 15.5937 6.1601C15.5937 6.9614 15.9062 7.7148 16.4726 8.2812L18.2228 10.0314L10.0314 18.2228L8.205 16.3964C7.0351 15.2265 5.1327 15.2265 3.9628 16.3964L2.8769 17.4823C1.707 18.6522 1.707 20.5551 2.8769 21.725L3.5061 22.3542L3.2725 22.5878C2.1075 23.7524 2.1075 25.6483 3.2725 26.8139L5.5918 29.1323C6.1563 29.6968 6.9063 30.0078 7.7051 30.0078C8.503 30.0078 9.253 29.6968 9.8174 29.1323L10.0508 28.8989L10.1992 29.0473C10.7656 29.6137 11.5185 29.9257 12.3203 29.9257C13.1211 29.9257 13.875 29.6137 14.4414 29.0473L15.5273 27.9609C16.0937 27.3945 16.4062 26.6411 16.4062 25.8398C16.4062 25.0385 16.0937 24.2851 15.5273 23.7187L13.7771 21.9685L21.9685 13.7771L23.7949 15.6035C24.3799 16.1885 25.1474 16.4809 25.916 16.4809C26.6846 16.4809 27.4521 16.1884 28.0371 15.6035L29.123 14.5176C30.2929 13.3477 30.2929 11.4448 29.123 10.2749ZM23.5966 4.2817C23.9696 3.9067 24.621 3.9077 24.9941 4.2817L27.3134 6.6001C27.6982 6.9854 27.6982 7.6128 27.3134 7.998L27.0798 8.2316L23.3632 4.515L23.5966 4.2817ZM8.4033 27.7183C8.0293 28.0928 7.3779 28.0909 7.0058 27.7183L4.6865 25.3999C4.3017 25.0146 4.3017 24.3872 4.6865 24.002L4.9201 23.7684L8.6367 27.485L8.4033 27.7183ZM14.4062 25.8399C14.4062 26.107 14.3027 26.358 14.1132 26.5464V26.5469L13.0273 27.6328C12.6503 28.0122 11.9902 28.0107 11.6132 27.6333L4.2909 20.311C3.9013 19.9209 3.9013 19.2866 4.2909 18.8964L5.3768 17.8105C5.5721 17.6157 5.828 17.518 6.0838 17.518C6.3396 17.518 6.5955 17.6157 6.7908 17.8105L14.1131 25.1333C14.3026 25.3218 14.4062 25.5728 14.4062 25.8399ZM12.363 20.5545L11.4455 19.637L19.6369 11.4456L20.5544 12.3631L12.363 20.5545ZM27.7089 13.1036L26.623 14.1895C26.2324 14.5791 25.5996 14.5791 25.2089 14.1895L17.8866 6.8667C17.6971 6.6782 17.5936 6.4272 17.5936 6.1601C17.5936 5.893 17.6971 5.642 17.8866 5.4536V5.4531L18.9725 4.3672C19.161 4.1782 19.4129 4.0742 19.6795 4.0742C19.9471 4.0742 20.1981 4.1777 20.3865 4.3667L27.7088 11.689C28.0985 12.0791 28.0985 12.7134 27.7089 13.1036Z" fill="currentColor" />
+        </svg>
         <small>Routines</small>
         <span id="savedWorkoutNavCount" class="nav-count">0</span>
       </button>
       <button id="recoveryNavButton" class="nav-button" type="button">
-        <span class="nav-icon" aria-hidden="true">◉</span>
+        <!-- Gabriele Malaspina, public domain: https://www.figma.com/@gabriele -->
+        <svg class="nav-icon nav-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+          <path d="M4 11.9998H8L9.5 8.99976L11.5 13.9998L13 11.9998H15M12 6.42958C12.4844 5.46436 13.4683 4.72543 14.2187 4.35927C16.1094 3.43671 17.9832 3.91202 19.5355 5.46436C21.4881 7.41698 21.4881 10.5828 19.5355 12.5354L12.7071 19.3639C12.3166 19.7544 11.6834 19.7544 11.2929 19.3639L4.46447 12.5354C2.51184 10.5828 2.51184 7.41698 4.46447 5.46436C6.0168 3.91202 7.89056 3.43671 9.78125 4.35927C10.5317 4.72543 11.5156 5.46436 12 6.42958Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
         <small>Recovery</small>
       </button>
       <button id="trendsNavButton" class="nav-button" type="button">
-        <span class="nav-icon" aria-hidden="true">📈</span>
+        <!-- Unicons, Apache 2.0: https://github.com/Iconscout/unicons -->
+        <svg class="nav-icon nav-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+          <path d="M10 2C9.4 2 9 2.4 9 3V21C9 21.6 9.4 22 10 22C10.6 22 11 21.6 11 21V3C11 2.4 10.6 2 10 2ZM5 12C4.4 12 4 12.4 4 13V21C4 21.6 4.4 22 5 22C5.6 22 6 21.6 6 21V13C6 12.4 5.6 12 5 12ZM15 8C14.4 8 14 8.4 14 9V21C14 21.6 14.4 22 15 22C15.6 22 16 21.6 16 21V9C16 8.4 15.6 8 15 8ZM20 16C19.4 16 19 16.4 19 17V21C19 21.6 19.4 22 20 22C20.6 22 21 21.6 21 21V17C21 16.4 20.6 16 20 16Z" fill="currentColor" />
+        </svg>
         <small>Trends</small>
       </button>
     </nav>

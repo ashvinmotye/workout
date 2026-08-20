@@ -49,6 +49,13 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Installable PWA with offline app-shell caching
 - Responsive mobile layout
 
+## Navigation icon credits
+
+- Setup: [Iconsax](https://github.com/lusaxweb/iconsax), MIT License
+- Routines: [Muhammad Tajudin](https://dribbble.com/tcodesign), CC Attribution
+- Recovery: [Gabriele Malaspina](https://www.figma.com/@gabriele), public domain
+- Trends: [Unicons](https://github.com/Iconscout/unicons), Apache License 2.0
+
 ## Run locally
 
 Service workers require an HTTP server. From this folder, run one of the following:

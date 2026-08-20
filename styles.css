@@ -3031,7 +3031,18 @@ body::after {
   display: block;
   font-size: 1.08rem;
   line-height: 1.15;
-  transition: transform 250ms ease;
+  transition: transform 250ms ease, color 180ms ease;
+}
+
+.nav-button .nav-svg {
+  width: 22px;
+  height: 22px;
+  overflow: visible;
+}
+
+.nav-button .nav-svg-routines {
+  width: 21px;
+  height: 21px;
 }
 
 .nav-button small {
@@ -3051,7 +3062,14 @@ body::after {
 }
 
 .nav-button.is-active .nav-icon {
+  color: var(--aura-accent);
   transform: translateY(-2px) scale(1.08);
+}
+
+@media (hover: hover) {
+  .nav-button:not(.is-active):hover .nav-svg {
+    color: var(--aura-highlight);
+  }
 }
 
 .nav-count {
