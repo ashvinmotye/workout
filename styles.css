@@ -4451,3 +4451,317 @@ textarea:focus {
     animation: none !important;
   }
 }
+
+/* Workout refinement: stable timer, readable analytics and iPhone containment */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.screen-hero-svg {
+  display: block;
+  width: 32px;
+  height: 32px;
+  overflow: visible;
+  color: currentColor;
+}
+
+.screen-hero-svg-routines {
+  width: 30px;
+  height: 30px;
+}
+
+.saved-workouts-hero-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.timer-stage {
+  --timer-orb-size: min(67vw, 300px);
+  width: 100%;
+  height: calc(var(--timer-orb-size) + 60px);
+  min-height: calc(var(--timer-orb-size) + 60px);
+}
+
+.timer-ring {
+  flex: 0 0 var(--timer-orb-size);
+  width: var(--timer-orb-size);
+  min-width: var(--timer-orb-size);
+  max-width: var(--timer-orb-size);
+  height: var(--timer-orb-size);
+  min-height: var(--timer-orb-size);
+  max-height: var(--timer-orb-size);
+  aspect-ratio: auto;
+  contain: layout;
+}
+
+.timer-halos {
+  width: calc(var(--timer-orb-size) + 40px);
+  min-width: calc(var(--timer-orb-size) + 40px);
+  max-width: calc(var(--timer-orb-size) + 40px);
+  height: calc(var(--timer-orb-size) + 40px);
+  min-height: calc(var(--timer-orb-size) + 40px);
+  max-height: calc(var(--timer-orb-size) + 40px);
+  aspect-ratio: auto;
+}
+
+.timer-inner {
+  grid-template-rows: 1.2rem minmax(0, 1fr) 1.35rem;
+  align-items: center;
+  width: calc(var(--timer-orb-size) - 36px);
+  min-width: calc(var(--timer-orb-size) - 36px);
+  max-width: calc(var(--timer-orb-size) - 36px);
+  height: 64%;
+  min-height: 0;
+}
+
+.timer-value {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 1em;
+  min-height: 1em;
+  max-height: 1em;
+  place-items: center;
+  padding: 0;
+  font-size: clamp(4.5rem, 20vw, 7rem);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  white-space: nowrap;
+}
+
+.timer-value[data-length="5"] {
+  font-size: clamp(3.7rem, 17vw, 5.5rem);
+}
+
+.timer-unit,
+.phase-label {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.toast {
+  display: block;
+  width: max-content;
+  min-height: 0;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  line-height: 1.22;
+  text-align: center;
+}
+
+.trends-screen,
+#trendsContent,
+.trends-screen .panel,
+.history-panel,
+.history-list,
+.history-card,
+.session-analysis,
+.session-analysis-metrics,
+.session-zone-analysis,
+.session-comparison,
+.comparison-grid,
+.zone-legend,
+.overall-analytics-panel,
+.overall-analytics-columns,
+.analytics-card,
+.activity-chart,
+.load-chart {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.history-card {
+  width: 100%;
+  overflow: hidden;
+}
+
+.history-card-top,
+.history-title-row,
+.session-analysis-heading,
+.overall-zone-row-heading {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.history-title-row h4,
+.session-analysis-heading > *,
+.overall-zone-row-heading > * {
+  min-width: 0;
+}
+
+.activity-chart,
+.load-chart {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.analytics-reading {
+  margin-bottom: 14px;
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.24);
+  border-radius: 18px;
+  padding: 15px;
+  background: rgb(var(--aura-accent-rgb) / 0.065);
+}
+
+.analytics-reading .analytics-card-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analytics-reading .analytics-card-heading span {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.analytics-reading-list {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analytics-reading-list li {
+  display: grid;
+  gap: 2px;
+  border-left: 2px solid rgb(var(--aura-highlight-rgb) / 0.62);
+  padding-left: 10px;
+}
+
+.analytics-reading-list strong {
+  font-size: 0.78rem;
+}
+
+.analytics-reading-list span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.analytics-guide {
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0 14px;
+  background: var(--surface-muted);
+}
+
+.analytics-guide summary {
+  min-height: 46px;
+  color: var(--primary-dark);
+  font-size: 0.8rem;
+  font-weight: 850;
+  line-height: 46px;
+  cursor: pointer;
+}
+
+.analytics-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 0 14px;
+}
+
+.analytics-guide-grid div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 11px;
+  background: var(--surface-exercise);
+}
+
+.analytics-guide-grid strong {
+  font-size: 0.76rem;
+}
+
+.analytics-guide-grid span,
+.comparison-key,
+.zone-input-help {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.comparison-key {
+  margin: -5px 0 12px;
+}
+
+.comparison-key strong {
+  color: var(--text);
+}
+
+.zone-input-help {
+  display: block;
+  margin-top: 8px;
+}
+
+@media (max-width: 620px) {
+  .timer-stage {
+    --timer-orb-size: min(70vw, 276px);
+  }
+
+  .history-card {
+    padding: 14px;
+  }
+
+  .session-zone-analysis,
+  .session-comparison,
+  .session-note {
+    padding: 12px;
+  }
+
+  .session-analysis-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .session-analysis-heading span {
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+
+  .analytics-guide-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-workouts-hero-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 420px) {
+  .saved-workouts-hero-actions {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .analytics-reading .analytics-card-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .zone-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

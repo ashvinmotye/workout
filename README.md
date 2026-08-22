@@ -34,6 +34,7 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - One-time migration control for uploading existing local routines
 - Silent history and routine refresh when the app opens, returns to the foreground, regains focus or reconnects
 - Optional post-workout review for RPE, heart-rate zone minutes and session notes
+- Heart-rate zone entry in `minutes.seconds` format (`7.1` = 7m 01s, `4.32` = 4m 32s)
 - Daily Recovery Readiness check-ins using sleep, energy, soreness, stress and motivation
 - Live 0–100 readiness score with practical training guidance and editable check-in history
 - Body-weight logging in kilograms with latest change, 7-day average and a 30-entry trend chart
@@ -43,11 +44,14 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Same-routine comparison by stable routine identity, even after the routine is renamed
 - Weekly and monthly session-load and average-RPE summaries
 - Range-based overall load progression and aggregate heart-rate zone analysis
+- Plain-language range interpretation and metric guidance for load, RPE, zones and comparisons
 - Review coverage, four-week frequency, 30-day active days and completion rate
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
 - Installable PWA with offline app-shell caching
 - Responsive mobile layout
+- Fixed-size countdown orb and tabular timer digits that do not shift as values change
+- Matching custom SVGs in navigation and individual screen heroes
 
 ## Icon credits
 
@@ -108,10 +112,12 @@ Trends includes:
 - Detailed workout history with completed and ended-early status
 - Per-session RPE, session load, heart-rate zone distribution and notes
 - Previous-session comparison for duration, completed work, round completion, RPE, load and high-intensity share
+- Context-aware comparison explanations that distinguish added work from changes in internal effort
 - An editable Session review on the completion screen and every history card
 - Weekly and monthly load plus average RPE
 - Overall load charts and aggregate zone distributions for 7D, 30D, 90D and all history
 - Review coverage and expanded consistency metrics
+- Long-duration formatting in hours and minutes throughout Trends
 - Individual history deletion and a clear-all option
 
 Workout history is stored locally first and synchronized to the signed-in Supabase account. Review edits use the same offline-first queue as new and deleted sessions.

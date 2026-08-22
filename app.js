@@ -160,6 +160,8 @@ const dom = {
   overallAverageRpe: document.querySelector("#overallAverageRpe"),
   overallReviewCoverage: document.querySelector("#overallReviewCoverage"),
   overallReviewCoveragePercent: document.querySelector("#overallReviewCoveragePercent"),
+  analyticsReadingRange: document.querySelector("#analyticsReadingRange"),
+  overallInterpretation: document.querySelector("#overallInterpretation"),
   loadChartSummary: document.querySelector("#loadChartSummary"),
   loadChart: document.querySelector("#loadChart"),
   overallZoneSummary: document.querySelector("#overallZoneSummary"),
@@ -3019,6 +3021,12 @@ function updatePauseButton() {
   dom.pauseText.textContent = runtime.paused ? "Resume" : "Pause";
 }
 
+function setTimerValue(value) {
+  const text = String(value);
+  dom.timerValue.textContent = text;
+  dom.timerValue.dataset.length = String(text.length);
+}
+
 function updateWorkoutDisplay() {
   if (!workout) return;
 
@@ -3039,7 +3047,7 @@ function updateWorkoutDisplay() {
 
   if (isPrep) {
     dom.phaseLabel.textContent = runtime.paused ? "PAUSED" : "GET READY";
-    dom.timerValue.textContent = formatTimerValue(runtime.remainingSeconds);
+    setTimerValue(formatTimerValue(runtime.remainingSeconds));
     dom.currentExerciseName.textContent = exercise.name;
     dom.currentTarget.textContent = targetText(exercise);
     dom.currentMeta.hidden = true;
@@ -3048,7 +3056,7 @@ function updateWorkoutDisplay() {
     dom.nextExerciseTarget.textContent = targetText(exercise);
   } else if (isRest) {
     dom.phaseLabel.textContent = runtime.paused ? "PAUSED" : runtime.phase === PHASE.ROUND_REST ? "ROUND REST" : "REST";
-    dom.timerValue.textContent = formatTimerValue(runtime.remainingSeconds);
+    setTimerValue(formatTimerValue(runtime.remainingSeconds));
     dom.currentExerciseName.textContent = runtime.phase === PHASE.ROUND_REST ? `Round ${runtime.roundIndex + 1} complete` : "Recover";
     dom.currentTarget.textContent = next ? `Next: ${next.name}` : "Workout complete";
     dom.currentMeta.hidden = true;
@@ -3059,7 +3067,7 @@ function updateWorkoutDisplay() {
     }
   } else {
     dom.phaseLabel.textContent = runtime.paused ? "PAUSED" : "ACTIVE";
-    dom.timerValue.textContent = isTimed ? formatTimerValue(runtime.remainingSeconds) : String(exercise.value);
+    setTimerValue(isTimed ? formatTimerValue(runtime.remainingSeconds) : String(exercise.value));
     dom.currentExerciseName.textContent = exercise.name;
     dom.currentTarget.textContent = targetText(exercise);
     const meta = [exercise.weight, exercise.note].filter(Boolean).join(" • ");
@@ -3451,8 +3459,9 @@ function addDays(date, amount) {
 function formatDuration(seconds) {
   const safe = Math.max(0, Math.round(Number(seconds) || 0));
   if (safe < 60) return `${safe}s`;
-  const hours = Math.floor(safe / 3600);
-  const minutes = Math.round((safe % 3600) / 60);
+  const totalMinutes = Math.round(safe / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   if (!hours) return `${minutes}m`;
   return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 }
@@ -3604,9 +3613,10 @@ function buildActivityBuckets(records, range) {
 function renderActivityChart(records) {
   const buckets = buildActivityBuckets(records, activeTrendRange);
   const totalMinutes = buckets.reduce((sum, bucket) => sum + bucket.minutes, 0);
+  const totalSeconds = Math.round(totalMinutes * 60);
   const maxMinutes = Math.max(1, ...buckets.map((bucket) => bucket.minutes));
-  dom.activityChartSummary.textContent = `${Math.round(totalMinutes)} training ${Math.round(totalMinutes) === 1 ? "minute" : "minutes"} in this range.`;
-  dom.activityChart.setAttribute("aria-label", `Training minutes chart. ${Math.round(totalMinutes)} minutes in the selected range.`);
+  dom.activityChartSummary.textContent = `${formatDuration(totalSeconds)} of training in this range.`;
+  dom.activityChart.setAttribute("aria-label", `Training minutes chart. ${formatDuration(totalSeconds)} in the selected range.`);
   dom.activityChart.replaceChildren();
 
   const namespace = "http://www.w3.org/2000/svg";
@@ -3792,6 +3802,75 @@ function renderOverallZoneDistribution(records) {
   `;
 }
 
+function renderOverallInterpretation(records) {
+  if (!dom.overallInterpretation || !dom.analyticsReadingRange) return;
+  dom.analyticsReadingRange.textContent = trendRangeLabel(activeTrendRange);
+
+  if (!records.length) {
+    dom.overallInterpretation.innerHTML = "<li><strong>No sessions in this range</strong><span>Choose a wider range to interpret your recent pattern.</span></li>";
+    return;
+  }
+
+  const rpeRecords = records.filter((record) => Number.isFinite(record.rpe));
+  const zoneRecords = records.filter((record) => getTotalZoneSeconds(record) > 0);
+  const insights = [];
+
+  if (rpeRecords.length) {
+    const averageRpe = rpeRecords.reduce((sum, record) => sum + record.rpe, 0) / rpeRecords.length;
+    const effortLabel = averageRpe <= 3
+      ? "mostly easy or recovery-oriented"
+      : averageRpe <= 5
+        ? "moderate overall"
+        : averageRpe <= 7
+          ? "challenging overall"
+          : "very hard overall";
+    insights.push({
+      label: `Average effort ${averageRpe.toFixed(1)}/10`,
+      text: `The reviewed sessions read as ${effortLabel}. Because easy walks and main routines serve different goals, use the same-routine cards for progression.`
+    });
+  } else {
+    insights.push({
+      label: "Effort needs RPE",
+      text: "Add a whole-session RPE to calculate load and interpret how demanding the completed work felt."
+    });
+  }
+
+  if (zoneRecords.length) {
+    const zoneTotals = HEART_RATE_ZONES.map((zone) => records.reduce(
+      (sum, record) => sum + Math.max(0, Number(record[zone.key]) || 0),
+      0
+    ));
+    const totalZoneSeconds = zoneTotals.reduce((sum, seconds) => sum + seconds, 0);
+    const aerobicShare = Math.round((zoneTotals[0] + zoneTotals[1]) / totalZoneSeconds * 100);
+    const highShare = Math.round((zoneTotals[3] + zoneTotals[4]) / totalZoneSeconds * 100);
+    insights.push({
+      label: `Zone balance ${aerobicShare}% Z1–Z2 · ${highShare}% Z4–Z5`,
+      text: highShare >= 25
+        ? "A substantial share was high intensity. Check that this matches the session goal and your recovery rather than treating it as a score to maximise."
+        : highShare >= 10
+          ? "This is a mixed-intensity pattern. The same distribution can be appropriate or excessive depending on the routine and recovery."
+          : "Most logged time stayed below Z4, which fits aerobic, technique-focused or controlled-strength work."
+    });
+  } else {
+    insights.push({
+      label: "Zone balance needs time",
+      text: "Add zone time when available; missing zones do not reduce session load because load uses duration and RPE."
+    });
+  }
+
+  const coveragePercent = Math.round(rpeRecords.length / records.length * 100);
+  insights.push({
+    label: `RPE coverage ${rpeRecords.length}/${records.length}`,
+    text: coveragePercent === 100
+      ? "Every session can contribute to the load trend."
+      : `${coveragePercent}% of sessions contribute to load; sessions without RPE remain included in time, frequency and completed-work trends.`
+  });
+
+  dom.overallInterpretation.innerHTML = insights.map((insight) => `
+    <li><strong>${escapeHtml(insight.label)}</strong><span>${escapeHtml(insight.text)}</span></li>
+  `).join("");
+}
+
 function renderOverallAnalytics(records) {
   const selectedRecords = filterRecordsForTrendRange(records);
   const rpeRecords = selectedRecords.filter((record) => Number.isFinite(record.rpe));
@@ -3809,6 +3888,7 @@ function renderOverallAnalytics(records) {
   dom.overallAverageRpe.textContent = averageRpe === null ? "—" : averageRpe.toFixed(1);
   dom.overallReviewCoverage.textContent = `${reviewedRecords.length}/${selectedRecords.length}`;
   dom.overallReviewCoveragePercent.textContent = `${coverage}% of sessions`;
+  renderOverallInterpretation(selectedRecords);
   renderLoadChart(records);
   renderOverallZoneDistribution(selectedRecords);
 }
@@ -3930,15 +4010,37 @@ function getTotalZoneSeconds(record) {
 function formatZoneDuration(seconds) {
   const safe = Math.max(0, Math.round(Number(seconds) || 0));
   if (safe < 60) return `${safe}s`;
-  const minutes = Math.floor(safe / 60);
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
   const remainder = safe % 60;
-  return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
+  const parts = [];
+  if (hours) parts.push(`${hours}h`);
+  if (minutes) parts.push(`${minutes}m`);
+  if (remainder) parts.push(`${remainder}s`);
+  return parts.join(" ");
 }
 
 function formatZoneInputValue(seconds) {
   if (seconds === null || seconds === undefined || seconds === "") return "";
-  const minutes = Math.max(0, Number(seconds) || 0) / 60;
-  return String(Math.round(minutes * 10) / 10);
+  const safe = Math.max(0, Math.round(Number(seconds) || 0));
+  const minutes = Math.floor(safe / 60);
+  const remainder = safe % 60;
+  return remainder ? `${minutes}.${String(remainder).padStart(2, "0")}` : String(minutes);
+}
+
+function parseZoneTimeInput(value, zoneNumber) {
+  const raw = String(value ?? "").trim();
+  if (raw === "") return null;
+  const match = raw.match(/^(\d+)(?:\.(\d{1,2}))?$/);
+  if (!match) throw new Error(`Zone ${zoneNumber} time must use minutes.seconds, such as 7.1 or 4.32.`);
+
+  const minutes = Number.parseInt(match[1], 10);
+  const seconds = match[2] ? Number.parseInt(match[2], 10) : 0;
+  if (seconds > 59) throw new Error(`Zone ${zoneNumber} seconds must be between 00 and 59.`);
+  if (minutes > 2880 || (minutes === 2880 && seconds > 0)) {
+    throw new Error(`Zone ${zoneNumber} time must not exceed 2,880 minutes.`);
+  }
+  return minutes * 60 + seconds;
 }
 
 function getDominantZone(record) {
@@ -4032,15 +4134,53 @@ function comparisonMetric(label, delta, previous, current, tone = "") {
 }
 
 function buildComparisonInsight(record, previous) {
-  if (record.status === "completed" && previous.status === "partial") return "Full routine completed after the previous partial session.";
+  const insights = [];
   const currentRoundShare = record.completedRounds / Math.max(1, record.plannedRounds);
   const previousRoundShare = previous.completedRounds / Math.max(1, previous.plannedRounds);
-  if (currentRoundShare > previousRoundShare) return "A greater share of the planned rounds was completed.";
-  if (currentRoundShare < previousRoundShare) return "A smaller share of the planned rounds was completed.";
   const setDifference = completedSetCount(record) - completedSetCount(previous);
-  if (setDifference > 0) return "More exercise sets were completed than last time.";
-  if (setDifference < 0) return "Fewer exercise sets were completed than last time.";
-  return "Completed work matched the previous session.";
+  const workMatched = currentRoundShare === previousRoundShare && setDifference === 0;
+
+  if (record.status === "completed" && previous.status === "partial") {
+    insights.push("Full routine completed after the previous partial session.");
+  } else if (currentRoundShare > previousRoundShare || setDifference > 0) {
+    insights.push("More of the planned work was completed than last time.");
+  } else if (currentRoundShare < previousRoundShare || setDifference < 0) {
+    insights.push("Less of the planned work was completed than last time.");
+  } else {
+    insights.push("Completed work matched the previous session.");
+  }
+
+  if (Number.isFinite(record.rpe) && Number.isFinite(previous.rpe)) {
+    const rpeDifference = record.rpe - previous.rpe;
+    if (workMatched && rpeDifference <= -1) {
+      insights.push("The same recorded work felt easier, which can suggest improving tolerance when recovery and technique were comparable.");
+    } else if (workMatched && rpeDifference >= 1) {
+      insights.push("The same recorded work felt harder; recovery, pace and exercise quality can help explain why.");
+    } else if (!workMatched && rpeDifference > 0) {
+      insights.push("The higher RPE occurred alongside more completed work, so it does not by itself indicate reduced fitness.");
+    }
+  }
+
+  const currentLoad = getSessionLoad(record);
+  const previousLoad = getSessionLoad(previous);
+  if (currentLoad !== null && previousLoad !== null && !workMatched && currentLoad > previousLoad) {
+    insights.push("The higher session load is partly explained by the longer duration used to complete additional work.");
+  }
+
+  const currentZoneTotal = getTotalZoneSeconds(record);
+  const previousZoneTotal = getTotalZoneSeconds(previous);
+  if (currentZoneTotal && previousZoneTotal) {
+    const currentHighShare = (Number(record.zone4Seconds || 0) + Number(record.zone5Seconds || 0)) / currentZoneTotal * 100;
+    const previousHighShare = (Number(previous.zone4Seconds || 0) + Number(previous.zone5Seconds || 0)) / previousZoneTotal * 100;
+    const highShareDifference = currentHighShare - previousHighShare;
+    if (highShareDifference >= 3) {
+      insights.push("A larger share reached Z4–Z5, indicating more high-intensity exposure—not automatically a better session.");
+    } else if (highShareDifference <= -3) {
+      insights.push("Less time reached Z4–Z5, which can reflect easier pacing, better efficiency, or a different session emphasis.");
+    }
+  }
+
+  return insights.slice(0, 4).join(" ");
 }
 
 function renderSessionComparison(record, previous) {
@@ -4119,7 +4259,7 @@ function renderSessionComparison(record, previous) {
   const currentDominantZone = getDominantZone(record);
   const previousDominantZone = getDominantZone(previous);
   const focusText = currentDominantZone && previousDominantZone
-    ? ` · Zone focus Z${previousDominantZone.number} → Z${currentDominantZone.number}`
+    ? ` Zone focus moved from Z${previousDominantZone.number} to Z${currentDominantZone.number}.`
     : "";
 
   return `
@@ -4129,6 +4269,7 @@ function renderSessionComparison(record, previous) {
         <span>${formatSessionDate(previous.endedAt)}</span>
       </div>
       <p class="comparison-insight">${escapeHtml(buildComparisonInsight(record, previous))}${escapeHtml(focusText)}</p>
+      <p class="comparison-key"><strong>How to read it:</strong> previous → current · pp = percentage points · load/RPE/zone changes need the completed-work context above.</p>
       <div class="comparison-grid">${metrics.join("")}</div>
     </section>
   `;
@@ -4159,7 +4300,7 @@ function renderSessionReviewForm(record) {
   const zoneInputs = HEART_RATE_ZONES.map((zone) => `
     <label>
       <span>Z${zone.number}</span>
-      <input name="zone${zone.number}Minutes" type="number" min="0" max="2880" step="0.1" inputmode="decimal" value="${formatZoneInputValue(record[zone.key])}" placeholder="0" />
+      <input name="zone${zone.number}Minutes" type="number" min="0" max="2880.59" step="0.01" inputmode="decimal" value="${formatZoneInputValue(record[zone.key])}" placeholder="0.00" />
     </label>
   `).join("");
 
@@ -4172,8 +4313,9 @@ function renderSessionReviewForm(record) {
           <select name="rpe" aria-label="Rate of perceived exertion">${renderRpeOptions(record.rpe)}</select>
         </label>
         <fieldset class="zone-input-fieldset">
-          <legend>Heart-rate zone time <small>minutes</small></legend>
+          <legend>Heart-rate zone time <small>min.sec</small></legend>
           <div class="zone-input-grid">${zoneInputs}</div>
+          <small class="zone-input-help">Enter minutes.seconds: 7.1 = 7m 01s · 4.32 = 4m 32s</small>
         </fieldset>
         <label class="field field-wide session-notes-field">
           <span>Notes <small>optional</small></span>
@@ -4197,13 +4339,7 @@ function collectSessionReview(form) {
   };
   HEART_RATE_ZONES.forEach((zone) => {
     const raw = String(data.get(`zone${zone.number}Minutes`) ?? "").trim();
-    if (raw === "") {
-      review[zone.key] = null;
-      return;
-    }
-    const minutes = Number(raw);
-    if (!Number.isFinite(minutes) || minutes < 0 || minutes > 2880) throw new Error(`Zone ${zone.number} time must be between 0 and 2,880 minutes.`);
-    review[zone.key] = Math.round(minutes * 60);
+    review[zone.key] = parseZoneTimeInput(raw, zone.number);
   });
   return review;
 }
@@ -4273,11 +4409,11 @@ function renderSessionAnalysis(record, previous) {
   return `
     <section class="session-analysis" aria-label="Session analysis">
       <div class="session-analysis-metrics">
-        <div><strong>${formatDuration(record.durationSeconds)}</strong><span>Duration</span></div>
-        <div><strong>${Number.isFinite(record.rpe) ? `${record.rpe}/10` : "—"}</strong><span>RPE</span></div>
+        <div><strong>${formatDuration(record.durationSeconds)}</strong><span>Duration</span><small>elapsed session time</small></div>
+        <div><strong>${Number.isFinite(record.rpe) ? `${record.rpe}/10` : "—"}</strong><span>RPE</span><small>whole-session effort</small></div>
         <div><strong>${sessionLoad === null ? "—" : sessionLoad}</strong><span>Session load</span><small>minutes × RPE</small></div>
-        <div><strong>${record.completedRounds}/${record.plannedRounds}</strong><span>Rounds</span></div>
-        <div><strong>${completedSets}</strong><span>Exercise sets</span></div>
+        <div><strong>${record.completedRounds}/${record.plannedRounds}</strong><span>Rounds</span><small>completed / planned</small></div>
+        <div><strong>${completedSets}</strong><span>Exercise sets</span><small>total completed</small></div>
         ${recoveryCheckin ? `<div><strong>${recoveryCheckin.readinessScore}/100</strong><span>Readiness</span><small>${escapeHtml(getReadinessLevel(recoveryCheckin.readinessScore).label)}</small></div>` : ""}
       </div>
       ${renderZoneDistribution(record)}
@@ -4509,6 +4645,14 @@ function setupInstallPrompt() {
   });
 }
 
+function hydrateScreenHeroIcons() {
+  document.querySelectorAll(".screen-hero-svg[data-icon-source]").forEach((target) => {
+    const source = document.getElementById(target.dataset.iconSource);
+    if (!source) return;
+    target.replaceChildren(...[...source.children].map((child) => child.cloneNode(true)));
+  });
+}
+
 function bindEvents() {
   dom.signInModeButton.addEventListener("click", () => setAuthMode("signin"));
   dom.signUpModeButton.addEventListener("click", () => setAuthMode("signup"));
@@ -4601,6 +4745,7 @@ function bindEvents() {
 }
 
 async function init() {
+  hydrateScreenHeroIcons();
   applyTheme(loadTheme(), false);
   const savedWorkouts = loadSavedWorkouts();
   const storedActiveId = loadActiveSavedWorkoutId();
