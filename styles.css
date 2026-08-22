@@ -1380,6 +1380,12 @@ html[data-theme="dark"] .theme-icon-light {
   font-size: 0.78rem;
 }
 
+.suggested-routine-card .suggested-routine-weights {
+  margin-top: 3px;
+  color: var(--primary-dark);
+  font-weight: 850;
+}
+
 .saved-workout-schedule-summary {
   margin: 7px 0 0;
   color: var(--primary-dark);

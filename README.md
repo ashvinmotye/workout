@@ -21,6 +21,7 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Rename, duplicate, update and delete saved workouts
 - Reorder saved workouts with Move Up / Move Down controls
 - Assign any saved routine to multiple weekdays and see today’s routines in **Suggested today**
+- See the unique required weights for each routine directly in **Suggested today**
 - Four-item bottom navigation with Settings available beside the appearance toggle in the header
 - Settings page with full JSON export and validated JSON import
 - Supabase email/password account creation and sign-in

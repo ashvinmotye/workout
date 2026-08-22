@@ -720,6 +720,31 @@ function formatRoutineRole(role) {
   return { pre: "Pre-workout", main: "Main workout", post: "Post-workout" }[normalizeRoutineRole(role)];
 }
 
+function formatRoutineWeight(value) {
+  const trimmed = String(value || "").trim().replace(/\s+/g, " ");
+  if (!trimmed) return "";
+
+  const multiple = trimmed.match(/^(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:kg)?$/i);
+  if (multiple) return `${multiple[1]} x ${multiple[2]}kg`;
+
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) return `${trimmed}kg`;
+  return trimmed.replace(/\s*kg\b/gi, "kg");
+}
+
+function getRoutineWeightLabels(workout) {
+  const labels = [];
+  const seen = new Set();
+  (workout?.exercises || []).forEach((exercise) => {
+    const label = formatRoutineWeight(exercise.weight);
+    if (!label) return;
+    const key = label.toLocaleLowerCase().replace(/\s+/g, "").replaceAll("×", "x");
+    if (seen.has(key)) return;
+    seen.add(key);
+    labels.push(label);
+  });
+  return labels;
+}
+
 function loadSettings() {
   const saved = safeJsonParse(localStorage.getItem(STORAGE_KEY));
   return normalizeWorkout(saved);
@@ -2162,9 +2187,16 @@ function renderSuggestedRoutines(records) {
     const copy = document.createElement("div");
     const name = document.createElement("strong");
     const summary = document.createElement("span");
+    const weightLabels = getRoutineWeightLabels(record.workout);
     name.textContent = record.workout.name;
     summary.textContent = `${formatRoutineRole(record.routineRole)} · ${record.workout.exercises.length} ${record.workout.exercises.length === 1 ? "exercise" : "exercises"} · ${record.workout.rounds} ${record.workout.rounds === 1 ? "round" : "rounds"}`;
     copy.append(name, summary);
+    if (weightLabels.length) {
+      const weights = document.createElement("span");
+      weights.className = "suggested-routine-weights";
+      weights.textContent = `Weights · ${weightLabels.join(", ")}`;
+      copy.append(weights);
+    }
     const loadButton = document.createElement("button");
     loadButton.className = "button button-primary button-small";
     loadButton.type = "button";
