@@ -672,6 +672,10 @@ input[type="checkbox"] {
   white-space: nowrap;
 }
 
+.app-header .eyebrow {
+  margin-bottom: 0;
+}
+
 .progress-text {
   color: var(--text-muted);
   font-size: 0.88rem;
