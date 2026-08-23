@@ -3205,6 +3205,7 @@ body::after {
   color: var(--text);
   font-size: 1rem;
   font-weight: 950;
+  object-fit: cover;
 }
 
 .app-header h1 {
@@ -3632,6 +3633,7 @@ summary:focus-visible {
   border: 1px solid rgb(var(--aura-accent-rgb) / 0.32);
   background: radial-gradient(circle, rgb(var(--aura-highlight-rgb) / 0.18), rgb(var(--aura-accent-rgb) / 0.11) 58%, var(--surface-elevated));
   box-shadow: 0 0 38px rgb(var(--aura-accent-rgb) / 0.22);
+  object-fit: cover;
 }
 
 .auth-mode-switch,
@@ -4627,7 +4629,9 @@ textarea:focus {
   }
 
   .aura-brand-mark {
-    display: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
   }
 
   .app-header .eyebrow {

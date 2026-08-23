@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta id="themeColorMeta" name="theme-color" content="#193546" />
-  <meta name="description" content="A mobile-friendly circuit workout timer with voice guidance." />
-  <title>Voice Workout</title>
+  <meta name="description" content="Forge is a mobile-first workout and progression app with voice guidance." />
+  <title>Forge</title>
   <script>
     (() => {
       try {
@@ -27,10 +27,10 @@
   <div class="app-shell">
     <header class="app-header">
       <div class="aura-brand">
-        <span class="aura-brand-mark" aria-hidden="true">W</span>
+        <img class="aura-brand-mark" src="icons/icon-192.png" alt="" aria-hidden="true" />
         <div>
           <p class="eyebrow">AURAOS · TRAINING</p>
-          <h1>Voice Workout</h1>
+          <h1>Forge</h1>
         </div>
       </div>
       <div class="header-actions">
@@ -57,7 +57,7 @@
       </div>
     </header>
 
-    <nav id="mainNavigation" class="app-navigation" aria-label="Workout app sections" hidden>
+    <nav id="mainNavigation" class="app-navigation" aria-label="Forge app sections" hidden>
       <button id="setupNavButton" class="nav-button is-active" type="button" aria-current="page">
         <!-- Iconsax, MIT: https://github.com/lusaxweb/iconsax -->
         <svg id="setupSectionIcon" class="nav-icon nav-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
@@ -94,10 +94,10 @@
       <section id="authScreen" class="screen auth-screen" aria-labelledby="authTitle">
         <div class="auth-card">
           <div class="auth-intro">
-            <div class="auth-mark" aria-hidden="true">W</div>
+            <img class="auth-mark" src="icons/icon-192.png" alt="" aria-hidden="true" />
             <p class="eyebrow">YOUR WORKOUT ACCOUNT</p>
             <h2 id="authTitle">Continue your training</h2>
-            <p class="subtle">Sign in to connect this device to your Workout account.</p>
+            <p class="subtle">Sign in to connect this device to your Forge account.</p>
           </div>
 
           <div id="authLoading" class="auth-loading" role="status">
@@ -120,7 +120,7 @@
               <label class="field field-wide">
                 <span>Password</span>
                 <input id="authPassword" type="password" minlength="6" autocomplete="current-password" required />
-                <small id="authPasswordHelp">Enter the password for your Workout account.</small>
+                <small id="authPasswordHelp">Enter the password for your Forge account.</small>
               </label>
 
               <button id="authSubmitButton" class="button button-primary button-full" type="submit">Sign in</button>
@@ -721,7 +721,7 @@
           <div>
             <p class="eyebrow">APP SETTINGS</p>
             <h2 id="settingsTitle">Settings</h2>
-            <p class="subtle">Back up your complete Workout app data or restore it on this device.</p>
+            <p class="subtle">Back up your complete Forge app data or restore it on this device.</p>
           </div>
           <div class="hero-badge settings-hero-badge" aria-hidden="true">
             <svg class="screen-hero-svg" data-icon-source="settingsSectionIcon" viewBox="0 0 24 24" fill="none" focusable="false"></svg>

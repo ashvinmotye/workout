@@ -7,7 +7,8 @@ const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
-const BACKUP_APP_ID = "voice-workout";
+const BACKUP_APP_ID = "forge";
+const SUPPORTED_BACKUP_APP_IDS = Object.freeze([BACKUP_APP_ID, "voice-workout"]);
 const BACKUP_SCHEMA_VERSION = 1;
 const MAX_BACKUP_FILE_SIZE = 5 * 1024 * 1024;
 const AUTH_USER_CACHE_KEY = "voiceWorkout.authUser.v1";
@@ -375,7 +376,7 @@ function setAuthMode(mode, clearMessage = true) {
   dom.authPassword.autocomplete = isSignUp ? "new-password" : "current-password";
   dom.authPasswordHelp.textContent = isSignUp
     ? "Use at least 6 characters. You may need to confirm your email."
-    : "Enter the password for your Workout account.";
+    : "Enter the password for your Forge account.";
   if (clearMessage) setAuthMessage();
 }
 
@@ -1868,7 +1869,7 @@ function createBackupPayload() {
 
 function backupFilename(date = new Date()) {
   const datePart = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
-  return `voice-workout-backup-${datePart}.json`;
+  return `forge-backup-${datePart}.json`;
 }
 
 function updateBackupStatus(message, isError = false) {
@@ -1894,7 +1895,7 @@ function exportBackup() {
       `${payload.data.recoveryCheckins.length} recovery ${payload.data.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, and ` +
       `${payload.data.bodyWeightEntries.length} weight ${payload.data.bodyWeightEntries.length === 1 ? "entry" : "entries"}.`
     );
-    showToast("Workout backup exported.");
+    showToast("Forge backup exported.");
   } catch {
     updateBackupStatus("The backup could not be created. Please try again.", true);
     showToast("Backup export failed.");
@@ -1902,8 +1903,8 @@ function exportBackup() {
 }
 
 function validateBackupPayload(candidate) {
-  if (!isObject(candidate) || candidate.app !== BACKUP_APP_ID) {
-    throw new Error("This is not a Voice Workout backup file.");
+  if (!isObject(candidate) || !SUPPORTED_BACKUP_APP_IDS.includes(candidate.app)) {
+    throw new Error("This is not a Forge backup file.");
   }
   if (candidate.schemaVersion !== BACKUP_SCHEMA_VERSION) {
     throw new Error("This backup version is not supported by this version of the app.");
@@ -2049,7 +2050,7 @@ async function importBackupFile(event) {
       `${imported.recoveryCheckins.length} recovery ${imported.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, and ` +
       `${imported.bodyWeightEntries.length} weight ${imported.bodyWeightEntries.length === 1 ? "entry" : "entries"}.`
     );
-    showToast("Workout backup imported.");
+    showToast("Forge backup imported.");
   } catch (error) {
     const message = error instanceof SyntaxError
       ? "The selected file is not valid JSON."

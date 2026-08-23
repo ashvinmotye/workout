@@ -1,4 +1,4 @@
-# Voice Workout
+# Forge
 
 A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 
@@ -56,12 +56,13 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Fixed-size countdown orb and tabular timer digits that do not shift as values change
 - Matching custom SVGs in navigation and individual screen heroes
 
-## Icon credits
+## Forge icon and icon credits
 
-The app icon set is generated from the selected Aura Core artwork in
-`icons/workout-icon-master.png`. It includes 16, 32, and 48 px favicons, a
+The app icon set is generated from the AuraOS Arctic Depth Forge Ring master in
+`icons/forge-icon-master.png`. It includes 16, 32, and 48 px favicons, a
 multi-size `.ico`, a 180 px Apple touch icon, and standard plus maskable PWA
-icons at 192 and 512 px.
+icons at 192 and 512 px. The complete reusable design prompt and sizing workflow
+are recorded in `FORGE-ICON.md`.
 
 - Setup: [Iconsax](https://github.com/lusaxweb/iconsax), MIT License
 - Routines: [Muhammad Tajudin](https://dribbble.com/tcodesign), CC Attribution

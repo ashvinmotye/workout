@@ -1,6 +1,6 @@
 # AuraOS design language
 
-AuraOS is the shared interface language established by Level90 and adapted here for Voice Workout.
+AuraOS is the shared interface language established by Level90 and adapted here for Forge.
 
 ## Character
 
@@ -36,7 +36,7 @@ AuraOS is the shared interface language established by Level90 and adapted here 
 
 ## Workout adaptation
 
-The active timer is Voice Workout’s primary Aura orb. Setup, routines, recovery, trends and settings use the same glass hierarchy; the four primary destinations use floating navigation while Settings remains globally available in the header.
+The active timer is Forge’s primary Aura orb. Setup, routines, recovery, trends and settings use the same glass hierarchy; the four primary destinations use floating navigation while Settings remains globally available in the header.
 
 ## Motion and accessibility
 
