@@ -346,7 +346,83 @@
           </div>
         </div>
 
-        <div class="recovery-layout">
+        <div class="recovery-dashboard" aria-label="Recovery dashboard">
+          <section id="todayReadinessCard" class="panel recovery-dashboard-card readiness-dashboard-card" data-level="none" aria-labelledby="todayReadinessTitle">
+            <div class="recovery-dashboard-heading">
+              <div>
+                <p class="eyebrow">TODAY</p>
+                <h3 id="todayReadinessTitle">Readiness</h3>
+              </div>
+              <span id="dashboardReadinessDate" class="dashboard-date">Not saved</span>
+            </div>
+            <div class="dashboard-readiness-value">
+              <strong id="dashboardReadinessScore">—</strong>
+              <span>/100</span>
+            </div>
+            <strong id="dashboardReadinessLabel" class="dashboard-primary-label">No check-in today</strong>
+            <p id="dashboardReadinessMeta" class="dashboard-card-copy">Complete today’s check-in below.</p>
+          </section>
+
+          <section class="panel recovery-dashboard-card weight-dashboard-card" aria-labelledby="weightDashboardTitle">
+            <div class="recovery-dashboard-heading">
+              <div>
+                <p class="eyebrow">WEIGHT</p>
+                <h3 id="weightDashboardTitle">Trend</h3>
+              </div>
+              <span id="dashboardWeightDate" class="dashboard-date">No data</span>
+            </div>
+            <strong id="latestWeight" class="dashboard-weight-value">—</strong>
+            <div class="dashboard-weight-trends">
+              <p><strong id="weightLastSevenChange">—</strong> <span id="weightLastSevenLabel">across last 7 measurements</span></p>
+              <p><strong id="weightSinceFirstChange">—</strong> <span>since first measurement</span></p>
+            </div>
+          </section>
+        </div>
+
+        <div class="recovery-sections">
+          <section class="panel weight-panel" aria-labelledby="weightTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">BODY WEIGHT</p>
+                <h3 id="weightTitle">Follow the trend</h3>
+              </div>
+            </div>
+
+            <div id="weightChart" class="weight-chart" role="img" aria-label="Body-weight trend"></div>
+            <p id="weightChartSummary" class="chart-summary weight-chart-summary">Add your first measurement to begin the trend.</p>
+
+            <form id="weightForm" class="weight-form">
+              <div class="weight-form-grid">
+                <label class="field">
+                  <span>Measurement date</span>
+                  <input name="measurementDate" type="date" required />
+                </label>
+                <label class="field">
+                  <span>Weight <small>kg</small></span>
+                  <input name="weightKg" type="number" min="30" max="300" step="0.1" inputmode="decimal" placeholder="69.2" required />
+                </label>
+              </div>
+              <label class="field field-wide">
+                <span>Note <small>optional</small></span>
+                <input name="notes" type="text" maxlength="200" placeholder="Morning measurement" />
+              </label>
+              <div class="recovery-form-actions">
+                <button id="saveWeightButton" class="button button-secondary" type="submit">Save weight</button>
+                <button id="resetWeightButton" class="button button-ghost" type="button">Today</button>
+                <span id="weightFormStatus" class="recovery-form-status" role="status" aria-live="polite"></span>
+              </div>
+            </form>
+
+            <div class="recovery-history-heading">
+              <div>
+                <h4>Measurement history</h4>
+                <span id="weightHistoryCount">0 entries</span>
+              </div>
+              <button id="showAllWeightButton" class="button button-ghost button-small" type="button" hidden>Show all</button>
+            </div>
+            <div id="weightHistory" class="recovery-history-list weight-history-list"></div>
+          </section>
+
           <section class="panel readiness-panel" aria-labelledby="readinessTitle">
             <div class="panel-heading readiness-panel-heading">
               <div>
@@ -424,56 +500,13 @@
             </form>
 
             <div class="recovery-history-heading">
-              <h4>Recent check-ins</h4>
-              <span id="readinessHistoryCount">0 entries</span>
+              <div>
+                <h4>Recent check-ins</h4>
+                <span id="readinessHistoryCount">0 entries</span>
+              </div>
+              <button id="showAllReadinessButton" class="button button-ghost button-small" type="button" hidden>Show all</button>
             </div>
             <div id="readinessHistory" class="recovery-history-list"></div>
-          </section>
-
-          <section class="panel weight-panel" aria-labelledby="weightTitle">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">BODY WEIGHT</p>
-                <h3 id="weightTitle">Follow the trend</h3>
-              </div>
-            </div>
-
-            <div class="weight-stat-grid">
-              <div><strong id="latestWeight">—</strong><span>Latest</span></div>
-              <div><strong id="weightChange">—</strong><span>Since previous</span></div>
-              <div><strong id="weightSevenDayAverage">—</strong><span>7-day average</span></div>
-            </div>
-
-            <div id="weightChart" class="weight-chart" role="img" aria-label="Body-weight trend"></div>
-            <p id="weightChartSummary" class="chart-summary">Add your first measurement to begin the trend.</p>
-
-            <form id="weightForm" class="weight-form">
-              <div class="weight-form-grid">
-                <label class="field">
-                  <span>Measurement date</span>
-                  <input name="measurementDate" type="date" required />
-                </label>
-                <label class="field">
-                  <span>Weight <small>kg</small></span>
-                  <input name="weightKg" type="number" min="30" max="300" step="0.1" inputmode="decimal" placeholder="69.2" required />
-                </label>
-              </div>
-              <label class="field field-wide">
-                <span>Note <small>optional</small></span>
-                <input name="notes" type="text" maxlength="200" placeholder="Morning measurement" />
-              </label>
-              <div class="recovery-form-actions">
-                <button id="saveWeightButton" class="button button-secondary" type="submit">Save weight</button>
-                <button id="resetWeightButton" class="button button-ghost" type="button">Today</button>
-                <span id="weightFormStatus" class="recovery-form-status" role="status" aria-live="polite"></span>
-              </div>
-            </form>
-
-            <div class="recovery-history-heading">
-              <h4>Measurement history</h4>
-              <span id="weightHistoryCount">0 entries</span>
-            </div>
-            <div id="weightHistory" class="recovery-history-list weight-history-list"></div>
           </section>
         </div>
       </section>
@@ -1065,6 +1098,42 @@
       </div>
     </article>
   </template>
+
+  <dialog id="readinessHistoryDialog" class="history-dialog" aria-labelledby="readinessHistoryDialogTitle">
+    <div class="history-dialog-shell">
+      <div class="history-dialog-heading">
+        <div>
+          <p class="eyebrow">RECOVERY HISTORY</p>
+          <h2 id="readinessHistoryDialogTitle">All readiness check-ins</h2>
+        </div>
+        <button class="mini-icon close-history-dialog" type="button" aria-label="Close readiness history">×</button>
+      </div>
+      <div id="readinessHistoryDialogList" class="history-dialog-list"></div>
+      <div id="readinessHistoryPagination" class="history-dialog-pagination" hidden>
+        <button id="previousReadinessPage" class="button button-ghost button-small" type="button">Previous</button>
+        <span id="readinessPageStatus"></span>
+        <button id="nextReadinessPage" class="button button-ghost button-small" type="button">Next</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="weightHistoryDialog" class="history-dialog" aria-labelledby="weightHistoryDialogTitle">
+    <div class="history-dialog-shell">
+      <div class="history-dialog-heading">
+        <div>
+          <p class="eyebrow">WEIGHT HISTORY</p>
+          <h2 id="weightHistoryDialogTitle">All measurements</h2>
+        </div>
+        <button class="mini-icon close-history-dialog" type="button" aria-label="Close weight history">×</button>
+      </div>
+      <div id="weightHistoryDialogList" class="history-dialog-list"></div>
+      <div id="weightHistoryPagination" class="history-dialog-pagination" hidden>
+        <button id="previousWeightPage" class="button button-ghost button-small" type="button">Previous</button>
+        <span id="weightPageStatus"></span>
+        <button id="nextWeightPage" class="button button-ghost button-small" type="button">Next</button>
+      </div>
+    </div>
+  </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 

@@ -6,6 +6,9 @@ const WELLNESS_SYNC_QUEUE_KEY = "voiceWorkout.wellnessSyncQueue.v1";
 const WELLNESS_LAST_SYNC_KEY_PREFIX = "voiceWorkout.wellnessLastSync.v1";
 const WELLNESS_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.wellnessCloudIds.v1";
 const WELLNESS_PULL_IDS_KEY_PREFIX = "voiceWorkout.wellnessPullIds.v1";
+const READINESS_HISTORY_PREVIEW_LIMIT = 5;
+const WEIGHT_HISTORY_RECENT_LIMIT = 7;
+const WELLNESS_HISTORY_PAGE_SIZE = 50;
 
 const WELLNESS_ENTITY = Object.freeze({
   RECOVERY: "recovery",
@@ -24,17 +27,38 @@ const wellnessDom = {
   readinessFormStatus: document.querySelector("#readinessFormStatus"),
   readinessHistoryCount: document.querySelector("#readinessHistoryCount"),
   readinessHistory: document.querySelector("#readinessHistory"),
+  showAllReadinessButton: document.querySelector("#showAllReadinessButton"),
+  todayReadinessCard: document.querySelector("#todayReadinessCard"),
+  dashboardReadinessDate: document.querySelector("#dashboardReadinessDate"),
+  dashboardReadinessScore: document.querySelector("#dashboardReadinessScore"),
+  dashboardReadinessLabel: document.querySelector("#dashboardReadinessLabel"),
+  dashboardReadinessMeta: document.querySelector("#dashboardReadinessMeta"),
   weightForm: document.querySelector("#weightForm"),
   saveWeightButton: document.querySelector("#saveWeightButton"),
   resetWeightButton: document.querySelector("#resetWeightButton"),
   weightFormStatus: document.querySelector("#weightFormStatus"),
   latestWeight: document.querySelector("#latestWeight"),
-  weightChange: document.querySelector("#weightChange"),
-  weightSevenDayAverage: document.querySelector("#weightSevenDayAverage"),
+  dashboardWeightDate: document.querySelector("#dashboardWeightDate"),
+  weightLastSevenChange: document.querySelector("#weightLastSevenChange"),
+  weightLastSevenLabel: document.querySelector("#weightLastSevenLabel"),
+  weightSinceFirstChange: document.querySelector("#weightSinceFirstChange"),
   weightChart: document.querySelector("#weightChart"),
   weightChartSummary: document.querySelector("#weightChartSummary"),
   weightHistoryCount: document.querySelector("#weightHistoryCount"),
   weightHistory: document.querySelector("#weightHistory"),
+  showAllWeightButton: document.querySelector("#showAllWeightButton"),
+  readinessHistoryDialog: document.querySelector("#readinessHistoryDialog"),
+  readinessHistoryDialogList: document.querySelector("#readinessHistoryDialogList"),
+  readinessHistoryPagination: document.querySelector("#readinessHistoryPagination"),
+  previousReadinessPage: document.querySelector("#previousReadinessPage"),
+  nextReadinessPage: document.querySelector("#nextReadinessPage"),
+  readinessPageStatus: document.querySelector("#readinessPageStatus"),
+  weightHistoryDialog: document.querySelector("#weightHistoryDialog"),
+  weightHistoryDialogList: document.querySelector("#weightHistoryDialogList"),
+  weightHistoryPagination: document.querySelector("#weightHistoryPagination"),
+  previousWeightPage: document.querySelector("#previousWeightPage"),
+  nextWeightPage: document.querySelector("#nextWeightPage"),
+  weightPageStatus: document.querySelector("#weightPageStatus"),
   wellnessSyncStatus: document.querySelector("#wellnessSyncStatus"),
   syncWellnessButton: document.querySelector("#syncWellnessButton"),
   settingsReadinessCount: document.querySelector("#settingsReadinessCount"),
@@ -52,6 +76,8 @@ const wellnessDom = {
 
 let wellnessSyncInProgress = false;
 let wellnessSyncRequested = false;
+let readinessHistoryPage = 0;
+let weightHistoryPage = 0;
 
 function wellnessTodayKey(date = new Date()) {
   return [
@@ -672,37 +698,92 @@ function formatWeight(value, signed = false) {
   return `${prefix}${value.toFixed(1)} kg`;
 }
 
+function formatWeightTrendChange(value) {
+  if (!Number.isFinite(value)) return "—";
+  if (value === 0) return "0.00 kg";
+  return `${value > 0 ? "+" : "−"}${Math.abs(value).toFixed(2)} kg`;
+}
+
+function getWeightTrendSummary(records) {
+  if (!records.length) return null;
+  const latest = records[0];
+  const recent = records.slice(0, WEIGHT_HISTORY_RECENT_LIMIT);
+  const recentOldest = recent[recent.length - 1];
+  const first = records[records.length - 1];
+  return {
+    latest,
+    recentCount: recent.length,
+    recentChange: latest.weightKg - recentOldest.weightKg,
+    sinceFirstChange: latest.weightKg - first.weightKg
+  };
+}
+
+function weightTrendLines(records) {
+  const trend = getWeightTrendSummary(records);
+  if (!trend) return [];
+  const measurementLabel = trend.recentCount === 1 ? "measurement" : "measurements";
+  return [
+    `${formatWeightTrendChange(trend.recentChange)} across last ${trend.recentCount} ${measurementLabel}`,
+    `${formatWeightTrendChange(trend.sinceFirstChange)} since first measurement`
+  ];
+}
+
+function renderRecoveryDashboard(checkins, weights) {
+  const todayCheckin = checkins.find((record) => record.checkinDate === wellnessTodayKey());
+  if (todayCheckin) {
+    const level = getReadinessLevel(todayCheckin.readinessScore);
+    wellnessDom.todayReadinessCard.dataset.level = level.key;
+    wellnessDom.dashboardReadinessDate.textContent = "Saved today";
+    wellnessDom.dashboardReadinessScore.textContent = String(todayCheckin.readinessScore);
+    wellnessDom.dashboardReadinessLabel.textContent = level.label;
+    wellnessDom.dashboardReadinessMeta.textContent = level.guidance;
+  } else {
+    wellnessDom.todayReadinessCard.dataset.level = "none";
+    wellnessDom.dashboardReadinessDate.textContent = "Not saved";
+    wellnessDom.dashboardReadinessScore.textContent = "—";
+    wellnessDom.dashboardReadinessLabel.textContent = "No check-in today";
+    wellnessDom.dashboardReadinessMeta.textContent = "Complete today’s check-in below.";
+  }
+
+  const trend = getWeightTrendSummary(weights);
+  wellnessDom.latestWeight.textContent = trend ? formatWeight(trend.latest.weightKg) : "—";
+  wellnessDom.dashboardWeightDate.textContent = trend ? formatWellnessDate(trend.latest.measurementDate, { short: true }) : "No data";
+  wellnessDom.weightLastSevenChange.textContent = trend ? formatWeightTrendChange(trend.recentChange) : "—";
+  wellnessDom.weightLastSevenLabel.textContent = trend
+    ? `across last ${trend.recentCount} ${trend.recentCount === 1 ? "measurement" : "measurements"}`
+    : "across last 7 measurements";
+  wellnessDom.weightSinceFirstChange.textContent = trend ? formatWeightTrendChange(trend.sinceFirstChange) : "—";
+}
+
+function readinessHistoryItemMarkup(record, showActions = false) {
+  const level = getReadinessLevel(record.readinessScore);
+  return `
+    <article class="recovery-history-item" data-level="${level.key}">
+      <div class="recovery-history-score"><strong>${record.readinessScore}</strong><small>/100</small></div>
+      <div class="recovery-history-main">
+        <strong>${escapeHtml(level.label)}</strong>
+        <span>${escapeHtml(formatWellnessDate(record.checkinDate))}</span>
+        <small>Sleep ${record.sleepQuality} · Energy ${record.energyLevel} · Soreness ${record.muscleSoreness} · Stress ${record.stressLevel} · Motivation ${record.motivationLevel}</small>
+        ${record.notes ? `<small>${escapeHtml(record.notes)}</small>` : ""}
+      </div>
+      ${showActions ? `<div class="recovery-history-actions">
+        <button class="mini-icon edit-readiness-entry" type="button" data-date="${record.checkinDate}" aria-label="Edit recovery check-in">✎</button>
+        <button class="mini-icon delete-readiness-entry" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete recovery check-in">×</button>
+      </div>` : ""}
+    </article>`;
+}
+
 function renderReadinessHistory(records) {
-  wellnessDom.readinessHistoryCount.textContent = `${records.length} ${records.length === 1 ? "entry" : "entries"}`;
+  const displayed = records.slice(0, READINESS_HISTORY_PREVIEW_LIMIT);
+  wellnessDom.readinessHistoryCount.textContent = records.length
+    ? `Showing ${displayed.length} of ${records.length}`
+    : "0 entries";
+  wellnessDom.showAllReadinessButton.hidden = records.length <= displayed.length;
   if (!records.length) {
     wellnessDom.readinessHistory.innerHTML = '<div class="recovery-empty-state"><strong>No check-ins yet</strong><span>Your readiness history will build here.</span></div>';
     return;
   }
-  wellnessDom.readinessHistory.innerHTML = records.slice(0, 14).map((record) => {
-    const level = getReadinessLevel(record.readinessScore);
-    return `
-      <article class="recovery-history-item" data-level="${level.key}">
-        <div class="recovery-history-score"><strong>${record.readinessScore}</strong><small>/100</small></div>
-        <div class="recovery-history-main">
-          <strong>${escapeHtml(level.label)}</strong>
-          <span>${escapeHtml(formatWellnessDate(record.checkinDate))}</span>
-          <small>Sleep ${record.sleepQuality} · Energy ${record.energyLevel} · Soreness ${record.muscleSoreness} · Stress ${record.stressLevel}</small>
-        </div>
-        <div class="recovery-history-actions">
-          <button class="mini-icon edit-readiness-entry" type="button" data-date="${record.checkinDate}" aria-label="Edit recovery check-in">✎</button>
-          <button class="mini-icon delete-readiness-entry" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete recovery check-in">×</button>
-        </div>
-      </article>`;
-  }).join("");
-}
-
-function calculateSevenDayWeightAverage(records) {
-  if (!records.length) return null;
-  const latestDate = wellnessDateToLocalDate(records[0].measurementDate);
-  const cutoff = new Date(latestDate);
-  cutoff.setDate(cutoff.getDate() - 6);
-  const recent = records.filter((record) => wellnessDateToLocalDate(record.measurementDate) >= cutoff);
-  return recent.length ? recent.reduce((sum, record) => sum + record.weightKg, 0) / recent.length : null;
+  wellnessDom.readinessHistory.innerHTML = displayed.map((record) => readinessHistoryItemMarkup(record, true)).join("");
 }
 
 function renderWeightChart(records) {
@@ -710,88 +791,161 @@ function renderWeightChart(records) {
   if (!displayed.length) {
     wellnessDom.weightChart.innerHTML = '<div class="weight-chart-empty">No measurements yet</div>';
     wellnessDom.weightChartSummary.textContent = "Add your first measurement to begin the trend.";
+    wellnessDom.weightChart.setAttribute("aria-label", "No body-weight measurements yet");
     return;
   }
   if (displayed.length === 1) {
     wellnessDom.weightChart.innerHTML = `<div class="weight-chart-single"><span></span><strong>${formatWeight(displayed[0].weightKg)}</strong></div>`;
-    wellnessDom.weightChartSummary.textContent = `First measurement recorded ${formatWellnessDate(displayed[0].measurementDate)}.`;
-    return;
+  } else {
+    const width = 700;
+    const height = 400;
+    const paddingX = 42;
+    const paddingY = 42;
+    const weights = displayed.map((record) => record.weightKg);
+    const rawMin = Math.min(...weights);
+    const rawMax = Math.max(...weights);
+    const visualPadding = Math.max(0.4, (rawMax - rawMin) * 0.2);
+    const min = rawMin - visualPadding;
+    const max = rawMax + visualPadding;
+    const x = (index) => paddingX + index / (displayed.length - 1) * (width - paddingX * 2);
+    const y = (value) => paddingY + (max - value) / Math.max(0.1, max - min) * (height - paddingY * 2);
+    const points = displayed.map((record, index) => `${x(index).toFixed(1)},${y(record.weightKg).toFixed(1)}`).join(" ");
+    const circles = displayed.map((record, index) => `<circle cx="${x(index).toFixed(1)}" cy="${y(record.weightKg).toFixed(1)}" r="4"><title>${escapeHtml(formatWellnessDate(record.measurementDate))}: ${formatWeight(record.weightKg)}</title></circle>`).join("");
+    const firstDisplayed = displayed[0];
+    const latestDisplayed = displayed[displayed.length - 1];
+    wellnessDom.weightChart.innerHTML = `
+      <svg viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
+        <line x1="${paddingX}" y1="${paddingY}" x2="${paddingX}" y2="${height - paddingY}"></line>
+        <line x1="${paddingX}" y1="${height - paddingY}" x2="${width - paddingX}" y2="${height - paddingY}"></line>
+        <text x="${paddingX}" y="25">${rawMax.toFixed(1)} kg</text>
+        <text x="${paddingX}" y="${height - 9}">${escapeHtml(formatWellnessDate(firstDisplayed.measurementDate, { short: true }))}</text>
+        <text x="${width - paddingX}" y="${height - 9}" text-anchor="end">${escapeHtml(formatWellnessDate(latestDisplayed.measurementDate, { short: true }))}</text>
+        <polyline points="${points}"></polyline>
+        ${circles}
+      </svg>`;
   }
+  const lines = weightTrendLines(records);
+  wellnessDom.weightChartSummary.innerHTML = lines.map((line) => `<span>${escapeHtml(line)}</span>`).join("");
+  wellnessDom.weightChart.setAttribute("aria-label", `Body-weight trend. ${lines.join(". ")}.`);
+}
 
-  const width = 640;
-  const height = 220;
-  const paddingX = 34;
-  const paddingY = 28;
-  const weights = displayed.map((record) => record.weightKg);
-  const rawMin = Math.min(...weights);
-  const rawMax = Math.max(...weights);
-  const visualPadding = Math.max(0.4, (rawMax - rawMin) * 0.2);
-  const min = rawMin - visualPadding;
-  const max = rawMax + visualPadding;
-  const x = (index) => paddingX + index / (displayed.length - 1) * (width - paddingX * 2);
-  const y = (value) => paddingY + (max - value) / Math.max(0.1, max - min) * (height - paddingY * 2);
-  const points = displayed.map((record, index) => `${x(index).toFixed(1)},${y(record.weightKg).toFixed(1)}`).join(" ");
-  const circles = displayed.map((record, index) => `<circle cx="${x(index).toFixed(1)}" cy="${y(record.weightKg).toFixed(1)}" r="4"><title>${escapeHtml(formatWellnessDate(record.measurementDate))}: ${formatWeight(record.weightKg)}</title></circle>`).join("");
-  const first = displayed[0];
-  const latest = displayed[displayed.length - 1];
-  wellnessDom.weightChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
-      <line x1="${paddingX}" y1="${paddingY}" x2="${paddingX}" y2="${height - paddingY}"></line>
-      <line x1="${paddingX}" y1="${height - paddingY}" x2="${width - paddingX}" y2="${height - paddingY}"></line>
-      <text x="${paddingX}" y="18">${rawMax.toFixed(1)} kg</text>
-      <text x="${paddingX}" y="${height - 7}">${escapeHtml(formatWellnessDate(first.measurementDate, { short: true }))}</text>
-      <text x="${width - paddingX}" y="${height - 7}" text-anchor="end">${escapeHtml(formatWellnessDate(latest.measurementDate, { short: true }))}</text>
-      <polyline points="${points}"></polyline>
-      ${circles}
-    </svg>`;
-  const difference = Math.round((latest.weightKg - first.weightKg) * 10) / 10;
-  wellnessDom.weightChartSummary.textContent = `${formatWeight(difference, true)} across ${displayed.length} recorded measurements.`;
+function weightHistoryItemMarkup(record, allRecords, showActions = false) {
+  const recordIndex = allRecords.findIndex((item) => item.id === record.id);
+  const previous = recordIndex >= 0 ? allRecords[recordIndex + 1] : null;
+  const change = previous ? record.weightKg - previous.weightKg : null;
+  return `
+    <article class="recovery-history-item weight-history-item">
+      <div class="weight-history-value"><strong>${record.weightKg.toFixed(1)}</strong><small>kg</small></div>
+      <div class="recovery-history-main">
+        <strong>${escapeHtml(formatWellnessDate(record.measurementDate))}</strong>
+        <span>${change === null ? "First measurement" : `${formatWeightTrendChange(change)} from previous`}</span>
+        ${record.notes ? `<small>${escapeHtml(record.notes)}</small>` : ""}
+      </div>
+      ${showActions ? `<div class="recovery-history-actions">
+        <button class="mini-icon edit-weight-entry" type="button" data-date="${record.measurementDate}" aria-label="Edit body-weight measurement">✎</button>
+        <button class="mini-icon delete-weight-entry" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete body-weight measurement">×</button>
+      </div>` : ""}
+    </article>`;
+}
+
+function getWeightHistoryPreview(records) {
+  if (!records.length) return [];
+  const selected = [];
+  const selectedIds = new Set();
+  const add = (record) => {
+    if (record && !selectedIds.has(record.id)) {
+      selected.push(record);
+      selectedIds.add(record.id);
+    }
+  };
+  const todayRecord = records.find((record) => record.measurementDate === wellnessTodayKey());
+  add(todayRecord);
+  records.filter((record) => record.id !== todayRecord?.id).slice(0, WEIGHT_HISTORY_RECENT_LIMIT).forEach(add);
+  add(records[records.length - 1]);
+  return selected;
 }
 
 function renderWeightHistory(records) {
-  wellnessDom.weightHistoryCount.textContent = `${records.length} ${records.length === 1 ? "entry" : "entries"}`;
+  const displayed = getWeightHistoryPreview(records);
+  wellnessDom.weightHistoryCount.textContent = records.length
+    ? `Showing ${displayed.length} of ${records.length}`
+    : "0 entries";
+  wellnessDom.showAllWeightButton.hidden = records.length <= displayed.length;
   if (!records.length) {
     wellnessDom.weightHistory.innerHTML = '<div class="recovery-empty-state"><strong>No measurements yet</strong><span>Your body-weight history will build here.</span></div>';
     return;
   }
-  wellnessDom.weightHistory.innerHTML = records.slice(0, 14).map((record, index) => {
-    const previous = records[index + 1];
-    const change = previous ? Math.round((record.weightKg - previous.weightKg) * 10) / 10 : null;
-    return `
-      <article class="recovery-history-item weight-history-item">
-        <div class="weight-history-value"><strong>${record.weightKg.toFixed(1)}</strong><small>kg</small></div>
-        <div class="recovery-history-main">
-          <strong>${escapeHtml(formatWellnessDate(record.measurementDate))}</strong>
-          <span>${change === null ? "First measurement" : `${formatWeight(change, true)} from previous`}</span>
-          ${record.notes ? `<small>${escapeHtml(record.notes)}</small>` : ""}
-        </div>
-        <div class="recovery-history-actions">
-          <button class="mini-icon edit-weight-entry" type="button" data-date="${record.measurementDate}" aria-label="Edit body-weight measurement">✎</button>
-          <button class="mini-icon delete-weight-entry" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete body-weight measurement">×</button>
-        </div>
-      </article>`;
-  }).join("");
+  wellnessDom.weightHistory.innerHTML = displayed.map((record) => weightHistoryItemMarkup(record, records, true)).join("");
 }
 
-function renderWeightSummary(records) {
-  const latest = records[0];
-  const previous = records[1];
-  wellnessDom.latestWeight.textContent = latest ? formatWeight(latest.weightKg) : "—";
-  wellnessDom.weightChange.textContent = latest && previous
-    ? formatWeight(Math.round((latest.weightKg - previous.weightKg) * 10) / 10, true)
-    : "—";
-  const average = calculateSevenDayWeightAverage(records);
-  wellnessDom.weightSevenDayAverage.textContent = average === null ? "—" : formatWeight(average);
-  renderWeightChart(records);
+function renderHistoryPagination(records, page, pagination, status, previousButton, nextButton) {
+  const pageCount = Math.max(1, Math.ceil(records.length / WELLNESS_HISTORY_PAGE_SIZE));
+  const safePage = Math.min(Math.max(0, page), pageCount - 1);
+  const start = safePage * WELLNESS_HISTORY_PAGE_SIZE;
+  const end = Math.min(start + WELLNESS_HISTORY_PAGE_SIZE, records.length);
+  pagination.hidden = records.length <= WELLNESS_HISTORY_PAGE_SIZE;
+  status.textContent = `${start + 1}–${end} of ${records.length}`;
+  previousButton.disabled = safePage === 0;
+  nextButton.disabled = safePage >= pageCount - 1;
+  return { safePage, start, end };
+}
+
+function renderReadinessHistoryDialog() {
+  const records = loadRecoveryCheckins();
+  const range = renderHistoryPagination(
+    records,
+    readinessHistoryPage,
+    wellnessDom.readinessHistoryPagination,
+    wellnessDom.readinessPageStatus,
+    wellnessDom.previousReadinessPage,
+    wellnessDom.nextReadinessPage
+  );
+  readinessHistoryPage = range.safePage;
+  wellnessDom.readinessHistoryDialogList.innerHTML = records
+    .slice(range.start, range.end)
+    .map((record) => readinessHistoryItemMarkup(record))
+    .join("");
+  wellnessDom.readinessHistoryDialogList.scrollTop = 0;
+}
+
+function renderWeightHistoryDialog() {
+  const records = loadWeightEntries();
+  const range = renderHistoryPagination(
+    records,
+    weightHistoryPage,
+    wellnessDom.weightHistoryPagination,
+    wellnessDom.weightPageStatus,
+    wellnessDom.previousWeightPage,
+    wellnessDom.nextWeightPage
+  );
+  weightHistoryPage = range.safePage;
+  wellnessDom.weightHistoryDialogList.innerHTML = records
+    .slice(range.start, range.end)
+    .map((record) => weightHistoryItemMarkup(record, records))
+    .join("");
+  wellnessDom.weightHistoryDialogList.scrollTop = 0;
+}
+
+function showHistoryDialog(dialog) {
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+}
+
+function closeHistoryDialog(dialog) {
+  if (typeof dialog.close === "function") dialog.close();
+  else dialog.removeAttribute("open");
 }
 
 function renderRecoveryScreen(options = {}) {
   if (!wellnessDom.readinessForm) return;
   const checkins = loadRecoveryCheckins();
   const weights = loadWeightEntries();
+  renderRecoveryDashboard(checkins, weights);
   renderReadinessHistory(checkins);
-  renderWeightSummary(weights);
+  renderWeightChart(weights);
   renderWeightHistory(weights);
+  if (wellnessDom.readinessHistoryDialog.open) renderReadinessHistoryDialog();
+  if (wellnessDom.weightHistoryDialog.open) renderWeightHistoryDialog();
   if (!options.preserveForms) {
     const selectedReadinessDate = normalizeWellnessDate(wellnessDom.readinessForm.elements.checkinDate.value) || wellnessTodayKey();
     const selectedWeightDate = normalizeWellnessDate(wellnessDom.weightForm.elements.measurementDate.value) || wellnessTodayKey();
@@ -939,6 +1093,40 @@ function bindWellnessEvents() {
     const deleteButton = event.target.closest(".delete-weight-entry");
     if (editButton) editWellnessRecord(WELLNESS_ENTITY.WEIGHT, editButton.dataset.date);
     if (deleteButton) deleteWellnessRecord(WELLNESS_ENTITY.WEIGHT, deleteButton.dataset.id);
+  });
+  wellnessDom.showAllReadinessButton.addEventListener("click", () => {
+    readinessHistoryPage = 0;
+    renderReadinessHistoryDialog();
+    showHistoryDialog(wellnessDom.readinessHistoryDialog);
+  });
+  wellnessDom.showAllWeightButton.addEventListener("click", () => {
+    weightHistoryPage = 0;
+    renderWeightHistoryDialog();
+    showHistoryDialog(wellnessDom.weightHistoryDialog);
+  });
+  wellnessDom.previousReadinessPage.addEventListener("click", () => {
+    readinessHistoryPage -= 1;
+    renderReadinessHistoryDialog();
+  });
+  wellnessDom.nextReadinessPage.addEventListener("click", () => {
+    readinessHistoryPage += 1;
+    renderReadinessHistoryDialog();
+  });
+  wellnessDom.previousWeightPage.addEventListener("click", () => {
+    weightHistoryPage -= 1;
+    renderWeightHistoryDialog();
+  });
+  wellnessDom.nextWeightPage.addEventListener("click", () => {
+    weightHistoryPage += 1;
+    renderWeightHistoryDialog();
+  });
+  document.querySelectorAll(".close-history-dialog").forEach((button) => {
+    button.addEventListener("click", () => closeHistoryDialog(button.closest("dialog")));
+  });
+  [wellnessDom.readinessHistoryDialog, wellnessDom.weightHistoryDialog].forEach((dialog) => {
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) closeHistoryDialog(dialog);
+    });
   });
 }
 

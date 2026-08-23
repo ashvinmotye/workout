@@ -37,8 +37,10 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Optional post-workout review for RPE, heart-rate zone minutes and session notes
 - Heart-rate zone entry in `minutes.seconds` format (`7.1` = 7m 01s, `4.32` = 4m 32s)
 - Daily Recovery Readiness check-ins using sleep, energy, soreness, stress and motivation
-- Live 0–100 readiness score with practical training guidance and editable check-in history
-- Body-weight logging in kilograms with latest change, 7-day average and a 30-entry trend chart
+- Two-card Recovery dashboard for today’s saved readiness and body-weight direction
+- Live 0–100 readiness score with practical training guidance, the latest five check-ins, and paginated history
+- Body-weight logging in kilograms with two-decimal 7-measurement and all-time changes plus a larger 30-entry trend chart
+- Curated weight history showing today, seven preceding entries and the first measurement, with paginated full history
 - Automatic cross-device sync for recovery check-ins and body-weight measurements
 - Recovery and body-weight context inside overall Trends
 - Per-session analysis with zone distribution and duration × RPE session load
@@ -129,7 +131,7 @@ Each new session stores the stable saved-routine ID used to start it while retai
 
 Open **Recovery** to record one check-in and one body-weight measurement per day. The readiness score combines five equally weighted signals: sleep quality, energy, muscle soreness, stress and training motivation. Soreness and stress are reverse-scored, so higher values lower readiness. The result is guidance rather than a medical diagnosis; use pain, illness and unusual symptoms as reasons to stop or seek appropriate care regardless of the score.
 
-Recovery check-ins and body-weight entries are saved locally first. Create, edit and delete changes are queued while offline and synchronized automatically after reconnection. The Recovery screen shows recent history and the latest 30 body-weight measurements, while Trends adds the latest readiness, 7-day readiness average, latest weight and available 30-day weight change.
+Recovery check-ins and body-weight entries are saved locally first. Create, edit and delete changes are queued while offline and synchronized automatically after reconnection. The Recovery dashboard shows today’s saved readiness score alongside body-weight changes across the latest seven measurements and since the first measurement. The full-width weight section includes the latest 30 measurements in its chart, while the history preview shows today, seven preceding entries and the first entry without duplicates. Readiness shows the latest five check-ins. Each history can be opened in a complete list with up to 50 records per page. Trends adds the latest readiness, 7-day readiness average, latest weight and available 30-day weight change.
 
 ## Backup and restore
 
