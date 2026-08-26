@@ -746,6 +746,11 @@ function getRoutineWeightLabels(workout) {
   return labels;
 }
 
+function formatRoutineWeightSummary(workout) {
+  const labels = getRoutineWeightLabels(workout);
+  return labels.length ? `Weights · ${labels.join(", ")}` : "";
+}
+
 function loadSettings() {
   const saved = safeJsonParse(localStorage.getItem(STORAGE_KEY));
   return normalizeWorkout(saved);
@@ -2188,14 +2193,14 @@ function renderSuggestedRoutines(records) {
     const copy = document.createElement("div");
     const name = document.createElement("strong");
     const summary = document.createElement("span");
-    const weightLabels = getRoutineWeightLabels(record.workout);
+    const weightSummary = formatRoutineWeightSummary(record.workout);
     name.textContent = record.workout.name;
     summary.textContent = `${formatRoutineRole(record.routineRole)} · ${record.workout.exercises.length} ${record.workout.exercises.length === 1 ? "exercise" : "exercises"} · ${record.workout.rounds} ${record.workout.rounds === 1 ? "round" : "rounds"}`;
     copy.append(name, summary);
-    if (weightLabels.length) {
+    if (weightSummary) {
       const weights = document.createElement("span");
       weights.className = "suggested-routine-weights";
-      weights.textContent = `Weights · ${weightLabels.join(", ")}`;
+      weights.textContent = weightSummary;
       copy.append(weights);
     }
     const loadButton = document.createElement("button");
@@ -2280,6 +2285,7 @@ function renderSavedWorkouts() {
     const cardFragment = dom.savedWorkoutTemplate.content.cloneNode(true);
     const card = cardFragment.querySelector(".saved-workout-card");
     const exerciseNames = record.workout.exercises.map((exercise) => exercise.name).filter(Boolean);
+    const weightSummary = formatRoutineWeightSummary(record.workout);
     const preview = exerciseNames.slice(0, 3).join(" • ");
     const remaining = Math.max(0, exerciseNames.length - 3);
 
@@ -2287,6 +2293,9 @@ function renderSavedWorkouts() {
     card.classList.toggle("is-active", record.id === activeSavedWorkoutId);
     card.querySelector(".saved-workout-name").textContent = record.workout.name;
     card.querySelector(".saved-workout-summary").textContent = `${record.workout.exercises.length} ${record.workout.exercises.length === 1 ? "exercise" : "exercises"} • ${record.workout.rounds} ${record.workout.rounds === 1 ? "round" : "rounds"}`;
+    const weights = card.querySelector(".saved-workout-weights");
+    weights.textContent = weightSummary;
+    weights.hidden = !weightSummary;
     card.querySelector(".saved-workout-schedule-summary").textContent = record.designatedDays.length
       ? `${formatRoutineSchedule(record.designatedDays)} · ${formatRoutineRole(record.routineRole)}`
       : formatRoutineSchedule(record.designatedDays);

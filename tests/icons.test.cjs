@@ -42,9 +42,9 @@ for (const auraColor of ["#065b98","#1b7fdc","#087d95"]) {
   assert.match(source,new RegExp(auraColor,"i"),`Forge source should use AuraOS color ${auraColor}`);
 }
 assert.match(html,/apple-touch-icon-v29\.png/,"iOS should request the cache-busting Apple Touch icon");
-assert.match(html,/styles\.css\?v=29/,"Forge should version its stylesheet");
-assert.match(html,/app\.js\?v=29/,"Forge should version its app script");
-assert.match(worker,/forge-v29/,"Forge should use the Version 29 offline cache");
+assert.match(html,/styles\.css\?v=30/,"Forge should version its stylesheet");
+assert.match(html,/app\.js\?v=30/,"Forge should version its app script");
+assert.match(worker,/forge-v30/,"Forge should use the Version 30 offline cache");
 assert.match(worker,/apple-touch-icon-v29\.png/,"offline shell should include the new Apple icon");
 assert.match(manifest,/icon-maskable-512\.png/,"manifest should retain a large maskable icon");
 

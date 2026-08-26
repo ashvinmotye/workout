@@ -1,13 +1,13 @@
 "use strict";
 
-const CACHE_NAME = "forge-v29";
+const CACHE_NAME = "forge-v30";
 const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=29",
-  "./wellness.js?v=29",
-  "./app.js?v=29",
+  "./styles.css?v=30",
+  "./wellness.js?v=30",
+  "./app.js?v=30",
   "./manifest.webmanifest",
   "./icons/favicon.ico",
   "./icons/favicon-16.png",

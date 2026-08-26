@@ -21,7 +21,7 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Rename, duplicate, update and delete saved workouts
 - Reorder saved workouts with Move Up / Move Down controls
 - Assign any saved routine to multiple weekdays and see today’s routines in **Suggested today**
-- See the unique required weights for each routine directly in **Suggested today**
+- See the unique required weights for each routine in both **Suggested today** and the full **Routines Library**
 - Four-item bottom navigation with Settings available beside the appearance toggle in the header
 - Settings page with full JSON export and validated JSON import
 - Supabase email/password account creation and sign-in
@@ -101,7 +101,7 @@ The project uses only relative paths, so it also works when deployed under a rep
 
 ## Saved workouts
 
-Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Use **Move Up** and **Move Down** to arrange the library, and **Schedule** to designate one or more weekdays plus a Pre-workout, Main workout or Post-workout order. Routines scheduled for the current day also appear in **Suggested today**, ordered Pre → Main → Post, while remaining in the full library. Schedules, routines and custom order are saved locally first and synchronized to the signed-in account, with offline changes queued for retry.
+Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Each library card shows the unique weights required by that routine using the same summary as **Suggested today**; routines without weights do not show an empty weight row. Use **Move Up** and **Move Down** to arrange the library, and **Schedule** to designate one or more weekdays plus a Pre-workout, Main workout or Post-workout order. Routines scheduled for the current day also appear in **Suggested today**, ordered Pre → Main → Post, while remaining in the full library. Schedules, routines and custom order are saved locally first and synchronized to the signed-in account, with offline changes queued for retry.
 
 ## Notes
 
