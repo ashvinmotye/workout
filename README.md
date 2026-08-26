@@ -58,11 +58,17 @@ The interface uses **AuraOS**, the shared design language established by Level90
 
 ## Forge icon and icon credits
 
-The app icon set is generated from the AuraOS Arctic Depth Forge Ring master in
-`icons/forge-icon-master.png`. It includes 16, 32, and 48 px favicons, a
-multi-size `.ico`, a 180 px Apple touch icon, and standard plus maskable PWA
-icons at 192 and 512 px. The complete reusable design prompt and sizing workflow
-are recorded in `FORGE-ICON.md`.
+Version 29 rebuilds the complete icon family around the supplied Fabric Design
+System dumbbell. The mark uses AuraOS Arctic Depth cyan, blue and teal over a
+deep blue-black forged panel, with the energy sweep retained as Forge's motion
+cue. The rounded metallic frame follows the iOS Home Screen squircle so it is
+not cropped into a watch-like bezel.
+
+`icons/icon-source.svg` is the editable master and references the original
+`icons/dumbbell-mark.svg`. The package includes 16, 32, and 48 px favicons, a
+multi-size `.ico`, a versioned 180 px Apple Touch icon, and standard plus
+maskable PWA icons at 192 and 512 px. Full generation details are recorded in
+`FORGE-ICON.md`.
 
 - Setup: [Iconsax](https://github.com/lusaxweb/iconsax), MIT License
 - Routines: [Muhammad Tajudin](https://dribbble.com/tcodesign), CC Attribution
@@ -71,6 +77,7 @@ are recorded in `FORGE-ICON.md`.
 - Settings: [Dmitriy Novikov](https://www.figma.com/@novaslide), CC Attribution
 - Dark mode: [Circum Icons](https://github.com/Klarr-Agency/Circum-icons), Mozilla Public License 2.0
 - Light mode: [Ligature Symbols](https://github.com/kudakurage/LigatureSymbols), SIL Open Font License
+- App icon dumbbell: [Fabric Design System](https://github.com/fabric-ds/icons), MIT License
 
 ## Run locally
 
