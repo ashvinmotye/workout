@@ -4,6 +4,14 @@ A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
 
 The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
 
+## Version 31 supplied Forge icon
+
+- Replaces the complete install-icon family with the supplied navy dumbbell artwork.
+- Preserves the original 2048px PNG as `icons/icon-source.png` and derives the standard PWA, Apple Touch, favicon PNG and multi-size `.ico` assets from it.
+- Adds restrained centered padding only to the Android maskable variants so launcher crops cannot clip the dumbbell.
+- Advances the Apple Touch filename and offline app-shell cache to Version 31 so installed copies request the new icon.
+- Requires only the updated PWA files; there is no Supabase migration or Edge Function deployment for this version.
+
 ## Included
 
 - Setup and active-workout screens
@@ -58,16 +66,11 @@ The interface uses **AuraOS**, the shared design language established by Level90
 
 ## Forge icon and icon credits
 
-Version 29 rebuilds the complete icon family around the supplied Fabric Design
-System dumbbell. The mark uses AuraOS Arctic Depth cyan, blue and teal over a
-deep blue-black forged panel, with the energy sweep retained as Forge's motion
-cue. The rounded metallic frame follows the iOS Home Screen squircle so it is
-not cropped into a watch-like bezel.
-
-`icons/icon-source.svg` is the editable master and references the original
-`icons/dumbbell-mark.svg`. The package includes 16, 32, and 48 px favicons, a
-multi-size `.ico`, a versioned 180 px Apple Touch icon, and standard plus
-maskable PWA icons at 192 and 512 px. Full generation details are recorded in
+Version 31 rebuilds the complete icon family from the supplied navy dumbbell
+artwork. `icons/icon-source.png` preserves the exact original 2048px source.
+The package includes 16, 32, and 48px favicons, a multi-size `.ico`, a
+versioned 180px Apple Touch icon, and standard plus safely padded maskable PWA
+icons at 192 and 512px. Full generation details are recorded in
 `FORGE-ICON.md`.
 
 - Setup: [Iconsax](https://github.com/lusaxweb/iconsax), MIT License
@@ -77,7 +80,6 @@ maskable PWA icons at 192 and 512 px. Full generation details are recorded in
 - Settings: [Dmitriy Novikov](https://www.figma.com/@novaslide), CC Attribution
 - Dark mode: [Circum Icons](https://github.com/Klarr-Agency/Circum-icons), Mozilla Public License 2.0
 - Light mode: [Ligature Symbols](https://github.com/kudakurage/LigatureSymbols), SIL Open Font License
-- App icon dumbbell: [Fabric Design System](https://github.com/fabric-ds/icons), MIT License
 
 ## Run locally
 
