@@ -1,8 +1,27 @@
-# Forge
+# Wellbeing
 
-A mobile-first circuit workout timer built with plain HTML, CSS and JavaScript.
+A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript. **Forge** remains the training system inside the broader app, alongside body measurements, recovery and whole-picture progress.
 
 The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
+
+## Version 32 Wellbeing + waist progress
+
+- Renames the user-facing app and PWA from **Forge** to **Wellbeing** while retaining Forge as the training module.
+- Keeps existing local-storage keys, workout history, routines, recovery check-ins and body-weight records intact.
+- Renames the primary navigation to **Forge**, **Routines**, **Body** and **Progress**.
+- Adds weekly waist-circumference logging in centimetres with a saved measurement method, notes, editing, deletion and paginated history.
+- Adds a three-card Body dashboard for readiness, weight direction and weekly waist direction, including an in-app due/overdue state.
+- Adds a waist trend chart, four-week change, since-first change and a consistent-measurement guide.
+- Adds a four-signal Progress Profile combining weight, waist, Zone 2 time and completed weighted sets.
+- Keeps waist change separate from Spider-Man phase advancement: it is a health-progress signal, not a training gate.
+- Adds offline-first Supabase synchronization, JSON backup/restore and Settings counts for waist measurements.
+- Includes the additive `20260827_create_body_waist_entries.sql` migration with per-user Row Level Security.
+
+### Upgrade from the current Forge build
+
+1. Run only `supabase/migrations/20260827_create_body_waist_entries.sql` in the existing Supabase project's SQL Editor. The earlier migrations do not need to be rerun when Recovery and body-weight sync already work.
+2. Replace the deployed Forge app files with this package. Existing browser data remains available because the established `voiceWorkout.*` storage keys are intentionally unchanged.
+3. Open or refresh the installed PWA once while online so the Version 32 app shell is cached. Previous Forge and Voice Workout JSON backups remain importable.
 
 ## Version 31 supplied Forge icon
 
@@ -45,12 +64,13 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Optional post-workout review for RPE, heart-rate zone minutes and session notes
 - Heart-rate zone entry in `minutes.seconds` format (`7.1` = 7m 01s, `4.32` = 4m 32s)
 - Daily Recovery Readiness check-ins using sleep, energy, soreness, stress and motivation
-- Two-card Recovery dashboard for today’s saved readiness and body-weight direction
+- Three-card Body dashboard for today’s saved readiness, body-weight direction and weekly waist direction
 - Live 0–100 readiness score with practical training guidance, the latest five check-ins, and paginated history
 - Body-weight logging in kilograms with two-decimal 7-measurement and all-time changes plus a larger 30-entry trend chart
+- Weekly waist logging in centimetres with 4-week and all-time changes plus a 30-entry trend chart
 - Curated weight history showing today, seven preceding entries and the first measurement, with paginated full history
-- Automatic cross-device sync for recovery check-ins and body-weight measurements
-- Recovery and body-weight context inside overall Trends
+- Automatic cross-device sync for recovery check-ins, body-weight and waist measurements
+- Four-signal Progress Profile for weight, waist, Zone 2 time and weighted strength work
 - Per-session analysis with zone distribution and duration × RPE session load
 - Same-routine comparison by stable routine identity, even after the routine is renamed
 - Weekly and monthly session-load and average-RPE summaries
@@ -111,11 +131,13 @@ Use **Save workout** on the Setup screen to add the current routine to **Saved w
 - On some mobile browsers, sound and speech begin only after the user taps Start or Test Voice.
 - Screen Wake Lock is used only when supported by the browser.
 
-## Trends and history
+## Progress and history
 
-The **Trends** tab records completed workouts automatically. When ending a workout early, choose **Save session** to include the partial session in history or **Discard** to leave it out.
+The **Progress** tab records completed Forge workouts automatically. When ending a workout early, choose **Save session** to include the partial session in history or **Discard** to leave it out.
 
-Trends includes:
+Progress includes:
+
+- A four-signal profile for body weight, waist circumference, Zone 2 time and completed weighted sets
 
 - This-week and this-month summaries
 - Training-minute charts for 7 days, 30 days, 90 days, or all history
@@ -130,24 +152,26 @@ Trends includes:
 - Weekly and monthly load plus average RPE
 - Overall load charts and aggregate zone distributions for 7D, 30D, 90D and all history
 - Review coverage and expanded consistency metrics
-- Long-duration formatting in hours and minutes throughout Trends
+- Long-duration formatting in hours and minutes throughout Progress
 - Individual history deletion and a clear-all option
 
 Workout history is stored locally first and synchronized to the signed-in Supabase account. Review edits use the same offline-first queue as new and deleted sessions.
 
 Each new session stores the stable saved-routine ID used to start it while retaining `workout_name` as the historical name snapshot. Renaming a routine therefore does not break future previous-session comparisons. Older sessions are linked automatically only when the current name or exercise structure gives one unambiguous match; any remaining previous names can be reviewed manually in **Settings → Account**. Linking never rewrites the saved session name or workout details.
 
-## Recovery and body weight
+## Body measurements and recovery
 
-Open **Recovery** to record one check-in and one body-weight measurement per day. The readiness score combines five equally weighted signals: sleep quality, energy, muscle soreness, stress and training motivation. Soreness and stress are reverse-scored, so higher values lower readiness. The result is guidance rather than a medical diagnosis; use pain, illness and unusual symptoms as reasons to stop or seek appropriate care regardless of the score.
+Open **Body** to record recovery readiness, body weight and waist circumference. Weight may be logged regularly; waist is designed as a weekly signal and the dashboard shows when the next measurement is due. The waist form saves either the rib–hip midpoint or navel method with each entry so the user can keep the trend consistent.
 
-Recovery check-ins and body-weight entries are saved locally first. Create, edit and delete changes are queued while offline and synchronized automatically after reconnection. The Recovery dashboard shows today’s saved readiness score alongside body-weight changes across the latest seven measurements and since the first measurement. The full-width weight section includes the latest 30 measurements in its chart, while the history preview shows today, seven preceding entries and the first entry without duplicates. Readiness shows the latest five check-ins. Each history can be opened in a complete list with up to 50 records per page. Trends adds the latest readiness, 7-day readiness average, latest weight and available 30-day weight change.
+The readiness score combines five equally weighted signals: sleep quality, energy, muscle soreness, stress and training motivation. Soreness and stress are reverse-scored, so higher values lower readiness. The result is guidance rather than a medical diagnosis; use pain, illness and unusual symptoms as reasons to stop or seek appropriate care regardless of the score.
+
+Recovery, weight and waist entries are saved locally first. Create, edit and delete changes are queued while offline and synchronized automatically after reconnection. Weight and waist each provide 30-entry charts, curated history previews and complete paginated histories. Progress reads the four official signals together; it does not use waist change as a Spider-Man phase requirement.
 
 ## Backup and restore
 
 Open Settings from the header beside the light/dark toggle, then use **Export JSON** to download a complete backup. The file includes the current workout draft, saved routines, designated weekdays and custom order, workout history and routine links, theme, the currently loaded routine, and any resumable session.
 
-Use **Import JSON** to restore a backup. The app validates the file and shows its saved-workout and session counts before asking for confirmation. Import replaces the Workout data stored on the current browser or device.
+Use **Import JSON** to restore a backup. The app validates the file and shows its routine, session, recovery, weight and waist counts before asking for confirmation. Version 32 continues to accept previous Forge and Voice Workout backups; missing waist history is treated as an empty list. Import replaces the Wellbeing data stored on the current browser or device.
 
 ## Supabase authentication
 
@@ -171,8 +195,11 @@ The reproducible table definitions and Row Level Security policies are stored in
 - `supabase/migrations/20260816220000_create_saved_workouts.sql`
 - `supabase/migrations/20260820_create_recovery_and_body_weight.sql`
 - `supabase/migrations/20260820_add_routine_scheduling_and_identity.sql`
+- `supabase/migrations/20260827_create_body_waist_entries.sql`
 
 Before using Recovery sync for the first time, run `20260820_create_recovery_and_body_weight.sql` in the Supabase SQL Editor. The migration creates the two per-user tables, conflict-safe update triggers, indexes and Row Level Security policies. Existing workout sessions and routines are not changed.
+
+Run `20260827_create_body_waist_entries.sql` after the existing Recovery/body-weight migration. It creates only the new waist table, trigger, index, grants and per-user Row Level Security policies. It does not alter or delete any existing data.
 
 Before using routine schedules or stable cross-device comparisons, run `20260820_add_routine_scheduling_and_identity.sql`. It is additive: it adds schedule metadata to `saved_workouts`, a nullable `routine_id` to `workout_sessions`, validation checks and an index. It does not drop tables, delete rows, rename snapshots or attach a cascading foreign key.
 

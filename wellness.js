@@ -2,6 +2,7 @@
 
 const RECOVERY_CHECKINS_KEY = "voiceWorkout.recoveryCheckins.v1";
 const BODY_WEIGHT_ENTRIES_KEY = "voiceWorkout.bodyWeightEntries.v1";
+const BODY_WAIST_ENTRIES_KEY = "voiceWorkout.bodyWaistEntries.v1";
 const WELLNESS_SYNC_QUEUE_KEY = "voiceWorkout.wellnessSyncQueue.v1";
 const WELLNESS_LAST_SYNC_KEY_PREFIX = "voiceWorkout.wellnessLastSync.v1";
 const WELLNESS_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.wellnessCloudIds.v1";
@@ -12,7 +13,8 @@ const WELLNESS_HISTORY_PAGE_SIZE = 50;
 
 const WELLNESS_ENTITY = Object.freeze({
   RECOVERY: "recovery",
-  WEIGHT: "weight"
+  WEIGHT: "weight",
+  WAIST: "waist"
 });
 
 const wellnessDom = {
@@ -47,6 +49,20 @@ const wellnessDom = {
   weightHistoryCount: document.querySelector("#weightHistoryCount"),
   weightHistory: document.querySelector("#weightHistory"),
   showAllWeightButton: document.querySelector("#showAllWeightButton"),
+  waistForm: document.querySelector("#waistForm"),
+  saveWaistButton: document.querySelector("#saveWaistButton"),
+  resetWaistButton: document.querySelector("#resetWaistButton"),
+  waistFormStatus: document.querySelector("#waistFormStatus"),
+  latestWaist: document.querySelector("#latestWaist"),
+  dashboardWaistDate: document.querySelector("#dashboardWaistDate"),
+  waistFourWeekChange: document.querySelector("#waistFourWeekChange"),
+  waistSinceFirstChange: document.querySelector("#waistSinceFirstChange"),
+  waistDueBadge: document.querySelector("#waistDueBadge"),
+  waistChart: document.querySelector("#waistChart"),
+  waistChartSummary: document.querySelector("#waistChartSummary"),
+  waistHistoryCount: document.querySelector("#waistHistoryCount"),
+  waistHistory: document.querySelector("#waistHistory"),
+  showAllWaistButton: document.querySelector("#showAllWaistButton"),
   readinessHistoryDialog: document.querySelector("#readinessHistoryDialog"),
   readinessHistoryDialogList: document.querySelector("#readinessHistoryDialogList"),
   readinessHistoryPagination: document.querySelector("#readinessHistoryPagination"),
@@ -59,25 +75,38 @@ const wellnessDom = {
   previousWeightPage: document.querySelector("#previousWeightPage"),
   nextWeightPage: document.querySelector("#nextWeightPage"),
   weightPageStatus: document.querySelector("#weightPageStatus"),
+  waistHistoryDialog: document.querySelector("#waistHistoryDialog"),
+  waistHistoryDialogList: document.querySelector("#waistHistoryDialogList"),
+  waistHistoryPagination: document.querySelector("#waistHistoryPagination"),
+  previousWaistPage: document.querySelector("#previousWaistPage"),
+  nextWaistPage: document.querySelector("#nextWaistPage"),
+  waistPageStatus: document.querySelector("#waistPageStatus"),
   wellnessSyncStatus: document.querySelector("#wellnessSyncStatus"),
   syncWellnessButton: document.querySelector("#syncWellnessButton"),
   settingsReadinessCount: document.querySelector("#settingsReadinessCount"),
   settingsWeightCount: document.querySelector("#settingsWeightCount"),
-  wellnessTrendPanel: document.querySelector("#wellnessTrendPanel"),
-  trendLatestReadiness: document.querySelector("#trendLatestReadiness"),
-  trendLatestReadinessDate: document.querySelector("#trendLatestReadinessDate"),
-  trendAverageReadiness: document.querySelector("#trendAverageReadiness"),
-  trendReadinessCoverage: document.querySelector("#trendReadinessCoverage"),
-  trendLatestWeight: document.querySelector("#trendLatestWeight"),
-  trendLatestWeightDate: document.querySelector("#trendLatestWeightDate"),
-  trendWeightChange: document.querySelector("#trendWeightChange"),
-  wellnessTrendInsight: document.querySelector("#wellnessTrendInsight")
+  settingsWaistCount: document.querySelector("#settingsWaistCount"),
+  progressProfilePanel: document.querySelector("#progressProfilePanel"),
+  progressWeightValue: document.querySelector("#progressWeightValue"),
+  progressWeightChange: document.querySelector("#progressWeightChange"),
+  progressWeightStatus: document.querySelector("#progressWeightStatus"),
+  progressWaistValue: document.querySelector("#progressWaistValue"),
+  progressWaistChange: document.querySelector("#progressWaistChange"),
+  progressWaistStatus: document.querySelector("#progressWaistStatus"),
+  progressZ2Value: document.querySelector("#progressZ2Value"),
+  progressZ2Change: document.querySelector("#progressZ2Change"),
+  progressZ2Status: document.querySelector("#progressZ2Status"),
+  progressStrengthValue: document.querySelector("#progressStrengthValue"),
+  progressStrengthChange: document.querySelector("#progressStrengthChange"),
+  progressStrengthStatus: document.querySelector("#progressStrengthStatus"),
+  progressProfileInsight: document.querySelector("#progressProfileInsight")
 };
 
 let wellnessSyncInProgress = false;
 let wellnessSyncRequested = false;
 let readinessHistoryPage = 0;
 let weightHistoryPage = 0;
+let waistHistoryPage = 0;
 
 function wellnessTodayKey(date = new Date()) {
   return [
@@ -225,6 +254,27 @@ function normalizeWeightEntry(record) {
   };
 }
 
+function normalizeWaistEntry(record) {
+  if (!record || typeof record !== "object") return null;
+  const measurementDate = normalizeWellnessDate(record.measurementDate ?? record.measurement_date);
+  const waistCm = Number(record.waistCm ?? record.waist_cm);
+  if (!measurementDate || !Number.isFinite(waistCm) || waistCm < 40 || waistCm > 250) return null;
+  const createdAt = normalizeWellnessTimestamp(record.createdAt ?? record.client_created_at);
+  const updatedAt = Math.max(createdAt, normalizeWellnessTimestamp(record.updatedAt ?? record.client_updated_at, createdAt));
+  const method = record.method === "navel" ? "navel" : "midpoint";
+  return {
+    id: typeof record.id === "string" && record.id
+      ? record.id
+      : wellnessRecordId(WELLNESS_ENTITY.WAIST, measurementDate),
+    measurementDate,
+    waistCm: Math.round(waistCm * 100) / 100,
+    method,
+    notes: typeof record.notes === "string" ? record.notes.trim().slice(0, 200) : "",
+    createdAt,
+    updatedAt
+  };
+}
+
 function loadRecoveryCheckins() {
   const parsed = safeJsonParse(localStorage.getItem(RECOVERY_CHECKINS_KEY));
   if (!Array.isArray(parsed)) return [];
@@ -255,6 +305,22 @@ function saveWeightEntries(records) {
   });
   const normalized = [...byDate.values()].sort((a, b) => b.measurementDate.localeCompare(a.measurementDate));
   localStorage.setItem(BODY_WEIGHT_ENTRIES_KEY, JSON.stringify(normalized));
+}
+
+function loadWaistEntries() {
+  const parsed = safeJsonParse(localStorage.getItem(BODY_WAIST_ENTRIES_KEY));
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map(normalizeWaistEntry).filter(Boolean).sort((a, b) => b.measurementDate.localeCompare(a.measurementDate));
+}
+
+function saveWaistEntries(records) {
+  const byDate = new Map();
+  records.map(normalizeWaistEntry).filter(Boolean).forEach((record) => {
+    const existing = byDate.get(record.measurementDate);
+    if (!existing || record.updatedAt >= existing.updatedAt) byDate.set(record.measurementDate, record);
+  });
+  const normalized = [...byDate.values()].sort((a, b) => b.measurementDate.localeCompare(a.measurementDate));
+  localStorage.setItem(BODY_WAIST_ENTRIES_KEY, JSON.stringify(normalized));
 }
 
 function wellnessLastSyncKey(userId = wellnessUserId()) {
@@ -293,7 +359,11 @@ function normalizeWellnessSyncOperation(operation) {
   const userId = typeof operation.userId === "string" && operation.userId ? operation.userId : wellnessUserId();
   if (!userId || !Object.values(WELLNESS_ENTITY).includes(entity) || (type !== "upsert" && type !== "delete")) return null;
   if (typeof operation.id !== "string" || !operation.id) return null;
-  const normalizer = entity === WELLNESS_ENTITY.RECOVERY ? normalizeRecoveryCheckin : normalizeWeightEntry;
+  const normalizer = entity === WELLNESS_ENTITY.RECOVERY
+    ? normalizeRecoveryCheckin
+    : entity === WELLNESS_ENTITY.WEIGHT
+      ? normalizeWeightEntry
+      : normalizeWaistEntry;
   const record = type === "upsert" ? normalizer(operation.record) : null;
   if (type === "upsert" && !record) return null;
   return {
@@ -370,6 +440,20 @@ function weightToCloudRow(record) {
   };
 }
 
+function waistToCloudRow(record) {
+  const normalized = normalizeWaistEntry(record);
+  return {
+    id: normalized.id,
+    user_id: authSession.user.id,
+    measurement_date: normalized.measurementDate,
+    waist_cm: normalized.waistCm,
+    method: normalized.method,
+    notes: normalized.notes,
+    client_created_at: new Date(normalized.createdAt).toISOString(),
+    client_updated_at: new Date(normalized.updatedAt).toISOString()
+  };
+}
+
 function cloudRowToRecovery(row) {
   return normalizeRecoveryCheckin({
     id: row.id,
@@ -396,6 +480,18 @@ function cloudRowToWeight(row) {
   });
 }
 
+function cloudRowToWaist(row) {
+  return normalizeWaistEntry({
+    id: row.id,
+    measurementDate: row.measurement_date,
+    waistCm: row.waist_cm,
+    method: row.method,
+    notes: row.notes,
+    createdAt: Date.parse(row.client_created_at),
+    updatedAt: Date.parse(row.client_updated_at)
+  });
+}
+
 function recordSuccessfulWellnessOperation(operation, userId) {
   const ids = loadWellnessIdSet(wellnessCloudIdsKey, operation.entity, userId);
   if (operation.type === "upsert") ids.add(operation.id);
@@ -407,16 +503,23 @@ async function processWellnessSyncQueue() {
   const userId = authSession.user.id;
   const recent = {
     [WELLNESS_ENTITY.RECOVERY]: { upsertedIds: new Set(), deletedIds: new Set() },
-    [WELLNESS_ENTITY.WEIGHT]: { upsertedIds: new Set(), deletedIds: new Set() }
+    [WELLNESS_ENTITY.WEIGHT]: { upsertedIds: new Set(), deletedIds: new Set() },
+    [WELLNESS_ENTITY.WAIST]: { upsertedIds: new Set(), deletedIds: new Set() }
   };
   const operations = loadWellnessSyncQueue().filter((operation) => operation.userId === userId);
   for (const operation of operations) {
-    const table = operation.entity === WELLNESS_ENTITY.RECOVERY ? "recovery_checkins" : "body_weight_entries";
+    const table = operation.entity === WELLNESS_ENTITY.RECOVERY
+      ? "recovery_checkins"
+      : operation.entity === WELLNESS_ENTITY.WEIGHT
+        ? "body_weight_entries"
+        : "body_waist_entries";
     let response;
     if (operation.type === "upsert") {
       const row = operation.entity === WELLNESS_ENTITY.RECOVERY
         ? recoveryToCloudRow(operation.record)
-        : weightToCloudRow(operation.record);
+        : operation.entity === WELLNESS_ENTITY.WEIGHT
+          ? weightToCloudRow(operation.record)
+          : waistToCloudRow(operation.record);
       response = await authClient.from(table).upsert(row, { onConflict: "id" });
     } else {
       response = await authClient.from(table).delete().eq("id", operation.id);
@@ -432,8 +535,16 @@ async function processWellnessSyncQueue() {
 
 function mergeWellnessPull(entity, cloudRecords, recentChanges) {
   const userId = authSession.user.id;
-  const loadLocal = entity === WELLNESS_ENTITY.RECOVERY ? loadRecoveryCheckins : loadWeightEntries;
-  const saveLocal = entity === WELLNESS_ENTITY.RECOVERY ? saveRecoveryCheckins : saveWeightEntries;
+  const loadLocal = entity === WELLNESS_ENTITY.RECOVERY
+    ? loadRecoveryCheckins
+    : entity === WELLNESS_ENTITY.WEIGHT
+      ? loadWeightEntries
+      : loadWaistEntries;
+  const saveLocal = entity === WELLNESS_ENTITY.RECOVERY
+    ? saveRecoveryCheckins
+    : entity === WELLNESS_ENTITY.WEIGHT
+      ? saveWeightEntries
+      : saveWaistEntries;
   const previousCloudIds = loadWellnessIdSet(wellnessCloudIdsKey, entity, userId);
   const previousPullIds = loadWellnessIdSet(wellnessPullIdsKey, entity, userId);
   const currentCloudIds = new Set(cloudRecords.map((record) => record.id));
@@ -459,7 +570,7 @@ function mergeWellnessPull(entity, cloudRecords, recentChanges) {
 }
 
 async function pullWellnessFromCloud(recent) {
-  const [recoveryResponse, weightResponse] = await Promise.all([
+  const [recoveryResponse, weightResponse, waistResponse] = await Promise.all([
     authClient
       .from("recovery_checkins")
       .select("id, checkin_date, sleep_quality, energy_level, muscle_soreness, stress_level, motivation_level, readiness_score, notes, client_created_at, client_updated_at")
@@ -467,13 +578,19 @@ async function pullWellnessFromCloud(recent) {
     authClient
       .from("body_weight_entries")
       .select("id, measurement_date, weight_kg, notes, client_created_at, client_updated_at")
+      .order("measurement_date", { ascending: false }),
+    authClient
+      .from("body_waist_entries")
+      .select("id, measurement_date, waist_cm, method, notes, client_created_at, client_updated_at")
       .order("measurement_date", { ascending: false })
   ]);
   if (recoveryResponse.error) throw recoveryResponse.error;
   if (weightResponse.error) throw weightResponse.error;
+  if (waistResponse.error) throw waistResponse.error;
 
   const recoveryDeletes = recent[WELLNESS_ENTITY.RECOVERY].deletedIds;
   const weightDeletes = recent[WELLNESS_ENTITY.WEIGHT].deletedIds;
+  const waistDeletes = recent[WELLNESS_ENTITY.WAIST].deletedIds;
   const cloudRecovery = (recoveryResponse.data || [])
     .filter((row) => !recoveryDeletes.has(row.id))
     .map(cloudRowToRecovery)
@@ -482,10 +599,15 @@ async function pullWellnessFromCloud(recent) {
     .filter((row) => !weightDeletes.has(row.id))
     .map(cloudRowToWeight)
     .filter(Boolean);
+  const cloudWaists = (waistResponse.data || [])
+    .filter((row) => !waistDeletes.has(row.id))
+    .map(cloudRowToWaist)
+    .filter(Boolean);
 
   mergeWellnessPull(WELLNESS_ENTITY.RECOVERY, cloudRecovery, recent[WELLNESS_ENTITY.RECOVERY]);
   mergeWellnessPull(WELLNESS_ENTITY.WEIGHT, cloudWeights, recent[WELLNESS_ENTITY.WEIGHT]);
-  return cloudRecovery.length + cloudWeights.length;
+  mergeWellnessPull(WELLNESS_ENTITY.WAIST, cloudWaists, recent[WELLNESS_ENTITY.WAIST]);
+  return cloudRecovery.length + cloudWeights.length + cloudWaists.length;
 }
 
 function setWellnessSyncStatus(message, state = "") {
@@ -503,8 +625,8 @@ function updateWellnessSyncStatus() {
   const pending = loadWellnessSyncQueue().filter((operation) => operation.userId === userId).length;
   if (!navigator.onLine || !authSession) {
     setWellnessSyncStatus(pending
-      ? `${pending} recovery ${pending === 1 ? "change" : "changes"} waiting for connection`
-      : "Offline — recovery data is available", "waiting");
+      ? `${pending} body ${pending === 1 ? "change" : "changes"} waiting for connection`
+      : "Offline — body and recovery data is available", "waiting");
     return;
   }
   if (wellnessSyncInProgress) {
@@ -512,7 +634,7 @@ function updateWellnessSyncStatus() {
     return;
   }
   if (pending) {
-    setWellnessSyncStatus(`${pending} recovery ${pending === 1 ? "change" : "changes"} waiting to sync`, "waiting");
+    setWellnessSyncStatus(`${pending} body ${pending === 1 ? "change" : "changes"} waiting to sync`, "waiting");
     return;
   }
   const key = wellnessLastSyncKey(userId);
@@ -526,12 +648,12 @@ function friendlyWellnessSyncError(error) {
   if (!navigator.onLine || normalized.includes("failed to fetch") || normalized.includes("network")) {
     return "Waiting for an internet connection";
   }
-  if ((normalized.includes("recovery_checkins") || normalized.includes("body_weight_entries"))
+  if ((normalized.includes("recovery_checkins") || normalized.includes("body_weight_entries") || normalized.includes("body_waist_entries"))
     && (normalized.includes("not find") || normalized.includes("does not exist") || normalized.includes("relation"))) {
-    return "Recovery sync needs the included Supabase migration";
+    return "Body sync needs the included Supabase migration";
   }
-  if (normalized.includes("row-level security")) return "Recovery sync was blocked by the database security policy";
-  return message ? `Recovery sync failed: ${message}` : "Recovery data could not be synced";
+  if (normalized.includes("row-level security")) return "Body sync was blocked by the database security policy";
+  return message ? `Body sync failed: ${message}` : "Body data could not be synced";
 }
 
 async function syncWellnessData(options = {}) {
@@ -541,7 +663,7 @@ async function syncWellnessData(options = {}) {
   }
   if (!authClient || !authSession || !navigator.onLine) {
     updateWellnessSyncStatus();
-    if (options.manual) showToast("Recovery data will sync when you are online and signed in.");
+    if (options.manual) showToast("Body data will sync when you are online and signed in.");
     return false;
   }
 
@@ -559,11 +681,11 @@ async function syncWellnessData(options = {}) {
     setWellnessSyncStatus(cloudCount
       ? `${formatLastHistorySync(syncedAt)} • ${cloudCount} cloud ${cloudCount === 1 ? "entry" : "entries"}`
       : formatLastHistorySync(syncedAt), "success");
-    if (options.manual) showToast("Recovery and body data synced.");
+    if (options.manual) showToast("Body and recovery data synced.");
     return true;
   } catch (error) {
     setWellnessSyncStatus(friendlyWellnessSyncError(error), "error");
-    if (options.manual) showToast("Recovery sync failed.");
+    if (options.manual) showToast("Body sync failed.");
     return false;
   } finally {
     wellnessSyncInProgress = false;
@@ -692,6 +814,55 @@ function populateWeightForm(date = wellnessTodayKey()) {
   wellnessDom.weightFormStatus.textContent = "";
 }
 
+function submitWaistForm(event) {
+  event.preventDefault();
+  const form = wellnessDom.waistForm;
+  const measurementDate = normalizeWellnessDate(form.elements.measurementDate.value);
+  const waistCm = Number(form.elements.waistCm.value);
+  if (!measurementDate || measurementDate > wellnessTodayKey()) {
+    wellnessDom.waistFormStatus.textContent = "Choose today or an earlier date.";
+    return;
+  }
+  if (!Number.isFinite(waistCm) || waistCm < 40 || waistCm > 250) {
+    wellnessDom.waistFormStatus.textContent = "Enter a waist measurement between 40 and 250 cm.";
+    return;
+  }
+  const records = loadWaistEntries();
+  const existing = records.find((record) => record.measurementDate === measurementDate);
+  const now = Date.now();
+  const record = normalizeWaistEntry({
+    id: existing?.id || wellnessRecordId(WELLNESS_ENTITY.WAIST, measurementDate),
+    measurementDate,
+    waistCm,
+    method: form.elements.method.value,
+    notes: form.elements.notes.value,
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  });
+  saveWaistEntries([...records.filter((item) => item.measurementDate !== measurementDate), record]);
+  queueWellnessOperation(WELLNESS_ENTITY.WAIST, "upsert", record);
+  populateWaistForm(measurementDate);
+  renderRecoveryScreen({ preserveForms: true });
+  renderTrends();
+  renderSettingsSummary();
+  wellnessDom.waistFormStatus.textContent = navigator.onLine ? "Saved · syncing automatically" : "Saved on this device · sync pending";
+  showToast("Waist measurement saved.");
+  syncWellnessData().catch(() => {});
+}
+
+function populateWaistForm(date = wellnessTodayKey()) {
+  const normalizedDate = normalizeWellnessDate(date) || wellnessTodayKey();
+  const record = loadWaistEntries().find((item) => item.measurementDate === normalizedDate);
+  const latest = loadWaistEntries()[0];
+  const form = wellnessDom.waistForm;
+  form.elements.measurementDate.value = normalizedDate;
+  form.elements.waistCm.value = record ? String(record.waistCm) : "";
+  form.elements.method.value = record?.method || latest?.method || "midpoint";
+  form.elements.notes.value = record?.notes || "";
+  wellnessDom.saveWaistButton.textContent = record ? "Update waist" : "Save waist";
+  wellnessDom.waistFormStatus.textContent = "";
+}
+
 function formatWeight(value, signed = false) {
   if (!Number.isFinite(value)) return "—";
   const prefix = signed && value > 0 ? "+" : "";
@@ -702,6 +873,51 @@ function formatWeightTrendChange(value) {
   if (!Number.isFinite(value)) return "—";
   if (value === 0) return "0.00 kg";
   return `${value > 0 ? "+" : "−"}${Math.abs(value).toFixed(2)} kg`;
+}
+
+function formatWaist(value, signed = false) {
+  if (!Number.isFinite(value)) return "—";
+  const prefix = signed && value > 0 ? "+" : "";
+  return `${prefix}${value.toFixed(1)} cm`;
+}
+
+function formatWaistTrendChange(value) {
+  if (!Number.isFinite(value)) return "—";
+  if (value === 0) return "0.00 cm";
+  return `${value > 0 ? "+" : "−"}${Math.abs(value).toFixed(2)} cm`;
+}
+
+function findMeasurementWindowChange(records, valueKey, days) {
+  if (records.length < 2) return null;
+  const latest = records[0];
+  const latestDate = wellnessDateToLocalDate(latest.measurementDate);
+  const cutoff = new Date(latestDate);
+  cutoff.setDate(cutoff.getDate() - days);
+  const candidates = records.filter((record) => wellnessDateToLocalDate(record.measurementDate) >= cutoff);
+  const oldest = candidates[candidates.length - 1];
+  if (!oldest || oldest.id === latest.id) return null;
+  return Math.round((latest[valueKey] - oldest[valueKey]) * 100) / 100;
+}
+
+function getWaistTrendSummary(records) {
+  if (!records.length) return null;
+  const latest = records[0];
+  const first = records[records.length - 1];
+  return {
+    latest,
+    fourWeekChange: findMeasurementWindowChange(records, "waistCm", 28),
+    sinceFirstChange: latest.waistCm - first.waistCm
+  };
+}
+
+function getWaistDueState(records) {
+  if (!records.length) return { due: true, label: "Due now" };
+  const latestDate = wellnessDateToLocalDate(records[0].measurementDate);
+  const today = wellnessDateToLocalDate(wellnessTodayKey());
+  const elapsedDays = Math.max(0, Math.floor((today - latestDate) / 86400000));
+  if (elapsedDays >= 7) return { due: true, label: elapsedDays === 7 ? "Due today" : `${elapsedDays - 7}d overdue` };
+  const daysRemaining = 7 - elapsedDays;
+  return { due: false, label: daysRemaining === 1 ? "Due tomorrow" : `Due in ${daysRemaining}d` };
 }
 
 function getWeightTrendSummary(records) {
@@ -728,7 +944,7 @@ function weightTrendLines(records) {
   ];
 }
 
-function renderRecoveryDashboard(checkins, weights) {
+function renderRecoveryDashboard(checkins, weights, waists) {
   const todayCheckin = checkins.find((record) => record.checkinDate === wellnessTodayKey());
   if (todayCheckin) {
     const level = getReadinessLevel(todayCheckin.readinessScore);
@@ -753,6 +969,15 @@ function renderRecoveryDashboard(checkins, weights) {
     ? `across last ${trend.recentCount} ${trend.recentCount === 1 ? "measurement" : "measurements"}`
     : "across last 7 measurements";
   wellnessDom.weightSinceFirstChange.textContent = trend ? formatWeightTrendChange(trend.sinceFirstChange) : "—";
+
+  const waistTrend = getWaistTrendSummary(waists);
+  const dueState = getWaistDueState(waists);
+  wellnessDom.latestWaist.textContent = waistTrend ? formatWaist(waistTrend.latest.waistCm) : "—";
+  wellnessDom.dashboardWaistDate.textContent = dueState.label;
+  wellnessDom.waistFourWeekChange.textContent = waistTrend ? formatWaistTrendChange(waistTrend.fourWeekChange) : "—";
+  wellnessDom.waistSinceFirstChange.textContent = waistTrend ? formatWaistTrendChange(waistTrend.sinceFirstChange) : "—";
+  wellnessDom.waistDueBadge.textContent = dueState.due ? "Due" : "Logged";
+  wellnessDom.waistDueBadge.hidden = false;
 }
 
 function readinessHistoryItemMarkup(record, showActions = false) {
@@ -829,6 +1054,53 @@ function renderWeightChart(records) {
   wellnessDom.weightChart.setAttribute("aria-label", `Body-weight trend. ${lines.join(". ")}.`);
 }
 
+function renderWaistChart(records) {
+  const displayed = records.slice(0, 30).reverse();
+  if (!displayed.length) {
+    wellnessDom.waistChart.innerHTML = '<div class="weight-chart-empty">No measurements yet</div>';
+    wellnessDom.waistChartSummary.textContent = "Add your first weekly measurement to begin the trend.";
+    wellnessDom.waistChart.setAttribute("aria-label", "No waist-circumference measurements yet");
+    return;
+  }
+  if (displayed.length === 1) {
+    wellnessDom.waistChart.innerHTML = `<div class="weight-chart-single"><span></span><strong>${formatWaist(displayed[0].waistCm)}</strong></div>`;
+  } else {
+    const width = 700;
+    const height = 400;
+    const paddingX = 42;
+    const paddingY = 42;
+    const values = displayed.map((record) => record.waistCm);
+    const rawMin = Math.min(...values);
+    const rawMax = Math.max(...values);
+    const visualPadding = Math.max(0.4, (rawMax - rawMin) * 0.2);
+    const min = rawMin - visualPadding;
+    const max = rawMax + visualPadding;
+    const x = (index) => paddingX + index / (displayed.length - 1) * (width - paddingX * 2);
+    const y = (value) => paddingY + (max - value) / Math.max(0.1, max - min) * (height - paddingY * 2);
+    const points = displayed.map((record, index) => `${x(index).toFixed(1)},${y(record.waistCm).toFixed(1)}`).join(" ");
+    const circles = displayed.map((record, index) => `<circle cx="${x(index).toFixed(1)}" cy="${y(record.waistCm).toFixed(1)}" r="4"><title>${escapeHtml(formatWellnessDate(record.measurementDate))}: ${formatWaist(record.waistCm)}</title></circle>`).join("");
+    const firstDisplayed = displayed[0];
+    const latestDisplayed = displayed[displayed.length - 1];
+    wellnessDom.waistChart.innerHTML = `
+      <svg viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
+        <line x1="${paddingX}" y1="${paddingY}" x2="${paddingX}" y2="${height - paddingY}"></line>
+        <line x1="${paddingX}" y1="${height - paddingY}" x2="${width - paddingX}" y2="${height - paddingY}"></line>
+        <text x="${paddingX}" y="25">${rawMax.toFixed(1)} cm</text>
+        <text x="${paddingX}" y="${height - 9}">${escapeHtml(formatWellnessDate(firstDisplayed.measurementDate, { short: true }))}</text>
+        <text x="${width - paddingX}" y="${height - 9}" text-anchor="end">${escapeHtml(formatWellnessDate(latestDisplayed.measurementDate, { short: true }))}</text>
+        <polyline points="${points}"></polyline>
+        ${circles}
+      </svg>`;
+  }
+  const trend = getWaistTrendSummary(records);
+  const lines = [
+    `${formatWaistTrendChange(trend.fourWeekChange)} over the latest 4-week window`,
+    `${formatWaistTrendChange(trend.sinceFirstChange)} since first measurement`
+  ];
+  wellnessDom.waistChartSummary.innerHTML = lines.map((line) => `<span>${escapeHtml(line)}</span>`).join("");
+  wellnessDom.waistChart.setAttribute("aria-label", `Waist-circumference trend. ${lines.join(". ")}.`);
+}
+
 function weightHistoryItemMarkup(record, allRecords, showActions = false) {
   const recordIndex = allRecords.findIndex((item) => item.id === record.id);
   const previous = recordIndex >= 0 ? allRecords[recordIndex + 1] : null;
@@ -876,6 +1148,42 @@ function renderWeightHistory(records) {
     return;
   }
   wellnessDom.weightHistory.innerHTML = displayed.map((record) => weightHistoryItemMarkup(record, records, true)).join("");
+}
+
+function waistMethodLabel(method) {
+  return method === "navel" ? "Navel level" : "Rib–hip midpoint";
+}
+
+function waistHistoryItemMarkup(record, allRecords, showActions = false) {
+  const recordIndex = allRecords.findIndex((item) => item.id === record.id);
+  const previous = recordIndex >= 0 ? allRecords[recordIndex + 1] : null;
+  const change = previous ? record.waistCm - previous.waistCm : null;
+  return `
+    <article class="recovery-history-item waist-history-item">
+      <div class="waist-history-value"><strong>${record.waistCm.toFixed(1)}</strong><small>cm</small></div>
+      <div class="recovery-history-main">
+        <strong>${escapeHtml(formatWellnessDate(record.measurementDate))}</strong>
+        <span>${change === null ? "First measurement" : `${formatWaistTrendChange(change)} from previous`} · ${escapeHtml(waistMethodLabel(record.method))}</span>
+        ${record.notes ? `<small>${escapeHtml(record.notes)}</small>` : ""}
+      </div>
+      ${showActions ? `<div class="recovery-history-actions">
+        <button class="mini-icon edit-waist-entry" type="button" data-date="${record.measurementDate}" aria-label="Edit waist measurement">✎</button>
+        <button class="mini-icon delete-waist-entry" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete waist measurement">×</button>
+      </div>` : ""}
+    </article>`;
+}
+
+function renderWaistHistory(records) {
+  const displayed = getWeightHistoryPreview(records);
+  wellnessDom.waistHistoryCount.textContent = records.length
+    ? `Showing ${displayed.length} of ${records.length}`
+    : "0 entries";
+  wellnessDom.showAllWaistButton.hidden = records.length <= displayed.length;
+  if (!records.length) {
+    wellnessDom.waistHistory.innerHTML = '<div class="recovery-empty-state"><strong>No measurements yet</strong><span>Your weekly waist history will build here.</span></div>';
+    return;
+  }
+  wellnessDom.waistHistory.innerHTML = displayed.map((record) => waistHistoryItemMarkup(record, records, true)).join("");
 }
 
 function renderHistoryPagination(records, page, pagination, status, previousButton, nextButton) {
@@ -926,6 +1234,24 @@ function renderWeightHistoryDialog() {
   wellnessDom.weightHistoryDialogList.scrollTop = 0;
 }
 
+function renderWaistHistoryDialog() {
+  const records = loadWaistEntries();
+  const range = renderHistoryPagination(
+    records,
+    waistHistoryPage,
+    wellnessDom.waistHistoryPagination,
+    wellnessDom.waistPageStatus,
+    wellnessDom.previousWaistPage,
+    wellnessDom.nextWaistPage
+  );
+  waistHistoryPage = range.safePage;
+  wellnessDom.waistHistoryDialogList.innerHTML = records
+    .slice(range.start, range.end)
+    .map((record) => waistHistoryItemMarkup(record, records))
+    .join("");
+  wellnessDom.waistHistoryDialogList.scrollTop = 0;
+}
+
 function showHistoryDialog(dialog) {
   if (typeof dialog.showModal === "function") dialog.showModal();
   else dialog.setAttribute("open", "");
@@ -940,17 +1266,23 @@ function renderRecoveryScreen(options = {}) {
   if (!wellnessDom.readinessForm) return;
   const checkins = loadRecoveryCheckins();
   const weights = loadWeightEntries();
-  renderRecoveryDashboard(checkins, weights);
+  const waists = loadWaistEntries();
+  renderRecoveryDashboard(checkins, weights, waists);
   renderReadinessHistory(checkins);
   renderWeightChart(weights);
   renderWeightHistory(weights);
+  renderWaistChart(waists);
+  renderWaistHistory(waists);
   if (wellnessDom.readinessHistoryDialog.open) renderReadinessHistoryDialog();
   if (wellnessDom.weightHistoryDialog.open) renderWeightHistoryDialog();
+  if (wellnessDom.waistHistoryDialog.open) renderWaistHistoryDialog();
   if (!options.preserveForms) {
     const selectedReadinessDate = normalizeWellnessDate(wellnessDom.readinessForm.elements.checkinDate.value) || wellnessTodayKey();
     const selectedWeightDate = normalizeWellnessDate(wellnessDom.weightForm.elements.measurementDate.value) || wellnessTodayKey();
+    const selectedWaistDate = normalizeWellnessDate(wellnessDom.waistForm.elements.measurementDate.value) || wellnessTodayKey();
     populateReadinessForm(selectedReadinessDate);
     populateWeightForm(selectedWeightDate);
+    populateWaistForm(selectedWaistDate);
   }
 }
 
@@ -966,92 +1298,169 @@ function findThirtyDayWeightChange(records) {
   return Math.round((latest.weightKg - oldest.weightKg) * 10) / 10;
 }
 
-function renderWellnessTrendSummary() {
-  if (!wellnessDom.wellnessTrendPanel) return;
-  const checkins = loadRecoveryCheckins();
+function setProgressSignal(valueNode, changeNode, statusNode, value, change, status, direction = "") {
+  valueNode.textContent = value;
+  changeNode.textContent = change;
+  statusNode.textContent = status;
+  const card = valueNode.closest(".progress-signal-card");
+  if (card) card.dataset.direction = direction;
+}
+
+function workoutWindowMetrics(records, startTime, endTime) {
+  const selected = records.filter((record) => record.endedAt >= startTime && record.endedAt < endTime);
+  const zone2Seconds = selected.reduce((sum, record) => sum + Math.max(0, Number(record.zone2Seconds) || 0), 0);
+  const weightedSets = selected.reduce((total, record) => total + record.exercises.reduce((sum, exercise) => {
+    const hasWeight = typeof exercise.weight === "string" && /\d/.test(exercise.weight);
+    return sum + (hasWeight ? Math.max(0, Number(exercise.completedSets) || 0) : 0);
+  }, 0), 0);
+  return { sessions: selected.length, zone2Seconds, weightedSets };
+}
+
+function formatProgressComparison(current, previous, unit) {
+  const difference = current - previous;
+  if (!previous && current) return `${current} ${unit} recorded · baseline period`;
+  if (!current && !previous) return `No ${unit} recorded in either 30-day period`;
+  if (difference === 0) return `No change from the previous 30 days`;
+  return `${difference > 0 ? "+" : "−"}${Math.abs(difference)} ${unit} vs previous 30 days`;
+}
+
+function renderWellnessTrendSummary(workoutRecords = null) {
+  if (!wellnessDom.progressProfilePanel) return;
+  const records = Array.isArray(workoutRecords)
+    ? workoutRecords
+    : (typeof loadWorkoutHistory === "function" ? loadWorkoutHistory() : []);
   const weights = loadWeightEntries();
-  const hasData = checkins.length > 0 || weights.length > 0;
-  wellnessDom.wellnessTrendPanel.hidden = !hasData;
-  if (!hasData) return;
-
-  const latestCheckin = checkins[0];
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const recentCheckins = checkins.filter((record) => wellnessDateToLocalDate(record.checkinDate) >= sevenDaysAgo);
-  const averageReadiness = recentCheckins.length
-    ? Math.round(recentCheckins.reduce((sum, record) => sum + record.readinessScore, 0) / recentCheckins.length)
-    : null;
+  const waists = loadWaistEntries();
   const latestWeight = weights[0];
+  const latestWaist = waists[0];
   const weightChange = findThirtyDayWeightChange(weights);
+  const waistChange = findMeasurementWindowChange(waists, "waistCm", 28);
 
-  wellnessDom.trendLatestReadiness.textContent = latestCheckin ? `${latestCheckin.readinessScore}/100` : "—";
-  wellnessDom.trendLatestReadinessDate.textContent = latestCheckin ? formatWellnessDate(latestCheckin.checkinDate) : "No check-in";
-  wellnessDom.trendAverageReadiness.textContent = averageReadiness === null ? "—" : `${averageReadiness}/100`;
-  wellnessDom.trendReadinessCoverage.textContent = `${recentCheckins.length} ${recentCheckins.length === 1 ? "check-in" : "check-ins"}`;
-  wellnessDom.trendLatestWeight.textContent = latestWeight ? formatWeight(latestWeight.weightKg) : "—";
-  wellnessDom.trendLatestWeightDate.textContent = latestWeight ? formatWellnessDate(latestWeight.measurementDate) : "No measurement";
-  wellnessDom.trendWeightChange.textContent = weightChange === null ? "—" : formatWeight(weightChange, true);
+  setProgressSignal(
+    wellnessDom.progressWeightValue,
+    wellnessDom.progressWeightChange,
+    wellnessDom.progressWeightStatus,
+    latestWeight ? formatWeight(latestWeight.weightKg) : "—",
+    weightChange === null ? "Add repeated measurements for a 30-day trend" : `${formatWeight(weightChange, true)} over the latest 30-day window`,
+    latestWeight ? "Tracked" : "No data"
+  );
+
+  setProgressSignal(
+    wellnessDom.progressWaistValue,
+    wellnessDom.progressWaistChange,
+    wellnessDom.progressWaistStatus,
+    latestWaist ? formatWaist(latestWaist.waistCm) : "—",
+    waistChange === null ? "Measure weekly to build a 4-week trend" : `${formatWaist(waistChange, true)} over the latest 4-week window`,
+    latestWaist ? (waistChange < 0 ? "Improving" : "Tracked") : "No data",
+    waistChange < 0 ? "improving" : ""
+  );
+
+  const now = Date.now();
+  const currentStart = now - 30 * 86400000;
+  const previousStart = now - 60 * 86400000;
+  const current = workoutWindowMetrics(records, currentStart, now + 1);
+  const previous = workoutWindowMetrics(records, previousStart, currentStart);
+  const currentZ2Minutes = Math.round(current.zone2Seconds / 60);
+  const previousZ2Minutes = Math.round(previous.zone2Seconds / 60);
+  setProgressSignal(
+    wellnessDom.progressZ2Value,
+    wellnessDom.progressZ2Change,
+    wellnessDom.progressZ2Status,
+    currentZ2Minutes ? `${currentZ2Minutes} min` : "—",
+    formatProgressComparison(currentZ2Minutes, previousZ2Minutes, "min"),
+    currentZ2Minutes ? (currentZ2Minutes > previousZ2Minutes ? "Building" : "Tracked") : "No data",
+    currentZ2Minutes > previousZ2Minutes ? "improving" : ""
+  );
+
+  setProgressSignal(
+    wellnessDom.progressStrengthValue,
+    wellnessDom.progressStrengthChange,
+    wellnessDom.progressStrengthStatus,
+    current.weightedSets ? `${current.weightedSets} sets` : "—",
+    formatProgressComparison(current.weightedSets, previous.weightedSets, "weighted sets"),
+    current.weightedSets ? (current.weightedSets > previous.weightedSets ? "Building" : "Tracked") : "No data",
+    current.weightedSets > previous.weightedSets ? "improving" : ""
+  );
 
   const insights = [];
-  if (latestCheckin && averageReadiness !== null) {
-    const difference = latestCheckin.readinessScore - averageReadiness;
-    if (Math.abs(difference) >= 5) insights.push(`Latest readiness is ${Math.abs(difference)} points ${difference > 0 ? "above" : "below"} your 7-day average.`);
-    else insights.push("Latest readiness is close to your 7-day average.");
+  if (weightChange !== null && waistChange !== null) {
+    if (weightChange < 0 && waistChange < 0) insights.push("Weight and waist are moving down together.");
+    else if (Math.abs(weightChange) < 0.5 && waistChange < 0) insights.push("Waist is reducing while weight is broadly steady, a pattern that can be consistent with body recomposition.");
+    else insights.push("Weight and waist are giving different signals, so keep judging the repeated trend rather than one reading.");
+  } else if (latestWeight || latestWaist) {
+    insights.push("Add repeated weight and weekly waist measurements to reveal body-composition direction.");
   }
-  if (weightChange !== null) insights.push(`Recorded body weight changed ${formatWeight(weightChange, true)} within the latest 30-day window.`);
-  insights.push("Use repeated measurements to judge the direction; a single day can fluctuate normally.");
-  wellnessDom.wellnessTrendInsight.textContent = insights.join(" ");
+  if (currentZ2Minutes || current.weightedSets) {
+    const z2Direction = currentZ2Minutes > previousZ2Minutes ? "higher" : currentZ2Minutes < previousZ2Minutes ? "lower" : "steady";
+    const strengthDirection = current.weightedSets > previous.weightedSets ? "higher" : current.weightedSets < previous.weightedSets ? "lower" : "steady";
+    insights.push(`Zone 2 exposure is ${z2Direction} and weighted work is ${strengthDirection} versus the previous 30 days.`);
+  }
+  if (!insights.length) insights.push("Log each signal over time to reveal progress that body weight alone can miss.");
+  wellnessDom.progressProfileInsight.textContent = insights.join(" ");
 }
 
 function editWellnessRecord(entity, date) {
   if (entity === WELLNESS_ENTITY.RECOVERY) populateReadinessForm(date);
-  else populateWeightForm(date);
-  const target = entity === WELLNESS_ENTITY.RECOVERY ? wellnessDom.readinessForm : wellnessDom.weightForm;
+  else if (entity === WELLNESS_ENTITY.WEIGHT) populateWeightForm(date);
+  else populateWaistForm(date);
+  const target = entity === WELLNESS_ENTITY.RECOVERY
+    ? wellnessDom.readinessForm
+    : entity === WELLNESS_ENTITY.WEIGHT
+      ? wellnessDom.weightForm
+      : wellnessDom.waistForm;
   target.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function deleteWellnessRecord(entity, id) {
   const isRecovery = entity === WELLNESS_ENTITY.RECOVERY;
-  const records = isRecovery ? loadRecoveryCheckins() : loadWeightEntries();
+  const isWeight = entity === WELLNESS_ENTITY.WEIGHT;
+  const records = isRecovery ? loadRecoveryCheckins() : isWeight ? loadWeightEntries() : loadWaistEntries();
   const record = records.find((item) => item.id === id);
   if (!record) return;
-  const label = isRecovery ? "recovery check-in" : "body-weight measurement";
+  const label = isRecovery ? "recovery check-in" : isWeight ? "body-weight measurement" : "waist measurement";
   if (!window.confirm(`Delete this ${label}?`)) return;
   if (isRecovery) saveRecoveryCheckins(records.filter((item) => item.id !== id));
-  else saveWeightEntries(records.filter((item) => item.id !== id));
+  else if (isWeight) saveWeightEntries(records.filter((item) => item.id !== id));
+  else saveWaistEntries(records.filter((item) => item.id !== id));
   queueWellnessOperation(entity, "delete", id);
   renderRecoveryScreen();
   renderTrends();
   renderSettingsSummary();
-  showToast(`${isRecovery ? "Recovery check-in" : "Body-weight measurement"} deleted.`);
+  showToast(`${isRecovery ? "Recovery check-in" : isWeight ? "Body-weight measurement" : "Waist measurement"} deleted.`);
   syncWellnessData().catch(() => {});
 }
 
 function getWellnessBackupData() {
   return {
     recoveryCheckins: loadRecoveryCheckins(),
-    bodyWeightEntries: loadWeightEntries()
+    bodyWeightEntries: loadWeightEntries(),
+    bodyWaistEntries: loadWaistEntries()
   };
 }
 
 function validateWellnessBackupData(data) {
   const recoverySource = data.recoveryCheckins === undefined ? [] : data.recoveryCheckins;
   const weightSource = data.bodyWeightEntries === undefined ? [] : data.bodyWeightEntries;
+  const waistSource = data.bodyWaistEntries === undefined ? [] : data.bodyWaistEntries;
   if (!Array.isArray(recoverySource)) throw new Error("The recovery check-ins in this backup are invalid.");
   if (!Array.isArray(weightSource)) throw new Error("The body-weight entries in this backup are invalid.");
+  if (!Array.isArray(waistSource)) throw new Error("The waist entries in this backup are invalid.");
   const recoveryCheckins = recoverySource.map(normalizeRecoveryCheckin);
   const bodyWeightEntries = weightSource.map(normalizeWeightEntry);
+  const bodyWaistEntries = waistSource.map(normalizeWaistEntry);
   if (recoveryCheckins.some((record) => !record)) throw new Error("One or more recovery check-ins in this backup are invalid.");
   if (bodyWeightEntries.some((record) => !record)) throw new Error("One or more body-weight entries in this backup are invalid.");
-  return { recoveryCheckins, bodyWeightEntries };
+  if (bodyWaistEntries.some((record) => !record)) throw new Error("One or more waist entries in this backup are invalid.");
+  return { recoveryCheckins, bodyWeightEntries, bodyWaistEntries };
 }
 
 function applyWellnessBackupData(data) {
   saveRecoveryCheckins(data.recoveryCheckins || []);
   saveWeightEntries(data.bodyWeightEntries || []);
+  saveWaistEntries(data.bodyWaistEntries || []);
   (data.recoveryCheckins || []).forEach((record) => queueWellnessOperation(WELLNESS_ENTITY.RECOVERY, "upsert", record));
   (data.bodyWeightEntries || []).forEach((record) => queueWellnessOperation(WELLNESS_ENTITY.WEIGHT, "upsert", record));
+  (data.bodyWaistEntries || []).forEach((record) => queueWellnessOperation(WELLNESS_ENTITY.WAIST, "upsert", record));
   renderRecoveryScreen();
   updateWellnessSyncStatus();
 }
@@ -1059,7 +1468,8 @@ function applyWellnessBackupData(data) {
 function getWellnessCounts() {
   return {
     readiness: loadRecoveryCheckins().length,
-    weight: loadWeightEntries().length
+    weight: loadWeightEntries().length,
+    waist: loadWaistEntries().length
   };
 }
 
@@ -1067,6 +1477,7 @@ function renderWellnessSettingsSummary() {
   const counts = getWellnessCounts();
   if (wellnessDom.settingsReadinessCount) wellnessDom.settingsReadinessCount.textContent = String(counts.readiness);
   if (wellnessDom.settingsWeightCount) wellnessDom.settingsWeightCount.textContent = String(counts.weight);
+  if (wellnessDom.settingsWaistCount) wellnessDom.settingsWaistCount.textContent = String(counts.waist);
   updateWellnessSyncStatus();
 }
 
@@ -1081,6 +1492,9 @@ function bindWellnessEvents() {
   wellnessDom.weightForm.elements.measurementDate.addEventListener("change", (event) => populateWeightForm(event.target.value));
   wellnessDom.weightForm.addEventListener("submit", submitWeightForm);
   wellnessDom.resetWeightButton.addEventListener("click", () => populateWeightForm(wellnessTodayKey()));
+  wellnessDom.waistForm.elements.measurementDate.addEventListener("change", (event) => populateWaistForm(event.target.value));
+  wellnessDom.waistForm.addEventListener("submit", submitWaistForm);
+  wellnessDom.resetWaistButton.addEventListener("click", () => populateWaistForm(wellnessTodayKey()));
   wellnessDom.syncWellnessButton.addEventListener("click", () => syncWellnessData({ manual: true }));
   wellnessDom.readinessHistory.addEventListener("click", (event) => {
     const editButton = event.target.closest(".edit-readiness-entry");
@@ -1094,6 +1508,12 @@ function bindWellnessEvents() {
     if (editButton) editWellnessRecord(WELLNESS_ENTITY.WEIGHT, editButton.dataset.date);
     if (deleteButton) deleteWellnessRecord(WELLNESS_ENTITY.WEIGHT, deleteButton.dataset.id);
   });
+  wellnessDom.waistHistory.addEventListener("click", (event) => {
+    const editButton = event.target.closest(".edit-waist-entry");
+    const deleteButton = event.target.closest(".delete-waist-entry");
+    if (editButton) editWellnessRecord(WELLNESS_ENTITY.WAIST, editButton.dataset.date);
+    if (deleteButton) deleteWellnessRecord(WELLNESS_ENTITY.WAIST, deleteButton.dataset.id);
+  });
   wellnessDom.showAllReadinessButton.addEventListener("click", () => {
     readinessHistoryPage = 0;
     renderReadinessHistoryDialog();
@@ -1103,6 +1523,11 @@ function bindWellnessEvents() {
     weightHistoryPage = 0;
     renderWeightHistoryDialog();
     showHistoryDialog(wellnessDom.weightHistoryDialog);
+  });
+  wellnessDom.showAllWaistButton.addEventListener("click", () => {
+    waistHistoryPage = 0;
+    renderWaistHistoryDialog();
+    showHistoryDialog(wellnessDom.waistHistoryDialog);
   });
   wellnessDom.previousReadinessPage.addEventListener("click", () => {
     readinessHistoryPage -= 1;
@@ -1120,10 +1545,18 @@ function bindWellnessEvents() {
     weightHistoryPage += 1;
     renderWeightHistoryDialog();
   });
+  wellnessDom.previousWaistPage.addEventListener("click", () => {
+    waistHistoryPage -= 1;
+    renderWaistHistoryDialog();
+  });
+  wellnessDom.nextWaistPage.addEventListener("click", () => {
+    waistHistoryPage += 1;
+    renderWaistHistoryDialog();
+  });
   document.querySelectorAll(".close-history-dialog").forEach((button) => {
     button.addEventListener("click", () => closeHistoryDialog(button.closest("dialog")));
   });
-  [wellnessDom.readinessHistoryDialog, wellnessDom.weightHistoryDialog].forEach((dialog) => {
+  [wellnessDom.readinessHistoryDialog, wellnessDom.weightHistoryDialog, wellnessDom.waistHistoryDialog].forEach((dialog) => {
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) closeHistoryDialog(dialog);
     });
@@ -1135,8 +1568,10 @@ function initializeWellness() {
   const today = wellnessTodayKey();
   wellnessDom.readinessForm.elements.checkinDate.max = today;
   wellnessDom.weightForm.elements.measurementDate.max = today;
+  wellnessDom.waistForm.elements.measurementDate.max = today;
   populateReadinessForm(today);
   populateWeightForm(today);
+  populateWaistForm(today);
   renderRecoveryScreen({ preserveForms: true });
   renderWellnessSettingsSummary();
 }

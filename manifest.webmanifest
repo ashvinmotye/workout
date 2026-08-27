@@ -1,7 +1,7 @@
 {
-  "name": "Forge",
-  "short_name": "Forge",
-  "description": "A mobile-first workout and progression app with voice guidance.",
+  "name": "Wellbeing",
+  "short_name": "Wellbeing",
+  "description": "Forge training, recovery, body measurements and whole-person progress in one app.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

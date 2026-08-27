@@ -1567,7 +1567,7 @@ html[data-theme="dark"] .theme-icon-light {
 
 .recovery-dashboard {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1680,7 +1680,8 @@ html[data-theme="dark"] .theme-icon-light {
 }
 
 .readiness-panel,
-.weight-panel {
+.weight-panel,
+.waist-panel {
   min-width: 0;
 }
 
@@ -1784,7 +1785,8 @@ html[data-theme="dark"] .theme-icon-light {
 }
 
 .readiness-form,
-.weight-form {
+.weight-form,
+.waist-form {
   display: grid;
   gap: 16px;
 }
@@ -1910,7 +1912,8 @@ html[data-theme="dark"] .theme-icon-light {
 }
 
 .recovery-history-score,
-.weight-history-value {
+.weight-history-value,
+.waist-history-value {
   display: grid;
   width: 58px;
   min-height: 58px;
@@ -1922,13 +1925,15 @@ html[data-theme="dark"] .theme-icon-light {
 }
 
 .recovery-history-score strong,
-.weight-history-value strong {
+.weight-history-value strong,
+.waist-history-value strong {
   font-size: 1.15rem;
   line-height: 1;
 }
 
 .recovery-history-score small,
-.weight-history-value small {
+.weight-history-value small,
+.waist-history-value small {
   color: var(--text-muted);
   font-size: 0.6rem;
 }
@@ -2163,6 +2168,126 @@ html[data-theme="dark"] .theme-icon-light {
   gap: 10px;
 }
 
+.waist-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.waist-form-grid .field-wide {
+  grid-column: 1 / -1;
+}
+
+.measurement-guide {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgb(var(--aura-accent-rgb) / 0.04);
+}
+
+.measurement-guide summary {
+  padding: 13px 15px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.measurement-guide ol {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0 20px 16px 34px;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.waist-chart polyline {
+  stroke: var(--aura-highlight);
+}
+
+.waist-chart circle {
+  stroke: var(--aura-highlight);
+}
+
+.progress-profile-panel {
+  background:
+    radial-gradient(circle at 92% 8%, rgb(var(--aura-highlight-rgb) / 0.12), transparent 35%),
+    var(--surface-elevated);
+}
+
+.progress-profile-heading {
+  align-items: flex-start;
+}
+
+.progress-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.progress-signal-card {
+  display: grid;
+  min-width: 0;
+  gap: 9px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgb(var(--aura-accent-rgb) / 0.05);
+}
+
+.progress-signal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.progress-signal-heading span {
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.progress-signal-heading small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.progress-signal-card strong {
+  overflow: hidden;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-signal-card p {
+  min-height: 2.5em;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.progress-signal-card[data-direction="improving"] {
+  border-color: rgb(var(--aura-highlight-rgb) / 0.38);
+  background: rgb(var(--aura-highlight-rgb) / 0.075);
+}
+
+.progress-profile-note {
+  margin: 10px 2px 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
 .wellness-trend-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -2210,7 +2335,17 @@ html[data-theme="dark"] .theme-icon-light {
   }
 
   .recovery-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .waist-dashboard-card {
+    grid-column: 1 / -1;
+    min-height: 178px;
+  }
+
+  .progress-signal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .recovery-dashboard-card {
@@ -2286,6 +2421,22 @@ html[data-theme="dark"] .theme-icon-light {
 
   .weight-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .waist-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .waist-form-grid .field-wide {
+    grid-column: auto;
+  }
+
+  .progress-signal-grid {
+    gap: 8px;
+  }
+
+  .progress-signal-card {
+    padding: 13px 11px;
   }
 
   .recovery-history-item {

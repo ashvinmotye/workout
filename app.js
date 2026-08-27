@@ -7,8 +7,8 @@ const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
-const BACKUP_APP_ID = "forge";
-const SUPPORTED_BACKUP_APP_IDS = Object.freeze([BACKUP_APP_ID, "voice-workout"]);
+const BACKUP_APP_ID = "wellbeing";
+const SUPPORTED_BACKUP_APP_IDS = Object.freeze([BACKUP_APP_ID, "forge", "voice-workout"]);
 const BACKUP_SCHEMA_VERSION = 1;
 const MAX_BACKUP_FILE_SIZE = 5 * 1024 * 1024;
 const AUTH_USER_CACHE_KEY = "voiceWorkout.authUser.v1";
@@ -376,7 +376,7 @@ function setAuthMode(mode, clearMessage = true) {
   dom.authPassword.autocomplete = isSignUp ? "new-password" : "current-password";
   dom.authPasswordHelp.textContent = isSignUp
     ? "Use at least 6 characters. You may need to confirm your email."
-    : "Enter the password for your Forge account.";
+    : "Enter the password for your Wellbeing account.";
   if (clearMessage) setAuthMessage();
 }
 
@@ -1874,7 +1874,7 @@ function createBackupPayload() {
 
 function backupFilename(date = new Date()) {
   const datePart = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
-  return `forge-backup-${datePart}.json`;
+  return `wellbeing-backup-${datePart}.json`;
 }
 
 function updateBackupStatus(message, isError = false) {
@@ -1897,10 +1897,11 @@ function exportBackup() {
     updateBackupStatus(
       `Backup created with ${payload.data.savedWorkouts.length} saved ${payload.data.savedWorkouts.length === 1 ? "workout" : "workouts"}, ` +
       `${payload.data.workoutHistory.length} ${payload.data.workoutHistory.length === 1 ? "session" : "sessions"}, ` +
-      `${payload.data.recoveryCheckins.length} recovery ${payload.data.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, and ` +
-      `${payload.data.bodyWeightEntries.length} weight ${payload.data.bodyWeightEntries.length === 1 ? "entry" : "entries"}.`
+      `${payload.data.recoveryCheckins.length} recovery ${payload.data.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, ` +
+      `${payload.data.bodyWeightEntries.length} weight ${payload.data.bodyWeightEntries.length === 1 ? "entry" : "entries"}, and ` +
+      `${payload.data.bodyWaistEntries.length} waist ${payload.data.bodyWaistEntries.length === 1 ? "entry" : "entries"}.`
     );
-    showToast("Forge backup exported.");
+    showToast("Wellbeing backup exported.");
   } catch {
     updateBackupStatus("The backup could not be created. Please try again.", true);
     showToast("Backup export failed.");
@@ -1909,7 +1910,7 @@ function exportBackup() {
 
 function validateBackupPayload(candidate) {
   if (!isObject(candidate) || !SUPPORTED_BACKUP_APP_IDS.includes(candidate.app)) {
-    throw new Error("This is not a Forge backup file.");
+    throw new Error("This is not a Wellbeing backup file.");
   }
   if (candidate.schemaVersion !== BACKUP_SCHEMA_VERSION) {
     throw new Error("This backup version is not supported by this version of the app.");
@@ -1985,6 +1986,7 @@ function applyImportedBackup(data) {
     HISTORY_KEY,
     RECOVERY_CHECKINS_KEY,
     BODY_WEIGHT_ENTRIES_KEY,
+    BODY_WAIST_ENTRIES_KEY,
     WELLNESS_SYNC_QUEUE_KEY,
     SESSION_KEY,
     THEME_KEY
@@ -2039,9 +2041,10 @@ async function importBackupFile(event) {
       `Import the backup from ${formatBackupTimestamp(imported.exportedAt)}?\n\n` +
       `It contains ${imported.savedWorkouts.length} saved ${imported.savedWorkouts.length === 1 ? "workout" : "workouts"} and ` +
       `${imported.workoutHistory.length} workout ${imported.workoutHistory.length === 1 ? "session" : "sessions"}, ` +
-      `${imported.recoveryCheckins.length} recovery ${imported.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, and ` +
-      `${imported.bodyWeightEntries.length} weight ${imported.bodyWeightEntries.length === 1 ? "entry" : "entries"}.\n\n` +
-      "This will replace the Workout data currently stored on this device."
+      `${imported.recoveryCheckins.length} recovery ${imported.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, ` +
+      `${imported.bodyWeightEntries.length} weight ${imported.bodyWeightEntries.length === 1 ? "entry" : "entries"}, and ` +
+      `${imported.bodyWaistEntries.length} waist ${imported.bodyWaistEntries.length === 1 ? "entry" : "entries"}.\n\n` +
+      "This will replace the Wellbeing data currently stored on this device."
     );
     if (!confirmed) {
       updateBackupStatus("Import cancelled. Your current data was not changed.");
@@ -2052,10 +2055,11 @@ async function importBackupFile(event) {
     updateBackupStatus(
       `Backup restored: ${imported.savedWorkouts.length} saved ${imported.savedWorkouts.length === 1 ? "workout" : "workouts"}, ` +
       `${imported.workoutHistory.length} ${imported.workoutHistory.length === 1 ? "session" : "sessions"}, ` +
-      `${imported.recoveryCheckins.length} recovery ${imported.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, and ` +
-      `${imported.bodyWeightEntries.length} weight ${imported.bodyWeightEntries.length === 1 ? "entry" : "entries"}.`
+      `${imported.recoveryCheckins.length} recovery ${imported.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, ` +
+      `${imported.bodyWeightEntries.length} weight ${imported.bodyWeightEntries.length === 1 ? "entry" : "entries"}, and ` +
+      `${imported.bodyWaistEntries.length} waist ${imported.bodyWaistEntries.length === 1 ? "entry" : "entries"}.`
     );
-    showToast("Forge backup imported.");
+    showToast("Wellbeing backup imported.");
   } catch (error) {
     const message = error instanceof SyntaxError
       ? "The selected file is not valid JSON."
@@ -3439,19 +3443,19 @@ async function confirmEndWorkout() {
     if (!window.confirm(`End this workout?\n\n${progressMessage}`)) return;
     const saveSession = window.confirm("Save this ended session in your workout history?");
     await endWorkoutAndReturnToSetup({ saveSession });
-    if (saveSession) showToast("Session saved to Trends.");
+    if (saveSession) showToast("Session saved to Progress.");
     return;
   }
 
   dom.confirmDialogTitle.textContent = "End this workout?";
-  dom.confirmDialogMessage.textContent = `${progressMessage} Save it to Trends, or discard it.`;
+  dom.confirmDialogMessage.textContent = `${progressMessage} Save it to Progress, or discard it.`;
   dom.confirmDialog.showModal();
   const result = await new Promise((resolve) => {
     dom.confirmDialog.addEventListener("close", () => resolve(dom.confirmDialog.returnValue), { once: true });
   });
   if (result === "save") {
     await endWorkoutAndReturnToSetup({ saveSession: true });
-    showToast("Session saved to Trends.");
+    showToast("Session saved to Progress.");
   } else if (result === "discard") {
     await endWorkoutAndReturnToSetup();
   }
@@ -4531,6 +4535,7 @@ function clearWorkoutHistory() {
 function renderTrends() {
   if (!dom.trendsScreen) return;
   const records = loadWorkoutHistory();
+  renderWellnessTrendSummary(records);
   const hasHistory = records.length > 0;
   dom.trendsEmptyState.hidden = hasHistory;
   dom.trendsContent.hidden = !hasHistory;
@@ -4549,7 +4554,6 @@ function renderTrends() {
   updateExpandedConsistency(records);
   renderActivityChart(records);
   renderOverallAnalytics(records);
-  renderWellnessTrendSummary();
   renderExerciseTrend(records);
   renderHistoryList(records);
 }
