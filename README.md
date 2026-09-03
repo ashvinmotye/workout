@@ -4,6 +4,23 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
 
+## Version 34 touch sorting + notification test
+
+- Adds **Send test notification** under Settings → Notifications. It uses the deployed Edge Function and the current Web Push subscription, and the test remains in the notification centre until cleared.
+- Fixes Forge and Routines touch sorting by calculating the drop position from card midpoints instead of pointer hit-testing.
+- Enlarges exercise and routine drag handles to 48px-high touch areas.
+- Shows expanded routine exercises as a vertical list, one exercise per line.
+- Reduces mobile form controls to a compact 38px height, tightens field gaps and reduces exercise-card padding while retaining 16px text to prevent iPhone input zoom.
+- Advances the offline app-shell cache and asset URLs to Version 34.
+
+### Upgrade from Version 33
+
+1. Replace the deployed `wellbeing-push` Edge Function with `supabase/functions/wellbeing-push/index.ts`. Keep **Verify JWT disabled**.
+2. Replace the hosted PWA files with this package, then open or refresh the installed PWA once while online.
+3. In Settings → Notifications, tap **Send test notification**.
+
+No SQL migration, secret change or Cron change is required for this version.
+
 ## Version 33 compact routines + notifications
 
 - Replaces the large routine action grid with one **Load** button and a compact overflow menu for Schedule, Rename, Duplicate and Delete.

@@ -5281,7 +5281,10 @@ body {
 
 .exercise-drag-handle {
   gap: 8px;
-  padding: 0;
+  min-width: 96px;
+  min-height: 48px;
+  margin: -8px 0 -8px -8px;
+  padding: 8px;
 }
 
 .exercise-card-header {
@@ -5290,8 +5293,9 @@ body {
 
 .saved-workout-drag-handle {
   flex: 0 0 auto;
-  width: 28px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
+  margin: -10px 0 -10px -10px;
   padding: 0;
 }
 
@@ -5322,6 +5326,30 @@ body {
   line-height: 1.45;
   text-overflow: clip;
   white-space: normal;
+}
+
+.saved-workout-exercise-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.saved-workout-exercise-list li {
+  padding-left: 2px;
+}
+
+.notification-test-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.notification-test-row small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
 }
 
 .saved-workout-preview-toggle {
@@ -5417,16 +5445,16 @@ body {
   }
 
   .exercise-card {
-    padding: 12px;
+    padding: 10px;
   }
 
   .field {
-    gap: 5px;
+    gap: 3px;
   }
 
   .field-grid,
   .exercise-fields {
-    gap: 10px;
+    gap: 7px;
   }
 
   input[type="text"],
@@ -5434,15 +5462,37 @@ body {
   input[type="email"],
   input[type="password"],
   input[type="date"],
-  select,
+  select {
+    min-height: 38px;
+    height: 38px;
+    padding: 5px 8px;
+    border-radius: 10px;
+    font-size: 1rem;
+  }
+
   textarea {
-    min-height: 44px;
-    padding: 9px 11px;
-    border-radius: 13px;
+    min-height: 56px;
+    padding: 7px 8px;
+    border-radius: 10px;
+    font-size: 1rem;
   }
 
   .exercise-options {
-    margin-top: 10px;
+    margin-top: 7px;
+  }
+
+  .exercise-list {
+    gap: 9px;
+  }
+
+  .exercise-card-header {
+    margin-bottom: 6px;
+  }
+
+  .notification-test-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 5px;
   }
 }
 

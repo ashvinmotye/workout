@@ -388,6 +388,18 @@ Deno.serve(async (req) => {
       return json({ ok: true, ...(await stateForUser(user.id)) });
     }
 
+    if (body.action === "test") {
+      if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) throw new Error("VAPID secrets are incomplete.");
+      const test = await createAndSendNotification(
+        user.id,
+        "workout",
+        "Wellbeing test notification",
+        "Notifications are working on this device.",
+        `test:${Date.now()}:${crypto.randomUUID()}`
+      );
+      return json({ ok: true, test, ...(await stateForUser(user.id)) });
+    }
+
     if (body.action === "clear") {
       const ids = Array.isArray(body.ids) ? body.ids.filter((id: unknown) => typeof id === "string").slice(0, 200) : [];
       if (ids.length) {

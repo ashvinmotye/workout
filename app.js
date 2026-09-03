@@ -78,6 +78,7 @@ const dom = {
   weightNotificationsEnabled: document.querySelector("#weightNotificationsEnabled"),
   waistNotificationsEnabled: document.querySelector("#waistNotificationsEnabled"),
   workoutNotificationsEnabled: document.querySelector("#workoutNotificationsEnabled"),
+  testNotificationButton: document.querySelector("#testNotificationButton"),
   notificationSettingsStatus: document.querySelector("#notificationSettingsStatus"),
   savedWorkoutNavCount: document.querySelector("#savedWorkoutNavCount"),
   workoutScreen: document.querySelector("#workoutScreen"),
@@ -398,6 +399,7 @@ function applyNotificationPreferences(preferences = loadNotificationPreferences(
   dom.notificationsEnabled.disabled = notificationBusy || !supported;
   [dom.weightNotificationsEnabled, dom.waistNotificationsEnabled, dom.workoutNotificationsEnabled]
     .forEach((input) => { input.disabled = notificationBusy; });
+  dom.testNotificationButton.disabled = notificationBusy || !enabled || !navigator.onLine;
 }
 
 function urlBase64ToUint8Array(value) {
@@ -561,6 +563,41 @@ async function togglePushNotifications(shouldEnable) {
   } finally {
     notificationBusy = false;
     applyNotificationPreferences();
+  }
+}
+
+async function sendTestNotification() {
+  if (notificationBusy) return;
+  const preferences = loadNotificationPreferences();
+  if (!(preferences.enabled && notificationsSupported() && window.Notification.permission === "granted")) {
+    dom.notificationSettingsStatus.textContent = "Enable push notifications on this device before sending a test.";
+    return;
+  }
+  if (!navigator.onLine) {
+    dom.notificationSettingsStatus.textContent = "Connect to the internet before sending a test notification.";
+    return;
+  }
+
+  notificationBusy = true;
+  applyNotificationPreferences(preferences);
+  dom.notificationSettingsStatus.textContent = "Sending test notification…";
+  let finalStatus = "";
+  try {
+    const result = await notificationApi({ method: "POST", body: JSON.stringify({ action: "test" }) });
+    notificationRecords = Array.isArray(result.notifications) ? result.notifications : notificationRecords;
+    renderNotificationCentre();
+    const delivered = Number(result.test?.delivered || 0);
+    finalStatus = delivered > 0
+      ? `Test notification sent to ${delivered} active ${delivered === 1 ? "device" : "devices"}.`
+      : "No active push subscription was found. Turn notifications off and on, then try again.";
+    showToast(delivered > 0 ? "Test notification sent." : "Test notification was not delivered.");
+  } catch (error) {
+    finalStatus = error?.message || "The test notification could not be sent.";
+    showToast("Test notification was not sent.");
+  } finally {
+    notificationBusy = false;
+    applyNotificationPreferences();
+    dom.notificationSettingsStatus.textContent = finalStatus;
   }
 }
 
@@ -2613,14 +2650,32 @@ function renderSavedWorkouts() {
     const previewElement = card.querySelector(".saved-workout-preview");
     const previewToggle = card.querySelector(".saved-workout-preview-toggle");
     const collapsedPreview = preview ? `${preview}${remaining ? ` • +${remaining} more` : ""}` : "No named exercises";
-    const expandedPreview = exerciseNames.length ? exerciseNames.join(" • ") : "No named exercises";
-    previewElement.textContent = collapsedPreview;
+    const renderPreview = (expanded) => {
+      previewElement.replaceChildren();
+      if (!expanded) {
+        previewElement.textContent = collapsedPreview;
+        return;
+      }
+      if (!exerciseNames.length) {
+        previewElement.textContent = "No named exercises";
+        return;
+      }
+      const list = document.createElement("ul");
+      list.className = "saved-workout-exercise-list";
+      exerciseNames.forEach((name) => {
+        const item = document.createElement("li");
+        item.textContent = name;
+        list.append(item);
+      });
+      previewElement.append(list);
+    };
+    renderPreview(false);
     previewToggle.hidden = remaining === 0;
     previewToggle.addEventListener("click", () => {
       const expanded = previewToggle.getAttribute("aria-expanded") !== "true";
       previewToggle.setAttribute("aria-expanded", String(expanded));
       previewToggle.textContent = expanded ? "Show fewer exercises" : "Show all exercises";
-      previewElement.textContent = expanded ? expandedPreview : collapsedPreview;
+      renderPreview(expanded);
     });
     card.querySelector(".saved-workout-date").textContent = `Updated ${formatSavedDate(record.updatedAt)}`;
     card.querySelector(".saved-workout-active-badge").hidden = record.id !== activeSavedWorkoutId;
@@ -3011,11 +3066,16 @@ function setupPointerSortable(container, itemSelector, handleSelector, onCommit)
   container.addEventListener("pointermove", (event) => {
     if (!activeItem) return;
     event.preventDefault();
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(itemSelector);
-    if (!target || target === activeItem || target.parentElement !== container) return;
-    const targetRect = target.getBoundingClientRect();
-    const insertBefore = event.clientY < targetRect.top + targetRect.height / 2;
-    container.insertBefore(activeItem, insertBefore ? target : target.nextElementSibling);
+    const beforeOrder = orderedItems();
+    const otherItems = beforeOrder.filter((item) => item !== activeItem);
+    const nextItem = otherItems.find((item) => {
+      const rect = item.getBoundingClientRect();
+      return event.clientY < rect.top + rect.height / 2;
+    });
+    if (nextItem) container.insertBefore(activeItem, nextItem);
+    else container.appendChild(activeItem);
+    const changed = orderedItems().some((item, index) => item !== beforeOrder[index]);
+    if (!changed) return;
     moved = true;
     if (itemSelector === ".exercise-card") updateExerciseCards();
   });
@@ -5050,6 +5110,7 @@ function bindEvents() {
   dom.settingsNavButton.addEventListener("click", () => showScreen("settings"));
   dom.notificationsButton.addEventListener("click", openNotifications);
   dom.notificationsEnabled.addEventListener("change", (event) => togglePushNotifications(event.target.checked));
+  dom.testNotificationButton.addEventListener("click", sendTestNotification);
   [dom.weightNotificationsEnabled, dom.waistNotificationsEnabled, dom.workoutNotificationsEnabled]
     .forEach((input) => input.addEventListener("change", () => {
       updateNotificationPreferenceSettings().catch((error) => {
