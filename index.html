@@ -21,7 +21,7 @@
   <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
   <link rel="shortcut icon" href="icons/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-v31.png" />
-  <link rel="stylesheet" href="styles.css?v=32" />
+  <link rel="stylesheet" href="styles.css?v=33" />
 </head>
 <body data-design-system="auraos">
   <div class="app-shell">
@@ -29,11 +29,19 @@
       <div class="aura-brand">
         <img class="aura-brand-mark" src="icons/icon-192.png" alt="" aria-hidden="true" />
         <div>
-          <p class="eyebrow">MOVE · RECOVER · PROGRESS</p>
+          <p class="eyebrow">MOVE · BUILD · ASCEND</p>
           <h1>WELLBEING</h1>
         </div>
       </div>
       <div class="header-actions">
+        <button id="notificationsButton" class="icon-button notification-header-button" type="button" aria-label="Open notifications" aria-pressed="false" title="Notifications" hidden>
+          <svg class="header-svg notification-bell-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M10 21h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            <path class="notification-disabled-mark" d="M4 4l16 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+          <span id="notificationBadge" class="notification-badge" hidden>0</span>
+        </button>
         <button id="themeToggleButton" class="icon-button theme-toggle-button" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
           <!-- Circum Icons, MPL 2.0: https://github.com/Klarr-Agency/Circum-icons -->
           <svg class="header-svg theme-icon theme-icon-dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -50,9 +58,6 @@
             <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             <path fill-rule="evenodd" clip-rule="evenodd" d="M14.2703 4.54104C14.2703 3.68995 13.5803 3 12.7292 3H11.2706C10.4195 3 9.72953 3.68995 9.72953 4.54104C9.72953 5.19575 9.30667 5.76411 8.73133 6.07658C8.64137 6.12544 8.55265 6.17624 8.46522 6.22895C7.90033 6.56948 7.19241 6.65124 6.6199 6.32367C5.87282 5.89621 4.92082 6.15129 4.48754 6.89501L3.78312 8.10415C3.35155 8.84495 3.60624 9.79549 4.35038 10.2213C4.92043 10.5474 5.2042 11.1992 5.19031 11.8558C5.1893 11.9037 5.18879 11.9518 5.18879 12C5.18879 12.0482 5.1893 12.0963 5.19032 12.1443C5.20421 12.8009 4.92043 13.4526 4.3504 13.7787C3.60628 14.2045 3.35159 15.155 3.78315 15.8958L4.48759 17.105C4.92086 17.8487 5.87286 18.1038 6.61993 17.6763C7.19243 17.3488 7.90034 17.4305 8.46523 17.7711C8.55266 17.8238 8.64138 17.8746 8.73133 17.9234C9.30667 18.2359 9.72953 18.8042 9.72953 19.459C9.72953 20.3101 10.4195 21 11.2706 21H12.7292C13.5803 21 14.2703 20.3101 14.2703 19.459C14.2703 18.8042 14.6931 18.2359 15.2685 17.9234C15.3584 17.8746 15.4471 17.8238 15.5346 17.7711C16.0994 17.4305 16.8074 17.3488 17.3799 17.6763C18.1269 18.1038 19.0789 17.8487 19.5122 17.105L20.2167 15.8958C20.6482 15.1551 20.3935 14.2045 19.6494 13.7788C19.0794 13.4526 18.7956 12.8009 18.8095 12.1443C18.8105 12.0963 18.811 12.0482 18.811 12C18.811 11.9518 18.8105 11.9037 18.8095 11.8558C18.7956 11.1992 19.0794 10.5474 19.6494 10.2213C20.3936 9.79548 20.6482 8.84494 20.2167 8.10414L19.5123 6.89501C19.079 6.15128 18.127 5.8962 17.3799 6.32366C16.8074 6.65123 16.0995 6.56948 15.5346 6.22894C15.4471 6.17624 15.3584 6.12543 15.2685 6.07658C14.6931 5.76411 14.2703 5.19575 14.2703 4.54104Z" stroke="currentColor" stroke-width="1.5" />
           </svg>
-        </button>
-        <button id="installButton" class="button button-ghost install-button" type="button" hidden>
-          Install
         </button>
       </div>
     </header>
@@ -192,58 +197,6 @@
             </div>
           </section>
 
-          <section class="panel" aria-labelledby="voiceSettingsTitle">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">AUDIO</p>
-                <h3 id="voiceSettingsTitle">Voice and cues</h3>
-              </div>
-              <button id="testVoiceButton" class="button button-ghost button-small" type="button">Test voice</button>
-            </div>
-
-            <div class="toggle-list">
-              <label class="toggle-row">
-                <span>
-                  <strong>Voice guidance</strong>
-                  <small>Exercise, rest and round announcements</small>
-                </span>
-                <input id="voiceEnabled" type="checkbox" checked />
-              </label>
-
-              <label class="toggle-row">
-                <span>
-                  <strong>Spoken countdown</strong>
-                  <small>Announce the final three seconds</small>
-                </span>
-                <input id="countdownVoice" type="checkbox" checked />
-              </label>
-
-              <label class="toggle-row">
-                <span>
-                  <strong>Sound effects</strong>
-                  <small>Short tones for transitions</small>
-                </span>
-                <input id="soundEffects" type="checkbox" checked />
-              </label>
-            </div>
-
-            <label class="field field-wide">
-              <span>Voice</span>
-              <select id="voiceSelect">
-                <option value="">System default</option>
-              </select>
-              <small id="voiceAvailability">Voices are supplied by your browser and device.</small>
-            </label>
-
-            <label class="field field-wide">
-              <span>Voice detail</span>
-              <select id="voiceDetail">
-                <option value="full">Full — includes round and next exercise</option>
-                <option value="minimal">Minimal — essential instructions only</option>
-              </select>
-            </label>
-          </section>
-
           <section class="panel exercises-panel" aria-labelledby="exerciseListTitle">
             <div class="panel-heading">
               <div>
@@ -329,6 +282,41 @@
           </div>
 
           <div id="savedWorkoutList" class="saved-workout-list"></div>
+        </section>
+      </section>
+
+
+
+      <section id="notificationsScreen" class="screen notifications-screen" aria-labelledby="notificationsTitle" hidden>
+        <div class="hero-card notifications-hero">
+          <div>
+            <p class="eyebrow">NOTIFICATION CENTRE</p>
+            <h2 id="notificationsTitle">Your reminders</h2>
+            <p class="subtle">Notifications remain here until you clear them.</p>
+          </div>
+          <div class="hero-badge notifications-hero-badge" aria-hidden="true">
+            <svg class="screen-hero-svg" viewBox="0 0 24 24" fill="none" focusable="false">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M10 21h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+          </div>
+        </div>
+
+        <section class="panel notification-centre-panel" aria-labelledby="notificationListTitle">
+          <div class="panel-heading notification-centre-heading">
+            <div>
+              <p class="eyebrow">UNCLEARED</p>
+              <h3 id="notificationListTitle">Notifications</h3>
+            </div>
+            <button id="clearAllNotificationsButton" class="button button-ghost button-small danger-text" type="button" hidden>Clear all</button>
+          </div>
+          <div id="notificationEmptyState" class="empty-state notification-empty-state">
+            <div class="empty-state-icon" aria-hidden="true">✓</div>
+            <h3>All clear</h3>
+            <p>Weight, waist and workout reminders will appear here.</p>
+          </div>
+          <div id="notificationList" class="notification-list"></div>
+          <p id="notificationListStatus" class="account-message" role="status" aria-live="polite"></p>
         </section>
       </section>
 
@@ -822,6 +810,97 @@
           </div>
         </div>
 
+        <section class="panel notification-settings-panel" aria-labelledby="notificationSettingsTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">REMINDERS</p>
+              <h3 id="notificationSettingsTitle">Notifications</h3>
+            </div>
+          </div>
+
+          <div class="toggle-list">
+            <label class="toggle-row notification-master-row">
+              <span>
+                <strong>Push notifications</strong>
+                <small>Enable reminders on this device</small>
+              </span>
+              <input id="notificationsEnabled" type="checkbox" />
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Daily weight · 07:00</strong>
+                <small>Includes the last 7 days and since-first summary</small>
+              </span>
+              <input id="weightNotificationsEnabled" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Monday waist · 08:00</strong>
+                <small>Includes your weekly direction when available</small>
+              </span>
+              <input id="waistNotificationsEnabled" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Main workout · 16:00</strong>
+                <small>Only when today's scheduled main workout is not complete</small>
+              </span>
+              <input id="workoutNotificationsEnabled" type="checkbox" checked />
+            </label>
+          </div>
+          <p id="notificationSettingsStatus" class="account-message" role="status" aria-live="polite">Notifications are off on this device.</p>
+        </section>
+
+        <section class="panel audio-settings-panel" aria-labelledby="voiceSettingsTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">AUDIO</p>
+              <h3 id="voiceSettingsTitle">Voice and cues</h3>
+            </div>
+            <button id="testVoiceButton" class="button button-ghost button-small" type="button">Test voice</button>
+          </div>
+
+          <div class="toggle-list">
+            <label class="toggle-row">
+              <span>
+                <strong>Voice guidance</strong>
+                <small>Exercise, rest and round announcements</small>
+              </span>
+              <input id="voiceEnabled" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Spoken countdown</strong>
+                <small>Announce the final three seconds</small>
+              </span>
+              <input id="countdownVoice" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Sound effects</strong>
+                <small>Short tones for transitions</small>
+              </span>
+              <input id="soundEffects" type="checkbox" checked />
+            </label>
+          </div>
+
+          <label class="field field-wide">
+            <span>Voice</span>
+            <select id="voiceSelect">
+              <option value="">System default</option>
+            </select>
+            <small id="voiceAvailability">Voices are supplied by your browser and device.</small>
+          </label>
+
+          <label class="field field-wide">
+            <span>Voice detail</span>
+            <select id="voiceDetail">
+              <option value="full">Full — includes round and next exercise</option>
+              <option value="minimal">Minimal — essential instructions only</option>
+            </select>
+          </label>
+        </section>
+
         <section class="panel account-panel" aria-labelledby="accountTitle">
           <div class="panel-heading account-heading">
             <div>
@@ -1093,12 +1172,13 @@
   <template id="exerciseTemplate">
     <article class="exercise-card">
       <div class="exercise-card-header">
-        <div class="exercise-number"></div>
-        <div class="exercise-order-actions">
-          <button class="mini-icon move-up" type="button" aria-label="Move exercise up">↑</button>
-          <button class="mini-icon move-down" type="button" aria-label="Move exercise down">↓</button>
-          <button class="mini-icon remove-exercise" type="button" aria-label="Remove exercise">×</button>
-        </div>
+        <button class="exercise-drag-handle sortable-handle" type="button" aria-label="Drag to reorder exercise">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6h8M8 12h8M8 18h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          <span class="exercise-number"></span>
+        </button>
+        <button class="mini-icon remove-exercise danger-icon" type="button" aria-label="Delete exercise" title="Delete exercise">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
       </div>
 
       <label class="field field-wide">
@@ -1149,6 +1229,9 @@
     <article class="saved-workout-card">
       <div class="saved-workout-card-main">
         <div class="saved-workout-title-row">
+          <button class="saved-workout-drag-handle sortable-handle" type="button" aria-label="Drag to reorder routine" title="Drag to reorder">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6h8M8 12h8M8 18h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
           <h3 class="saved-workout-name"></h3>
           <span class="saved-workout-active-badge" hidden>Loaded</span>
         </div>
@@ -1156,19 +1239,22 @@
         <p class="saved-workout-weights" hidden></p>
         <p class="saved-workout-schedule-summary"></p>
         <p class="saved-workout-preview"></p>
+        <button class="saved-workout-preview-toggle" type="button" aria-expanded="false" hidden>Show all exercises</button>
         <small class="saved-workout-date"></small>
       </div>
       <div class="saved-workout-card-controls">
-        <div class="saved-workout-order-controls" aria-label="Reorder saved workout">
-          <button class="button button-ghost button-small move-saved-workout-up" type="button" aria-label="Move workout up" title="Move up">↑ Up</button>
-          <button class="button button-ghost button-small move-saved-workout-down" type="button" aria-label="Move workout down" title="Move down">↓ Down</button>
-        </div>
         <div class="saved-workout-actions">
-        <button class="button button-primary button-small load-saved-workout" type="button">Load</button>
-        <button class="button button-ghost button-small schedule-saved-workout" type="button">Schedule</button>
-        <button class="button button-ghost button-small rename-saved-workout" type="button">Rename</button>
-        <button class="button button-ghost button-small duplicate-saved-workout" type="button">Duplicate</button>
-        <button class="button button-ghost button-small delete-saved-workout danger-text" type="button">Delete</button>
+          <button class="button button-primary button-small load-saved-workout" type="button">Load</button>
+          <button class="button button-ghost button-small routine-more-button" type="button" aria-label="More routine actions" aria-expanded="false">•••</button>
+          <div class="saved-workout-more-menu" hidden>
+            <button class="button button-ghost button-small schedule-saved-workout" type="button">Schedule</button>
+            <button class="button button-ghost button-small rename-saved-workout" type="button">Rename</button>
+            <button class="button button-ghost button-small duplicate-saved-workout" type="button">Duplicate</button>
+            <button class="button button-ghost button-small delete-saved-workout danger-text" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              Delete
+            </button>
+          </div>
         </div>
       </div>
       <div class="saved-workout-schedule-editor" hidden>
@@ -1267,7 +1353,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=32" defer></script>
-  <script src="app.js?v=32" defer></script>
+  <script src="wellness.js?v=33" defer></script>
+  <script src="app.js?v=33" defer></script>
 </body>
 </html>

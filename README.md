@@ -4,6 +4,48 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
 
+## Version 33 compact routines + notifications
+
+- Replaces the large routine action grid with one **Load** button and a compact overflow menu for Schedule, Rename, Duplicate and Delete.
+- Replaces routine and exercise arrow controls with touch-friendly drag handles. The new order remains local-first and synchronizes through the existing routine sync.
+- Adds **Show all exercises / Show fewer exercises** to routine cards instead of permanently truncating the exercise list.
+- Uses bin icons for destructive item actions while retaining X only for close/end actions.
+- Makes mobile exercise and workout inputs denser while preserving 44px touch targets.
+- Moves Voice and cues from Forge/Home to Settings.
+- Adds Level90-style persistent notification history with a header bell, count badge, individual clear and Clear all. A disabled bell opens notification Settings.
+- Adds a daily 07:00 weight reminder with last-7-days and since-first summaries, a Monday 08:00 waist reminder with available trend data, and a 16:00 reminder only when a scheduled Main workout has not been completed.
+- Changes the header line to **MOVE · BUILD · ASCEND**.
+- Removes the custom Install button and prompt interception so browser and operating-system Add to Home Screen flows remain native.
+- Advances the offline app-shell cache and asset URLs to Version 33.
+
+### Upgrade notification infrastructure
+
+1. Run `supabase/migrations/20260903_create_wellbeing_notifications.sql` once in the Supabase SQL Editor. It adds only notification preferences, subscriptions and notification-history tables with per-user security.
+2. In **Supabase → Edge Functions**, create or replace `wellbeing-push` with `supabase/functions/wellbeing-push/index.ts`. Deploy it with **Verify JWT disabled**: the function validates signed-in users itself, while scheduled dispatches are protected by `x-cron-secret`.
+3. Reuse the existing Level90 secrets in this Supabase project: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` and `CRON_SECRET`.
+4. In **Supabase → Integrations → Cron**, schedule the function every 15 minutes. Use the actual value of `CRON_SECRET` for the header—not the words `CRON_SECRET`:
+
+```sql
+select cron.schedule(
+  'wellbeing-push-quarter-hour',
+  '*/15 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://xacwgipxqujbqvhzogbd.supabase.co/functions/v1/wellbeing-push',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-cron-secret', 'YOUR_ACTUAL_CRON_SECRET_VALUE'
+    ),
+    body := '{"action":"dispatch"}'::jsonb
+  ) as request_id;
+  $$
+);
+```
+
+5. Replace the deployed PWA files with this package, then open or refresh the installed PWA once while online. Enable the three reminder types under **Settings → Notifications**.
+
+The dispatcher reads the browser's IANA time zone saved when notifications are enabled, so the stated times are local. The 15-minute job can safely run throughout each reminder hour because the database key permits only one notification of each type per user and date.
+
 ## Version 32 Wellbeing + waist progress
 
 - Renames the user-facing app and PWA from **Forge** to **Wellbeing** while retaining Forge as the training module.
@@ -46,7 +88,7 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Local storage for the current workout draft
 - Saved workout library for loading routines on another day
 - Rename, duplicate, update and delete saved workouts
-- Reorder saved workouts with Move Up / Move Down controls
+- Reorder saved workouts with drag and drop
 - Assign any saved routine to multiple weekdays and see today’s routines in **Suggested today**
 - See the unique required weights for each routine in both **Suggested today** and the full **Routines Library**
 - Four-item bottom navigation with Settings available beside the appearance toggle in the header
@@ -79,7 +121,7 @@ The interface uses **AuraOS**, the shared design language established by Level90
 - Review coverage, four-week frequency, 30-day active days and completion rate
 - Resume an interrupted workout in a paused state
 - Screen Wake Lock support where available
-- Installable PWA with offline app-shell caching
+- Installable PWA with native browser Add to Home Screen and offline app-shell caching
 - Responsive mobile layout
 - Fixed-size countdown orb and tabular timer digits that do not shift as values change
 - Matching custom SVGs in navigation and individual screen heroes
@@ -123,7 +165,7 @@ The project uses only relative paths, so it also works when deployed under a rep
 
 ## Saved workouts
 
-Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Each library card shows the unique weights required by that routine using the same summary as **Suggested today**; routines without weights do not show an empty weight row. Use **Move Up** and **Move Down** to arrange the library, and **Schedule** to designate one or more weekdays plus a Pre-workout, Main workout or Post-workout order. Routines scheduled for the current day also appear in **Suggested today**, ordered Pre → Main → Post, while remaining in the full library. Schedules, routines and custom order are saved locally first and synchronized to the signed-in account, with offline changes queued for retry.
+Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Each library card shows the unique weights required by that routine using the same summary as **Suggested today**; routines without weights do not show an empty weight row. Drag a routine by its handle to arrange the library, use **Show all exercises** when needed, and open the overflow menu to designate one or more weekdays plus a Pre-workout, Main workout or Post-workout order. Routines scheduled for the current day also appear in **Suggested today**, ordered Pre → Main → Post, while remaining in the full library. Schedules, routines and custom order are saved locally first and synchronized to the signed-in account, with offline changes queued for retry.
 
 ## Notes
 
@@ -196,6 +238,7 @@ The reproducible table definitions and Row Level Security policies are stored in
 - `supabase/migrations/20260820_create_recovery_and_body_weight.sql`
 - `supabase/migrations/20260820_add_routine_scheduling_and_identity.sql`
 - `supabase/migrations/20260827_create_body_waist_entries.sql`
+- `supabase/migrations/20260903_create_wellbeing_notifications.sql`
 
 Before using Recovery sync for the first time, run `20260820_create_recovery_and_body_weight.sql` in the Supabase SQL Editor. The migration creates the two per-user tables, conflict-safe update triggers, indexes and Row Level Security policies. Existing workout sessions and routines are not changed.
 

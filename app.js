@@ -19,9 +19,11 @@ const SAVED_WORKOUT_SYNC_QUEUE_KEY = "voiceWorkout.savedWorkoutSyncQueue.v1";
 const SAVED_WORKOUT_LAST_SYNC_KEY_PREFIX = "voiceWorkout.savedWorkoutLastSync.v1";
 const SAVED_WORKOUT_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutCloudIds.v1";
 const SAVED_WORKOUT_PULL_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutPullIds.v1";
+const NOTIFICATION_PREFERENCES_KEY = "voiceWorkout.notificationPreferences.v1";
 const AUTOMATIC_CLOUD_REFRESH_THROTTLE_MS = 15 * 1000;
 const SUPABASE_URL = "https://xacwgipxqujbqvhzogbd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-_rGsscYv3ipNd7hW23-RQ_bUCB9hTf";
+const WELLBEING_PUSH_URL = `${SUPABASE_URL}/functions/v1/wellbeing-push`;
 const ROUTINE_WEEKDAYS = Object.freeze([
   { value: 1, short: "M", label: "Monday", compact: "Mon" },
   { value: 2, short: "T", label: "Tuesday", compact: "Tue" },
@@ -59,12 +61,24 @@ const dom = {
   recoveryScreen: document.querySelector("#recoveryScreen"),
   trendsScreen: document.querySelector("#trendsScreen"),
   settingsScreen: document.querySelector("#settingsScreen"),
+  notificationsScreen: document.querySelector("#notificationsScreen"),
   mainNavigation: document.querySelector("#mainNavigation"),
   setupNavButton: document.querySelector("#setupNavButton"),
   savedWorkoutsNavButton: document.querySelector("#savedWorkoutsNavButton"),
   recoveryNavButton: document.querySelector("#recoveryNavButton"),
   trendsNavButton: document.querySelector("#trendsNavButton"),
   settingsNavButton: document.querySelector("#settingsNavButton"),
+  notificationsButton: document.querySelector("#notificationsButton"),
+  notificationBadge: document.querySelector("#notificationBadge"),
+  notificationList: document.querySelector("#notificationList"),
+  notificationEmptyState: document.querySelector("#notificationEmptyState"),
+  notificationListStatus: document.querySelector("#notificationListStatus"),
+  clearAllNotificationsButton: document.querySelector("#clearAllNotificationsButton"),
+  notificationsEnabled: document.querySelector("#notificationsEnabled"),
+  weightNotificationsEnabled: document.querySelector("#weightNotificationsEnabled"),
+  waistNotificationsEnabled: document.querySelector("#waistNotificationsEnabled"),
+  workoutNotificationsEnabled: document.querySelector("#workoutNotificationsEnabled"),
+  notificationSettingsStatus: document.querySelector("#notificationSettingsStatus"),
   savedWorkoutNavCount: document.querySelector("#savedWorkoutNavCount"),
   workoutScreen: document.querySelector("#workoutScreen"),
   completeScreen: document.querySelector("#completeScreen"),
@@ -132,7 +146,6 @@ const dom = {
   resumeBanner: document.querySelector("#resumeBanner"),
   resumeSavedSession: document.querySelector("#resumeSavedSession"),
   discardSavedSession: document.querySelector("#discardSavedSession"),
-  installButton: document.querySelector("#installButton"),
   themeToggleButton: document.querySelector("#themeToggleButton"),
   themeColorMeta: document.querySelector("#themeColorMeta"),
   trendsEmptyState: document.querySelector("#trendsEmptyState"),
@@ -213,7 +226,6 @@ const dom = {
 
 let workout = null;
 let runtime = createEmptyRuntime();
-let deferredInstallPrompt = null;
 let wakeLock = null;
 let audioContext = null;
 let availableVoices = [];
@@ -235,6 +247,8 @@ let automaticCloudRefreshTimer = null;
 let automaticCloudRefreshDueAt = 0;
 let lastAutomaticCloudRefreshAt = 0;
 let completeSessionId = null;
+let notificationRecords = [];
+let notificationBusy = false;
 
 function createEmptyRuntime() {
   return {
@@ -313,6 +327,284 @@ function safeJsonParse(value) {
   } catch {
     return null;
   }
+}
+
+function binIconMarkup() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+}
+
+function defaultNotificationPreferences() {
+  let timeZone = "Indian/Mauritius";
+  try {
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || timeZone;
+  } catch {
+    // Mauritius remains the safe default for this personal app.
+  }
+  return {
+    enabled: false,
+    weightEnabled: true,
+    waistEnabled: true,
+    workoutEnabled: true,
+    timeZone
+  };
+}
+
+function normalizeNotificationPreferences(candidate) {
+  const fallback = defaultNotificationPreferences();
+  if (!candidate || typeof candidate !== "object") return fallback;
+  return {
+    enabled: candidate.enabled === true,
+    weightEnabled: candidate.weightEnabled ?? candidate.weight_enabled ?? true,
+    waistEnabled: candidate.waistEnabled ?? candidate.waist_enabled ?? true,
+    workoutEnabled: candidate.workoutEnabled ?? candidate.workout_enabled ?? true,
+    timeZone: typeof (candidate.timeZone ?? candidate.time_zone) === "string"
+      ? (candidate.timeZone ?? candidate.time_zone)
+      : fallback.timeZone
+  };
+}
+
+function loadNotificationPreferences() {
+  try {
+    return normalizeNotificationPreferences(safeJsonParse(localStorage.getItem(NOTIFICATION_PREFERENCES_KEY)));
+  } catch {
+    return defaultNotificationPreferences();
+  }
+}
+
+function saveNotificationPreferences(preferences) {
+  const normalized = normalizeNotificationPreferences(preferences);
+  localStorage.setItem(NOTIFICATION_PREFERENCES_KEY, JSON.stringify(normalized));
+  applyNotificationPreferences(normalized);
+  return normalized;
+}
+
+function notificationsSupported() {
+  return "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
+}
+
+function applyNotificationPreferences(preferences = loadNotificationPreferences()) {
+  const supported = notificationsSupported();
+  const enabled = supported && preferences.enabled && window.Notification.permission === "granted";
+  dom.notificationsEnabled.checked = enabled;
+  dom.weightNotificationsEnabled.checked = preferences.weightEnabled;
+  dom.waistNotificationsEnabled.checked = preferences.waistEnabled;
+  dom.workoutNotificationsEnabled.checked = preferences.workoutEnabled;
+  dom.notificationsButton.classList.toggle("is-disabled", !enabled);
+  dom.notificationsButton.title = enabled ? "Notifications" : "Notifications are off — open Settings";
+  dom.notificationsButton.setAttribute("aria-label", enabled ? "Open notifications" : "Notifications are off. Open settings");
+  dom.notificationSettingsStatus.textContent = supported
+    ? (enabled ? "Notifications are active on this device." : "Notifications are off on this device.")
+    : "Push notifications are not available in this browser. On iPhone, open Wellbeing from the Home Screen.";
+  dom.notificationsEnabled.disabled = notificationBusy || !supported;
+  [dom.weightNotificationsEnabled, dom.waistNotificationsEnabled, dom.workoutNotificationsEnabled]
+    .forEach((input) => { input.disabled = notificationBusy; });
+}
+
+function urlBase64ToUint8Array(value) {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replaceAll("-", "+").replaceAll("_", "/");
+  const raw = window.atob(base64);
+  return Uint8Array.from([...raw].map((character) => character.charCodeAt(0)));
+}
+
+async function currentAccessToken() {
+  if (authSession?.access_token) return authSession.access_token;
+  if (!authClient) throw new Error("Sign in before configuring notifications.");
+  const { data, error } = await authClient.auth.getSession();
+  if (error || !data.session?.access_token) throw error || new Error("Sign in before configuring notifications.");
+  authSession = data.session;
+  return data.session.access_token;
+}
+
+async function notificationApi(options = {}) {
+  const token = await currentAccessToken();
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    apikey: SUPABASE_PUBLISHABLE_KEY,
+    ...(options.body ? { "Content-Type": "application/json" } : {})
+  };
+  const response = await fetch(WELLBEING_PUSH_URL, { ...options, headers: { ...headers, ...(options.headers || {}) } });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.error || `Notification request failed (${response.status}).`);
+  return data;
+}
+
+function formatNotificationTimestamp(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Recently";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function renderNotificationCentre() {
+  dom.notificationList.replaceChildren();
+  dom.notificationEmptyState.hidden = notificationRecords.length > 0;
+  dom.clearAllNotificationsButton.hidden = notificationRecords.length === 0;
+  dom.notificationBadge.textContent = notificationRecords.length > 99 ? "99+" : String(notificationRecords.length);
+  dom.notificationBadge.hidden = notificationRecords.length === 0;
+
+  notificationRecords.forEach((record) => {
+    const article = document.createElement("article");
+    article.className = "notification-item";
+    article.dataset.type = record.type || "reminder";
+    const copy = document.createElement("div");
+    const title = document.createElement("strong");
+    const body = document.createElement("p");
+    const time = document.createElement("small");
+    title.textContent = record.title || "Wellbeing reminder";
+    body.textContent = record.body || "";
+    time.textContent = formatNotificationTimestamp(record.created_at ?? record.createdAt);
+    copy.append(title, body, time);
+    const clearButton = document.createElement("button");
+    clearButton.className = "mini-icon danger-icon clear-notification";
+    clearButton.type = "button";
+    clearButton.title = "Clear notification";
+    clearButton.setAttribute("aria-label", `Clear ${title.textContent}`);
+    clearButton.innerHTML = binIconMarkup();
+    clearButton.addEventListener("click", () => clearNotifications([record.id]));
+    article.append(copy, clearButton);
+    dom.notificationList.append(article);
+  });
+}
+
+async function refreshNotificationState(options = {}) {
+  applyNotificationPreferences();
+  if (!authSession || !navigator.onLine) {
+    if (options.manual) dom.notificationListStatus.textContent = "Connect to the internet to refresh notifications.";
+    renderNotificationCentre();
+    return;
+  }
+  try {
+    const state = await notificationApi({ method: "GET" });
+    if (state.preferences) saveNotificationPreferences(state.preferences);
+    notificationRecords = Array.isArray(state.notifications) ? state.notifications : [];
+    dom.notificationListStatus.textContent = "";
+    renderNotificationCentre();
+  } catch (error) {
+    if (options.manual) dom.notificationListStatus.textContent = error?.message || "Notifications could not be refreshed.";
+  }
+}
+
+async function enablePushNotifications() {
+  if (!notificationsSupported()) throw new Error("Push notifications are not available in this browser.");
+  const permission = window.Notification.permission === "granted"
+    ? "granted"
+    : await window.Notification.requestPermission();
+  if (permission !== "granted") throw new Error("Notification permission was not granted.");
+
+  const state = await notificationApi({ method: "GET" });
+  if (!state.vapidPublicKey) throw new Error("The Wellbeing push function is missing its VAPID public key.");
+  const registration = await navigator.serviceWorker.ready;
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(state.vapidPublicKey)
+    });
+  }
+
+  const preferences = normalizeNotificationPreferences({ ...loadNotificationPreferences(), enabled: true });
+  const result = await notificationApi({
+    method: "POST",
+    body: JSON.stringify({
+      action: "subscribe",
+      subscription: subscription.toJSON(),
+      preferences
+    })
+  });
+  saveNotificationPreferences(result.preferences || preferences);
+  notificationRecords = Array.isArray(result.notifications) ? result.notifications : notificationRecords;
+  renderNotificationCentre();
+}
+
+async function disablePushNotifications() {
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  const preferences = normalizeNotificationPreferences({ ...loadNotificationPreferences(), enabled: false });
+  if (authSession && navigator.onLine) {
+    await notificationApi({
+      method: "POST",
+      body: JSON.stringify({ action: "unsubscribe", endpoint: subscription?.endpoint || null, preferences })
+    });
+  }
+  if (subscription) await subscription.unsubscribe();
+  saveNotificationPreferences(preferences);
+}
+
+async function updateNotificationPreferenceSettings() {
+  const current = loadNotificationPreferences();
+  const preferences = saveNotificationPreferences({
+    ...current,
+    weightEnabled: dom.weightNotificationsEnabled.checked,
+    waistEnabled: dom.waistNotificationsEnabled.checked,
+    workoutEnabled: dom.workoutNotificationsEnabled.checked
+  });
+  if (!authSession || !navigator.onLine) return;
+  await notificationApi({
+    method: "POST",
+    body: JSON.stringify({ action: "preferences", preferences })
+  });
+}
+
+async function togglePushNotifications(shouldEnable) {
+  if (notificationBusy) return;
+  notificationBusy = true;
+  applyNotificationPreferences();
+  dom.notificationSettingsStatus.textContent = shouldEnable ? "Enabling notifications…" : "Disabling notifications…";
+  try {
+    if (shouldEnable) await enablePushNotifications();
+    else await disablePushNotifications();
+    showToast(shouldEnable ? "Notifications enabled." : "Notifications disabled.");
+  } catch (error) {
+    saveNotificationPreferences({ ...loadNotificationPreferences(), enabled: false });
+    dom.notificationSettingsStatus.textContent = error?.message || "Notifications could not be updated.";
+    showToast("Notification settings were not changed.");
+  } finally {
+    notificationBusy = false;
+    applyNotificationPreferences();
+  }
+}
+
+async function clearNotifications(ids = []) {
+  if (!authSession || !navigator.onLine || !ids.length) return;
+  try {
+    await notificationApi({ method: "POST", body: JSON.stringify({ action: "clear", ids }) });
+    const cleared = new Set(ids);
+    notificationRecords = notificationRecords.filter((record) => !cleared.has(record.id));
+    renderNotificationCentre();
+  } catch (error) {
+    dom.notificationListStatus.textContent = error?.message || "The notification could not be cleared.";
+  }
+}
+
+async function clearAllNotifications() {
+  if (!notificationRecords.length) return;
+  if (!authSession || !navigator.onLine) return;
+  try {
+    await notificationApi({ method: "POST", body: JSON.stringify({ action: "clear-all" }) });
+    notificationRecords = [];
+    renderNotificationCentre();
+  } catch (error) {
+    dom.notificationListStatus.textContent = error?.message || "Notifications could not be cleared.";
+  }
+}
+
+function openNotifications() {
+  const preferences = loadNotificationPreferences();
+  if (!(preferences.enabled && window.Notification?.permission === "granted")) {
+    showScreen("settings");
+    requestAnimationFrame(() => document.querySelector(".notification-settings-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return;
+  }
+  showScreen("notifications");
+  refreshNotificationState({ manual: true }).catch(() => {});
+}
+
+function maybeOpenNotificationsFromLaunch() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("notifications")) return;
+  url.searchParams.delete("notifications");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  window.setTimeout(openNotifications, 0);
 }
 
 function getAuthRedirectUrl() {
@@ -431,6 +723,7 @@ function showAuthenticatedApp(session, options = {}) {
   updateWellnessSyncStatus();
   if (linkedLegacySessions) renderTrends();
   requestAutomaticCloudRefresh();
+  refreshNotificationState().then(maybeOpenNotificationsFromLaunch).catch(() => {});
 }
 
 function showAuthForm(message = "", type = "") {
@@ -458,6 +751,8 @@ function handleAuthStateChange(event, session) {
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
     updateWellnessSyncStatus();
+    notificationRecords = [];
+    renderNotificationCentre();
     setAuthMode("signin", false);
     showAuthForm("You have been signed out.", "success");
   }
@@ -568,6 +863,9 @@ async function signOutCurrentDevice() {
   dom.signOutButton.disabled = true;
   setAccountMessage("Signing out…");
   try {
+    if (loadNotificationPreferences().enabled && notificationsSupported()) {
+      await disablePushNotifications().catch(() => {});
+    }
     if (authClient && authSession) {
       const { error } = await authClient.auth.signOut({ scope: "local" });
       if (error) throw error;
@@ -577,6 +875,8 @@ async function signOutCurrentDevice() {
     clearCachedAuthUser();
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
+    notificationRecords = [];
+    renderNotificationCentre();
     setAuthMode("signin", false);
     showAuthForm("You have been signed out. Your workout data remains on this device.", "success");
   } catch (error) {
@@ -654,7 +954,10 @@ function requestAutomaticCloudRefresh(options = {}) {
 
 function handleAppVisibilityChange() {
   restoreWakeLockIfNeeded();
-  if (document.visibilityState === "visible") requestAutomaticCloudRefresh();
+  if (document.visibilityState === "visible") {
+    requestAutomaticCloudRefresh();
+    refreshNotificationState().catch(() => {});
+  }
 }
 
 function normalizeWorkout(candidate) {
@@ -2253,6 +2556,9 @@ function configureRoutineScheduleEditor(card, record) {
   resetEditor();
 
   scheduleButton.addEventListener("click", () => {
+    const menu = scheduleButton.closest(".saved-workout-more-menu");
+    if (menu) menu.hidden = true;
+    card.querySelector(".routine-more-button")?.setAttribute("aria-expanded", "false");
     const opening = editor.hidden;
     editor.hidden = !opening;
     scheduleButton.setAttribute("aria-expanded", String(opening));
@@ -2285,7 +2591,7 @@ function renderSavedWorkouts() {
   renderSuggestedRoutines(records);
 
   const fragment = document.createDocumentFragment();
-  records.forEach((record, index) => {
+  records.forEach((record) => {
     const cardFragment = dom.savedWorkoutTemplate.content.cloneNode(true);
     const card = cardFragment.querySelector(".saved-workout-card");
     const exerciseNames = record.workout.exercises.map((exercise) => exercise.name).filter(Boolean);
@@ -2304,20 +2610,35 @@ function renderSavedWorkouts() {
       ? `${formatRoutineSchedule(record.designatedDays)} · ${formatRoutineRole(record.routineRole)}`
       : formatRoutineSchedule(record.designatedDays);
     card.querySelector(".saved-workout-schedule-summary").classList.toggle("is-empty", record.designatedDays.length === 0);
-    card.querySelector(".saved-workout-preview").textContent = preview
-      ? `${preview}${remaining ? ` • +${remaining} more` : ""}`
-      : "No named exercises";
+    const previewElement = card.querySelector(".saved-workout-preview");
+    const previewToggle = card.querySelector(".saved-workout-preview-toggle");
+    const collapsedPreview = preview ? `${preview}${remaining ? ` • +${remaining} more` : ""}` : "No named exercises";
+    const expandedPreview = exerciseNames.length ? exerciseNames.join(" • ") : "No named exercises";
+    previewElement.textContent = collapsedPreview;
+    previewToggle.hidden = remaining === 0;
+    previewToggle.addEventListener("click", () => {
+      const expanded = previewToggle.getAttribute("aria-expanded") !== "true";
+      previewToggle.setAttribute("aria-expanded", String(expanded));
+      previewToggle.textContent = expanded ? "Show fewer exercises" : "Show all exercises";
+      previewElement.textContent = expanded ? expandedPreview : collapsedPreview;
+    });
     card.querySelector(".saved-workout-date").textContent = `Updated ${formatSavedDate(record.updatedAt)}`;
     card.querySelector(".saved-workout-active-badge").hidden = record.id !== activeSavedWorkoutId;
 
-    const moveUpButton = card.querySelector(".move-saved-workout-up");
-    const moveDownButton = card.querySelector(".move-saved-workout-down");
-    moveUpButton.disabled = index === 0;
-    moveDownButton.disabled = index === records.length - 1;
-    moveUpButton.addEventListener("click", () => moveSavedWorkout(record.id, -1));
-    moveDownButton.addEventListener("click", () => moveSavedWorkout(record.id, 1));
-
     card.querySelector(".load-saved-workout").addEventListener("click", () => loadSavedWorkout(record.id));
+    const moreButton = card.querySelector(".routine-more-button");
+    const moreMenu = card.querySelector(".saved-workout-more-menu");
+    moreButton.addEventListener("click", () => {
+      const opening = moreMenu.hidden;
+      dom.savedWorkoutList.querySelectorAll(".saved-workout-more-menu:not([hidden])").forEach((menu) => {
+        if (menu !== moreMenu) {
+          menu.hidden = true;
+          menu.closest(".saved-workout-card")?.querySelector(".routine-more-button")?.setAttribute("aria-expanded", "false");
+        }
+      });
+      moreMenu.hidden = !opening;
+      moreButton.setAttribute("aria-expanded", String(opening));
+    });
     configureRoutineScheduleEditor(card, record);
     card.querySelector(".rename-saved-workout").addEventListener("click", () => renameSavedWorkout(record.id));
     card.querySelector(".duplicate-saved-workout").addEventListener("click", () => duplicateSavedWorkout(record.id));
@@ -2446,31 +2767,18 @@ function loadSavedWorkout(id) {
   showToast(`Loaded “${loaded.name}”.`);
 }
 
-function moveSavedWorkout(id, direction) {
+function reorderSavedWorkouts(orderedIds) {
   const records = loadSavedWorkouts();
-  const index = records.findIndex((record) => record.id === id);
-  if (index < 0) return;
-
-  const nextIndex = index + direction;
-  if (nextIndex < 0 || nextIndex >= records.length) return;
-
-  [records[index], records[nextIndex]] = [records[nextIndex], records[index]];
+  if (!Array.isArray(orderedIds) || orderedIds.length !== records.length) return;
+  const byId = new Map(records.map((record) => [record.id, record]));
+  const reordered = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+  if (reordered.length !== records.length || reordered.every((record, index) => record.id === records[index].id)) return;
   const reorderedAt = Date.now();
-  records[index] = { ...records[index], updatedAt: reorderedAt };
-  records[nextIndex] = { ...records[nextIndex], updatedAt: reorderedAt };
-  saveSavedWorkouts(records);
-  const savedRecords = loadSavedWorkouts();
-  queueSavedWorkoutUpserts(savedRecords.filter((record) => record.id === records[index].id || record.id === records[nextIndex].id));
+  saveSavedWorkouts(reordered.map((record) => ({ ...record, updatedAt: reorderedAt })));
+  queueSavedWorkoutUpserts(loadSavedWorkouts());
   syncSavedWorkouts().catch(() => {});
   renderSavedWorkouts();
-
-  const moved = records[nextIndex];
-  showToast(`Moved “${moved.workout.name}” ${direction < 0 ? "up" : "down"}.`);
-
-  requestAnimationFrame(() => {
-    const movedCard = dom.savedWorkoutList.querySelector(`[data-id="${CSS.escape(id)}"]`);
-    movedCard?.querySelector(direction < 0 ? ".move-saved-workout-up" : ".move-saved-workout-down")?.focus();
-  });
+  showToast("Routine order saved.");
 }
 
 function duplicateSavedWorkout(id) {
@@ -2636,8 +2944,6 @@ function addExerciseCard(exercise = null) {
 
   mode.addEventListener("change", () => updateExerciseMode(card));
   card.querySelector(".remove-exercise").addEventListener("click", () => removeExerciseCard(card));
-  card.querySelector(".move-up").addEventListener("click", () => moveExerciseCard(card, -1));
-  card.querySelector(".move-down").addEventListener("click", () => moveExerciseCard(card, 1));
   card.addEventListener("input", () => saveFormDraft());
   card.addEventListener("change", () => saveFormDraft());
 
@@ -2658,19 +2964,6 @@ function removeExerciseCard(card) {
   saveFormDraft();
 }
 
-function moveExerciseCard(card, direction) {
-  const sibling = direction < 0 ? card.previousElementSibling : card.nextElementSibling;
-  if (!sibling) return;
-
-  if (direction < 0) {
-    dom.exerciseList.insertBefore(card, sibling);
-  } else {
-    dom.exerciseList.insertBefore(sibling, card);
-  }
-  updateExerciseCards();
-  saveFormDraft();
-}
-
 function getExerciseCards() {
   return [...dom.exerciseList.querySelectorAll(".exercise-card")];
 }
@@ -2679,10 +2972,71 @@ function updateExerciseCards() {
   const cards = getExerciseCards();
   cards.forEach((card, index) => {
     card.querySelector(".exercise-number").textContent = String(index + 1);
-    card.querySelector(".move-up").disabled = index === 0;
-    card.querySelector(".move-down").disabled = index === cards.length - 1;
   });
   dom.exerciseCount.textContent = `${cards.length} ${cards.length === 1 ? "exercise" : "exercises"}`;
+}
+
+function setupPointerSortable(container, itemSelector, handleSelector, onCommit) {
+  let activeItem = null;
+  let activeHandle = null;
+  let moved = false;
+
+  const orderedItems = () => [...container.querySelectorAll(itemSelector)];
+  const commit = () => onCommit(orderedItems().map((item) => item.dataset.id).filter(Boolean));
+  const finish = (event) => {
+    if (!activeItem) return;
+    if (activeHandle?.hasPointerCapture?.(event.pointerId)) activeHandle.releasePointerCapture(event.pointerId);
+    activeItem.classList.remove("is-dragging");
+    container.classList.remove("is-sorting");
+    activeItem = null;
+    activeHandle = null;
+    if (moved) commit();
+    moved = false;
+  };
+
+  container.addEventListener("pointerdown", (event) => {
+    const handle = event.target.closest(handleSelector);
+    if (!handle || event.button > 0) return;
+    const item = handle.closest(itemSelector);
+    if (!item || item.parentElement !== container) return;
+    event.preventDefault();
+    activeItem = item;
+    activeHandle = handle;
+    moved = false;
+    handle.setPointerCapture?.(event.pointerId);
+    item.classList.add("is-dragging");
+    container.classList.add("is-sorting");
+  });
+
+  container.addEventListener("pointermove", (event) => {
+    if (!activeItem) return;
+    event.preventDefault();
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(itemSelector);
+    if (!target || target === activeItem || target.parentElement !== container) return;
+    const targetRect = target.getBoundingClientRect();
+    const insertBefore = event.clientY < targetRect.top + targetRect.height / 2;
+    container.insertBefore(activeItem, insertBefore ? target : target.nextElementSibling);
+    moved = true;
+    if (itemSelector === ".exercise-card") updateExerciseCards();
+  });
+
+  container.addEventListener("pointerup", finish);
+  container.addEventListener("pointercancel", finish);
+
+  container.addEventListener("keydown", (event) => {
+    const handle = event.target.closest(handleSelector);
+    if (!handle || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+    const item = handle.closest(itemSelector);
+    if (!item) return;
+    const sibling = event.key === "ArrowUp" ? item.previousElementSibling : item.nextElementSibling;
+    if (!sibling) return;
+    event.preventDefault();
+    if (event.key === "ArrowUp") container.insertBefore(item, sibling);
+    else container.insertBefore(sibling, item);
+    if (itemSelector === ".exercise-card") updateExerciseCards();
+    commit();
+    handle.focus();
+  });
 }
 
 function updateExerciseMode(card) {
@@ -2794,31 +3148,37 @@ function showScreen(name) {
   dom.recoveryScreen.hidden = name !== "recovery";
   dom.trendsScreen.hidden = name !== "trends";
   dom.settingsScreen.hidden = name !== "settings";
+  dom.notificationsScreen.hidden = name !== "notifications";
   dom.workoutScreen.hidden = name !== "workout";
   dom.completeScreen.hidden = name !== "complete";
 
-  const showNavigation = name === "setup" || name === "saved" || name === "recovery" || name === "trends" || name === "settings";
+  const showNavigation = name === "setup" || name === "saved" || name === "recovery" || name === "trends" || name === "settings" || name === "notifications";
   dom.mainNavigation.hidden = !showNavigation;
   dom.settingsNavButton.hidden = !showNavigation;
+  dom.notificationsButton.hidden = !showNavigation;
   dom.setupNavButton.classList.toggle("is-active", name === "setup");
   dom.savedWorkoutsNavButton.classList.toggle("is-active", name === "saved");
   dom.recoveryNavButton.classList.toggle("is-active", name === "recovery");
   dom.trendsNavButton.classList.toggle("is-active", name === "trends");
   dom.settingsNavButton.classList.toggle("is-active", name === "settings");
+  dom.notificationsButton.classList.toggle("is-active", name === "notifications");
   dom.setupNavButton.toggleAttribute("aria-current", name === "setup");
   dom.savedWorkoutsNavButton.toggleAttribute("aria-current", name === "saved");
   dom.recoveryNavButton.toggleAttribute("aria-current", name === "recovery");
   dom.trendsNavButton.toggleAttribute("aria-current", name === "trends");
   dom.settingsNavButton.setAttribute("aria-pressed", String(name === "settings"));
+  dom.notificationsButton.setAttribute("aria-pressed", String(name === "notifications"));
 
   if (name === "saved") renderSavedWorkouts();
   if (name === "recovery") renderRecoveryScreen();
   if (name === "trends") renderTrends();
+  if (name === "notifications") renderNotificationCentre();
   if (name === "settings") {
     renderSettingsSummary();
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
     updateWellnessSyncStatus();
+    applyNotificationPreferences();
   }
   window.scrollTo({ top: 0, behavior: "auto" });
 }
@@ -4494,7 +4854,7 @@ function renderHistoryList(records) {
           </div>
           <p>${formatSessionDate(record.endedAt)}</p>
         </div>
-        <button class="mini-icon delete-history-session" type="button" aria-label="Delete this workout session">×</button>
+        <button class="mini-icon delete-history-session danger-icon" type="button" aria-label="Delete this workout session">${binIconMarkup()}</button>
       </div>
       ${renderSessionAnalysis(record, previous)}
       <details class="history-details">
@@ -4670,27 +5030,6 @@ function registerServiceWorker() {
   }
 }
 
-function setupInstallPrompt() {
-  window.addEventListener("beforeinstallprompt", (event) => {
-    event.preventDefault();
-    deferredInstallPrompt = event;
-    dom.installButton.hidden = false;
-  });
-
-  dom.installButton.addEventListener("click", async () => {
-    if (!deferredInstallPrompt) return;
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt = null;
-    dom.installButton.hidden = true;
-  });
-
-  window.addEventListener("appinstalled", () => {
-    deferredInstallPrompt = null;
-    dom.installButton.hidden = true;
-  });
-}
-
 function hydrateScreenHeroIcons() {
   document.querySelectorAll(".screen-hero-svg[data-icon-source]").forEach((target) => {
     const source = document.getElementById(target.dataset.iconSource);
@@ -4709,6 +5048,15 @@ function bindEvents() {
   dom.recoveryNavButton.addEventListener("click", () => showScreen("recovery"));
   dom.trendsNavButton.addEventListener("click", () => showScreen("trends"));
   dom.settingsNavButton.addEventListener("click", () => showScreen("settings"));
+  dom.notificationsButton.addEventListener("click", openNotifications);
+  dom.notificationsEnabled.addEventListener("change", (event) => togglePushNotifications(event.target.checked));
+  [dom.weightNotificationsEnabled, dom.waistNotificationsEnabled, dom.workoutNotificationsEnabled]
+    .forEach((input) => input.addEventListener("change", () => {
+      updateNotificationPreferenceSettings().catch((error) => {
+        dom.notificationSettingsStatus.textContent = error?.message || "Notification preferences could not be saved.";
+      });
+    }));
+  dom.clearAllNotificationsButton.addEventListener("click", clearAllNotifications);
   dom.saveWorkoutButton.addEventListener("click", () => saveCurrentWorkout(false));
   dom.saveWorkoutAsButton.addEventListener("click", () => saveCurrentWorkout(true));
   dom.newWorkoutButton.addEventListener("click", startNewWorkout);
@@ -4739,6 +5087,8 @@ function bindEvents() {
   });
   dom.addExerciseButton.addEventListener("click", () => addExerciseCard());
   dom.defaultRest.addEventListener("change", saveFormDraft);
+  [dom.voiceEnabled, dom.countdownVoice, dom.soundEffects, dom.voiceSelect, dom.voiceDetail]
+    .forEach((input) => input.addEventListener("change", saveFormDraft));
   dom.workoutForm.addEventListener("input", (event) => {
     if (!event.target.closest(".exercise-card")) saveFormDraft();
   });
@@ -4774,9 +5124,35 @@ function bindEvents() {
   dom.discardSavedSession.addEventListener("click", clearSavedSession);
   bindWellnessEvents();
 
+  setupPointerSortable(dom.exerciseList, ".exercise-card", ".exercise-drag-handle", () => {
+    updateExerciseCards();
+    saveFormDraft();
+  });
+  setupPointerSortable(dom.savedWorkoutList, ".saved-workout-card", ".saved-workout-drag-handle", reorderSavedWorkouts);
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest(".saved-workout-actions")) return;
+    dom.savedWorkoutList.querySelectorAll(".saved-workout-more-menu:not([hidden])").forEach((menu) => {
+      menu.hidden = true;
+      menu.closest(".saved-workout-card")?.querySelector(".routine-more-button")?.setAttribute("aria-expanded", "false");
+    });
+  });
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data?.type === "WELLBEING_PUSH_RECEIVED" || event.data?.type === "WELLBEING_OPEN_NOTIFICATIONS") {
+        refreshNotificationState().catch(() => {});
+      }
+      if (event.data?.type === "WELLBEING_OPEN_NOTIFICATIONS") openNotifications();
+    });
+  }
+
   document.addEventListener("visibilitychange", handleAppVisibilityChange);
   window.addEventListener("beforeunload", persistSession);
-  window.addEventListener("focus", () => requestAutomaticCloudRefresh());
+  window.addEventListener("focus", () => {
+    requestAutomaticCloudRefresh();
+    refreshNotificationState().catch(() => {});
+  });
   window.addEventListener("online", refreshAuthenticationAfterReconnect);
   window.addEventListener("offline", () => {
     const user = authSession?.user || loadCachedAuthUser();
@@ -4803,11 +5179,11 @@ async function init() {
   initializeWellness();
   renderTrends();
   renderSettingsSummary();
+  applyNotificationPreferences();
   setupVoiceSelection();
   bindEvents();
   showSavedSessionBanner();
   registerServiceWorker();
-  setupInstallPrompt();
   setAuthMode("signin");
   await initializeAuthentication();
 }

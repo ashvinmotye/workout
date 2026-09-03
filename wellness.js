@@ -993,7 +993,7 @@ function readinessHistoryItemMarkup(record, showActions = false) {
       </div>
       ${showActions ? `<div class="recovery-history-actions">
         <button class="mini-icon edit-readiness-entry" type="button" data-date="${record.checkinDate}" aria-label="Edit recovery check-in">✎</button>
-        <button class="mini-icon delete-readiness-entry" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete recovery check-in">×</button>
+        <button class="mini-icon delete-readiness-entry danger-icon" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete recovery check-in"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
       </div>` : ""}
     </article>`;
 }
@@ -1115,7 +1115,7 @@ function weightHistoryItemMarkup(record, allRecords, showActions = false) {
       </div>
       ${showActions ? `<div class="recovery-history-actions">
         <button class="mini-icon edit-weight-entry" type="button" data-date="${record.measurementDate}" aria-label="Edit body-weight measurement">✎</button>
-        <button class="mini-icon delete-weight-entry" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete body-weight measurement">×</button>
+        <button class="mini-icon delete-weight-entry danger-icon" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete body-weight measurement"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
       </div>` : ""}
     </article>`;
 }
@@ -1168,7 +1168,7 @@ function waistHistoryItemMarkup(record, allRecords, showActions = false) {
       </div>
       ${showActions ? `<div class="recovery-history-actions">
         <button class="mini-icon edit-waist-entry" type="button" data-date="${record.measurementDate}" aria-label="Edit waist measurement">✎</button>
-        <button class="mini-icon delete-waist-entry" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete waist measurement">×</button>
+        <button class="mini-icon delete-waist-entry danger-icon" type="button" data-id="${escapeHtml(record.id)}" aria-label="Delete waist measurement"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
       </div>` : ""}
     </article>`;
 }
