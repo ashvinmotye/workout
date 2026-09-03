@@ -1018,7 +1018,7 @@ input[type="checkbox"] {
 .saved-workout-title-row {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -5310,6 +5310,7 @@ body.is-reordering {
 
 .saved-workout-drag-handle {
   flex: 0 0 auto;
+  justify-content: flex-end;
   width: 48px;
   height: 48px;
   margin: -10px 0 -10px -10px;

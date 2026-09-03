@@ -4,6 +4,14 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
 
+## Version 36 compact routine-title spacing
+
+- Keeps the routine reorder target at 48px while aligning its bars to the title-facing edge.
+- Reduces the gap between the reorder control and routine name from 9px to 4px.
+- Advances the offline app-shell cache and asset URLs to Version 36.
+
+Replace the hosted PWA files, open the app once online, then fully close and reopen it. No Supabase change is required.
+
 ## Version 35 reliable mobile sorting
 
 - Moves active drag tracking to document-level pointer listeners so the card continues to follow the finger outside the handle and between cards.
