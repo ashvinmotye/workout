@@ -20,9 +20,14 @@ assert.match(html, /class="saved-workout-drag-handle sortable-handle"/, "routine
 assert.match(html, /class="exercise-drag-handle sortable-handle"/, "exercises should expose a drag handle");
 assert.match(app, /function setupPointerSortable\(/, "touch and pointer sorting should be implemented");
 assert.doesNotMatch(app, /elementFromPoint/, "captured touch pointers should not rely on hit-testing the covered card");
+assert.doesNotMatch(app, /setPointerCapture/, "sorting should keep tracking outside the card without fragile pointer capture");
+assert.match(app, /document\.addEventListener\("pointermove"/, "pointer sorting should continue at document level");
+assert.match(app, /container\.addEventListener\("touchstart"/, "older touch browsers should have an explicit fallback");
 assert.match(app, /rect\.top \+ rect\.height \/ 2/, "touch sorting should compare the pointer with each card midpoint");
 assert.match(styles, /\.exercise-drag-handle \{[\s\S]*?min-height: 48px;/, "the Forge drag handle should expose a large touch area");
 assert.match(styles, /\.saved-workout-drag-handle \{[\s\S]*?width: 48px;[\s\S]*?height: 48px;/, "the routine drag handle should expose a large touch area");
+assert.match(styles, /\.sortable-handle svg \{[\s\S]*?width: 30px;[\s\S]*?pointer-events: none;/, "drag bars should be large and should not intercept the handle press");
+assert.match(html, /d="M3 6h18M3 12h18M3 18h18"/, "drag bars should span most of the handle width");
 assert.doesNotMatch(html, /move-saved-workout-up|move-saved-workout-down|class="mini-icon move-up"|class="mini-icon move-down"/, "arrow sorting buttons should be removed");
 assert.match(html, /class="saved-workout-preview-toggle"/, "routine exercise lists should be expandable");
 assert.match(app, /className = "saved-workout-exercise-list"/, "expanded routine previews should use a vertical list");
@@ -58,4 +63,4 @@ assert.match(pushFunction, /Last 7 days:[\s\S]*since first:/, "weight reminders 
 
 assert.match(styles, /@media \(max-width: 620px\)[\s\S]*?min-height: 38px;/, "mobile form controls should use a compact height");
 
-console.log("Wellbeing Version 34 feature tests passed");
+console.log("Wellbeing Version 35 feature tests passed");

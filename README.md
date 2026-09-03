@@ -4,6 +4,18 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
 
+## Version 35 reliable mobile sorting
+
+- Moves active drag tracking to document-level pointer listeners so the card continues to follow the finger outside the handle and between cards.
+- Adds an explicit touch-event fallback for browsers without Pointer Events, plus mouse fallback for desktop.
+- Removes pointer capture from sorting and prevents SVG paths or exercise numbers from intercepting the handle press.
+- Extends the three reorder bars across most of the icon and increases the visible icon to 30px inside the existing 48px touch area.
+- Advances the offline app-shell cache and asset URLs to Version 35.
+
+### Upgrade from Version 34
+
+Replace the hosted PWA files with this package, then fully close and reopen the installed app once while online. No Supabase deployment, SQL, secret or Cron change is required.
+
 ## Version 34 touch sorting + notification test
 
 - Adds **Send test notification** under Settings → Notifications. It uses the deployed Edge Function and the current Web Push subscription, and the test remains in the notification centre until cleared.

@@ -3033,55 +3033,101 @@ function updateExerciseCards() {
 
 function setupPointerSortable(container, itemSelector, handleSelector, onCommit) {
   let activeItem = null;
-  let activeHandle = null;
+  let activePointerId = null;
   let moved = false;
 
   const orderedItems = () => [...container.querySelectorAll(itemSelector)];
   const commit = () => onCommit(orderedItems().map((item) => item.dataset.id).filter(Boolean));
-  const finish = (event) => {
-    if (!activeItem) return;
-    if (activeHandle?.hasPointerCapture?.(event.pointerId)) activeHandle.releasePointerCapture(event.pointerId);
-    activeItem.classList.remove("is-dragging");
-    container.classList.remove("is-sorting");
-    activeItem = null;
-    activeHandle = null;
-    if (moved) commit();
-    moved = false;
-  };
-
-  container.addEventListener("pointerdown", (event) => {
-    const handle = event.target.closest(handleSelector);
-    if (!handle || event.button > 0) return;
+  const start = (handle, pointerId = null) => {
+    if (activeItem) return false;
     const item = handle.closest(itemSelector);
-    if (!item || item.parentElement !== container) return;
-    event.preventDefault();
+    if (!item || item.parentElement !== container) return false;
     activeItem = item;
-    activeHandle = handle;
+    activePointerId = pointerId;
     moved = false;
-    handle.setPointerCapture?.(event.pointerId);
     item.classList.add("is-dragging");
     container.classList.add("is-sorting");
-  });
-
-  container.addEventListener("pointermove", (event) => {
+    document.body.classList.add("is-reordering");
+    return true;
+  };
+  const move = (clientY) => {
     if (!activeItem) return;
-    event.preventDefault();
     const beforeOrder = orderedItems();
-    const otherItems = beforeOrder.filter((item) => item !== activeItem);
-    const nextItem = otherItems.find((item) => {
-      const rect = item.getBoundingClientRect();
-      return event.clientY < rect.top + rect.height / 2;
-    });
+    const nextItem = beforeOrder
+      .filter((item) => item !== activeItem)
+      .find((item) => {
+        const rect = item.getBoundingClientRect();
+        return clientY < rect.top + rect.height / 2;
+      });
     if (nextItem) container.insertBefore(activeItem, nextItem);
     else container.appendChild(activeItem);
     const changed = orderedItems().some((item, index) => item !== beforeOrder[index]);
     if (!changed) return;
     moved = true;
     if (itemSelector === ".exercise-card") updateExerciseCards();
-  });
+  };
+  const finish = () => {
+    if (!activeItem) return;
+    activeItem.classList.remove("is-dragging");
+    container.classList.remove("is-sorting");
+    document.body.classList.remove("is-reordering");
+    activeItem = null;
+    activePointerId = null;
+    if (moved) commit();
+    moved = false;
+  };
 
-  container.addEventListener("pointerup", finish);
-  container.addEventListener("pointercancel", finish);
+  if ("PointerEvent" in window) {
+    container.addEventListener("pointerdown", (event) => {
+      if (event.button > 0 || event.isPrimary === false) return;
+      const handle = event.target.closest?.(handleSelector);
+      if (!handle || !start(handle, event.pointerId)) return;
+      event.preventDefault();
+    });
+
+    document.addEventListener("pointermove", (event) => {
+      if (!activeItem || event.pointerId !== activePointerId) return;
+      event.preventDefault();
+      move(event.clientY);
+    }, { passive: false });
+    document.addEventListener("pointerup", (event) => {
+      if (activeItem && event.pointerId === activePointerId) finish();
+    });
+    document.addEventListener("pointercancel", (event) => {
+      if (activeItem && event.pointerId === activePointerId) finish();
+    });
+  } else {
+    container.addEventListener("touchstart", (event) => {
+      if (event.touches.length !== 1) return;
+      const handle = event.target.closest?.(handleSelector);
+      if (!handle || !start(handle, event.touches[0].identifier)) return;
+      event.preventDefault();
+    }, { passive: false });
+    document.addEventListener("touchmove", (event) => {
+      if (!activeItem) return;
+      const touch = [...event.touches].find((candidate) => candidate.identifier === activePointerId);
+      if (!touch) return;
+      event.preventDefault();
+      move(touch.clientY);
+    }, { passive: false });
+    document.addEventListener("touchend", finish);
+    document.addEventListener("touchcancel", finish);
+
+    container.addEventListener("mousedown", (event) => {
+      if (event.button > 0) return;
+      const handle = event.target.closest?.(handleSelector);
+      if (!handle || !start(handle, "mouse")) return;
+      event.preventDefault();
+    });
+    document.addEventListener("mousemove", (event) => {
+      if (!activeItem || activePointerId !== "mouse") return;
+      event.preventDefault();
+      move(event.clientY);
+    });
+    document.addEventListener("mouseup", () => {
+      if (activeItem && activePointerId === "mouse") finish();
+    });
+  }
 
   container.addEventListener("keydown", (event) => {
     const handle = event.target.closest(handleSelector);

@@ -5275,6 +5275,23 @@ body {
   -webkit-user-select: none;
 }
 
+.sortable-handle svg {
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+}
+
+.sortable-handle span {
+  pointer-events: none;
+}
+
+body.is-reordering {
+  cursor: grabbing;
+  overflow-x: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .sortable-handle:active {
   cursor: grabbing;
 }
