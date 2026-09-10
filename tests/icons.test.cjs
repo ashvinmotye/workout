@@ -43,12 +43,12 @@ assert.equal(
 const ico = fs.readFileSync(path.join(root,"icons","favicon.ico"));
 assert.equal(ico.subarray(0,6).toString("hex"),"000001000300","favicon.ico should contain three icon sizes");
 assert.match(html,/apple-touch-icon-v31\.png/,"iOS should request the cache-busting Apple Touch icon");
-assert.match(html,/styles\.css\?v=38/,"Wellbeing should version its stylesheet");
-assert.match(html,/wellness\.js\?v=38/,"Wellbeing should version its body-data script");
-assert.match(html,/app\.js\?v=38/,"Wellbeing should version its app script");
-assert.match(worker,/wellbeing-v38/,"Wellbeing should use the Version 38 offline cache");
+assert.match(html,/styles\.css\?v=39/,"Wellbeing should version its stylesheet");
+assert.match(html,/wellness\.js\?v=39/,"Wellbeing should version its body-data script");
+assert.match(html,/app\.js\?v=39/,"Wellbeing should version its app script");
+assert.match(worker,/wellbeing-v39/,"Wellbeing should use the Version 39 offline cache");
 assert.match(worker,/apple-touch-icon-v31\.png/,"offline shell should include the new Apple icon");
-assert.equal(manifest.background_color,"#193546","manifest background should match the supplied icon");
+assert.equal(manifest.background_color,"#203444","manifest background should match the Minimal Navy app chrome");
 assert.equal(manifest.name,"Wellbeing","manifest should expose the new app name");
 assert.ok(manifest.icons.some(icon=>icon.src === "icons/icon-512.png" && icon.purpose === "any"),"manifest should retain a large standard icon");
 assert.ok(manifest.icons.some(icon=>icon.src === "icons/icon-maskable-512.png" && icon.purpose === "maskable"),"manifest should retain a large maskable icon");

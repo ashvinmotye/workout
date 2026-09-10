@@ -2711,7 +2711,7 @@ function renderSetupHomepage() {
 
   const loadedWorkout = normalizeWorkout(record.workout);
   const exerciseCount = loadedWorkout.exercises.length;
-  dom.setupEyebrow.textContent = "LOADED WORKOUT";
+  dom.setupEyebrow.textContent = "YOUR WORKOUT";
   dom.setupTitle.textContent = loadedWorkout.name;
   dom.setupIntro.textContent = "Your workout is loaded and ready. Review the session below, then start when you are set.";
   dom.loadedWorkoutCtaSummary.textContent = `${loadedWorkout.rounds} ${loadedWorkout.rounds === 1 ? "round" : "rounds"} · ${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`;
@@ -2755,7 +2755,7 @@ function renderSetupHomepage() {
     details.className = "loaded-exercise-details";
     const detailRows = [
       ["Weight / equipment", formatRoutineWeight(exercise.weight) || "None"],
-      ["Rest after", exercise.rest > 0 ? formatDuration(exercise.rest) : "No rest"]
+      ["Rest after", exercise.rest > 0 ? `${formatDuration(exercise.rest)} rest` : "No rest"]
     ];
     detailRows.forEach(([label, value]) => {
       const item = document.createElement("div");
@@ -5568,7 +5568,7 @@ function applyTheme(theme, persist = true) {
   dom.themeToggleButton.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
   dom.themeToggleButton.title = isDark ? "Switch to light mode" : "Switch to dark mode";
   dom.themeToggleButton.setAttribute("aria-pressed", String(isDark));
-  dom.themeColorMeta.content = isDark ? "#193546" : "#e9f8fb";
+  dom.themeColorMeta.content = isDark ? "#203444" : "#f2f2f0";
 
   if (persist) {
     try {

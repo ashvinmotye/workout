@@ -2,7 +2,16 @@
 
 A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript. **Forge** remains the training system inside the broader app, alongside body measurements, recovery and whole-picture progress.
 
-The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
+The interface now uses Wellbeing’s **Minimal Navy** design system: a solid navy field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
+
+## Version 39 Minimal Navy redesign
+
+- Rebuilds the visual language around the supplied minimalist reference using its exact navy (`#203444`) and off-white (`#D9D9D9`) foundation.
+- Replaces luminous gradients, glass surfaces, glows, floating cards, rounded pills and decorative halos with flat sections, square actions and thin dividers.
+- Applies the new system across Home, Routines, Notifications, Body, Progress, Settings, active workouts, session review, dialogs and navigation.
+- Gives the loaded-workout Home the closest match to the reference: large wordmark, **Your workout** title block, flat CTA row, text-only settings and a clean exercise ledger.
+- Keeps light mode as an inverse minimalist variant and preserves every existing workflow and data structure.
+- Advances the offline app-shell cache and asset URLs to Version 39. No Supabase change is required.
 
 ## Version 38 loaded-workout homepage
 
