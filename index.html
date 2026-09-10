@@ -21,7 +21,7 @@
   <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
   <link rel="shortcut icon" href="icons/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-v31.png" />
-  <link rel="stylesheet" href="styles.css?v=37" />
+  <link rel="stylesheet" href="styles.css?v=38" />
 </head>
 <body data-design-system="auraos">
   <div class="app-shell">
@@ -164,15 +164,56 @@
           </div>
         </div>
 
-        <div class="hero-card">
+        <div id="setupHero" class="hero-card setup-hero">
           <div>
-            <p class="eyebrow">FORGE TRAINING</p>
+            <p id="setupEyebrow" class="eyebrow">FORGE TRAINING</p>
             <h2 id="setupTitle">Set up your workout</h2>
-            <p class="subtle">Create a circuit, choose repetitions or timed exercises, then let the app guide you.</p>
+            <p id="setupIntro" class="subtle">Create a circuit, choose repetitions or timed exercises, then let the app guide you.</p>
           </div>
           <div class="hero-badge" aria-hidden="true">
             <svg class="screen-hero-svg" data-icon-source="setupSectionIcon" viewBox="0 0 24 24" fill="none" focusable="false"></svg>
           </div>
+        </div>
+
+        <div id="loadedWorkoutOverview" class="loaded-workout-overview" hidden>
+          <section class="home-workout-cta" aria-labelledby="loadedWorkoutCtaTitle">
+            <div class="home-workout-cta-copy">
+              <p class="eyebrow">READY TO TRAIN</p>
+              <h3 id="loadedWorkoutCtaTitle">Start your loaded workout</h3>
+              <p id="loadedWorkoutCtaSummary" class="subtle"></p>
+            </div>
+            <div class="home-workout-cta-actions">
+              <button id="startLoadedWorkoutButton" class="button button-primary button-large" type="button">
+                Start workout
+              </button>
+              <button id="editLoadedWorkoutButton" class="button button-ghost loaded-workout-edit-button" type="button" aria-label="Edit loaded workout" title="Edit loaded workout">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M13.5 6.5 17.5 10.5M4 20l3.6-.8L19 7.8a1.8 1.8 0 0 0 0-2.6l-.2-.2a1.8 1.8 0 0 0-2.6 0L4.8 16.4 4 20Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel readonly-session-panel" aria-labelledby="loadedSessionSettingsTitle">
+            <div class="panel-heading readonly-panel-heading">
+              <div>
+                <p class="eyebrow">WORKOUT</p>
+                <h3 id="loadedSessionSettingsTitle">Session settings</h3>
+              </div>
+            </div>
+            <dl id="loadedSessionSettings" class="loaded-session-settings"></dl>
+          </section>
+
+          <section class="panel readonly-circuit-panel" aria-labelledby="loadedCircuitTitle">
+            <div class="panel-heading readonly-panel-heading">
+              <div>
+                <p class="eyebrow">CIRCUIT</p>
+                <h3 id="loadedCircuitTitle">Circuit exercises</h3>
+              </div>
+              <span id="loadedExerciseCount" class="counter-pill">0 exercises</span>
+            </div>
+            <div id="loadedExerciseList" class="loaded-exercise-list"></div>
+          </section>
         </div>
 
         <form id="workoutForm" novalidate>
@@ -1413,7 +1454,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=37" defer></script>
-  <script src="app.js?v=37" defer></script>
+  <script src="wellness.js?v=38" defer></script>
+  <script src="app.js?v=38" defer></script>
 </body>
 </html>

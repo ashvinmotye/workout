@@ -4,6 +4,14 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
 
+## Version 38 loaded-workout homepage
+
+- Shows the currently loaded workout on Home as a read-only, at-a-glance plan instead of opening directly into form fields.
+- Adds a dedicated CTA section with a large **Start workout** button and a compact icon-only edit action.
+- Separates session settings and circuit exercises into clear read-only sections, including every exercise target, equipment/weight, rest and note.
+- Opens the existing workout editor automatically when no routine is loaded. Loading a routine or saving changes returns Home to its read-only state.
+- Advances the offline app-shell cache and asset URLs to Version 38. No Supabase change is required.
+
 ## Version 37 backlog completion
 
 - Redesigns routine cards with fully wrapping titles, a larger right-side 2 × 3 dot drag handle and a divided footer containing the Level90-style Loaded checkmark, Load and More actions.

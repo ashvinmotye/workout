@@ -59,6 +59,17 @@ const dom = {
   signInModeButton: document.querySelector("#signInModeButton"),
   signUpModeButton: document.querySelector("#signUpModeButton"),
   setupScreen: document.querySelector("#setupScreen"),
+  setupHero: document.querySelector("#setupHero"),
+  setupEyebrow: document.querySelector("#setupEyebrow"),
+  setupTitle: document.querySelector("#setupTitle"),
+  setupIntro: document.querySelector("#setupIntro"),
+  loadedWorkoutOverview: document.querySelector("#loadedWorkoutOverview"),
+  loadedWorkoutCtaSummary: document.querySelector("#loadedWorkoutCtaSummary"),
+  startLoadedWorkoutButton: document.querySelector("#startLoadedWorkoutButton"),
+  editLoadedWorkoutButton: document.querySelector("#editLoadedWorkoutButton"),
+  loadedSessionSettings: document.querySelector("#loadedSessionSettings"),
+  loadedExerciseCount: document.querySelector("#loadedExerciseCount"),
+  loadedExerciseList: document.querySelector("#loadedExerciseList"),
   savedWorkoutsScreen: document.querySelector("#savedWorkoutsScreen"),
   recoveryScreen: document.querySelector("#recoveryScreen"),
   trendsScreen: document.querySelector("#trendsScreen"),
@@ -244,6 +255,7 @@ let wakeLock = null;
 let audioContext = null;
 let availableVoices = [];
 let activeSavedWorkoutId = null;
+let setupEditMode = false;
 let toastTimer = null;
 let activeTrendRange = "7";
 let authMode = "signin";
@@ -2233,8 +2245,10 @@ async function pullSavedWorkoutsFromCloud(recentChanges = {}) {
 
   if (activeSavedWorkoutId && !nextRecords.some((record) => record.id === activeSavedWorkoutId)) {
     activeSavedWorkoutId = null;
+    setupEditMode = true;
     localStorage.removeItem(ACTIVE_SAVED_WORKOUT_KEY);
     updateSavedWorkoutStatus();
+    renderSetupHomepage();
   }
   if (autoLinkLegacyRoutineSessions()) syncWorkoutHistory().catch(() => {});
   return data?.length || 0;
@@ -2511,9 +2525,11 @@ function applyImportedBackup(data) {
   workout = null;
   runtime = createEmptyRuntime();
   activeSavedWorkoutId = data.activeSavedWorkoutId;
+  setupEditMode = !activeSavedWorkoutId;
   if (authSession) autoLinkLegacyRoutineSessions();
   applyTheme(data.theme, false);
   populateForm(data.settings);
+  renderSetupHomepage();
   populateTrainingContext();
   renderSavedWorkouts();
   renderRecoveryScreen();
@@ -2674,6 +2690,120 @@ function updateSavedWorkoutStatus() {
     dom.saveWorkoutButton.textContent = "Save workout";
     dom.saveWorkoutAsButton.hidden = true;
   }
+}
+
+function renderSetupHomepage() {
+  const record = activeSavedWorkoutId ? findSavedWorkout(activeSavedWorkoutId) : null;
+  const showReadonly = Boolean(record) && !setupEditMode;
+
+  dom.loadedWorkoutOverview.hidden = !showReadonly;
+  dom.workoutForm.hidden = showReadonly;
+  dom.setupHero.classList.toggle("is-loaded", showReadonly);
+
+  if (!showReadonly) {
+    dom.setupEyebrow.textContent = activeSavedWorkoutId ? "EDIT ROUTINE" : "FORGE TRAINING";
+    dom.setupTitle.textContent = activeSavedWorkoutId ? "Edit your workout" : "Set up your workout";
+    dom.setupIntro.textContent = activeSavedWorkoutId
+      ? "Adjust the loaded routine, then save your changes or start it from the editor."
+      : "Create a circuit, choose repetitions or timed exercises, then let the app guide you.";
+    return;
+  }
+
+  const loadedWorkout = normalizeWorkout(record.workout);
+  const exerciseCount = loadedWorkout.exercises.length;
+  dom.setupEyebrow.textContent = "LOADED WORKOUT";
+  dom.setupTitle.textContent = loadedWorkout.name;
+  dom.setupIntro.textContent = "Your workout is loaded and ready. Review the session below, then start when you are set.";
+  dom.loadedWorkoutCtaSummary.textContent = `${loadedWorkout.rounds} ${loadedWorkout.rounds === 1 ? "round" : "rounds"} · ${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`;
+  dom.loadedExerciseCount.textContent = `${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`;
+
+  dom.loadedSessionSettings.replaceChildren();
+  const settings = [
+    ["Rounds", String(loadedWorkout.rounds)],
+    ["Round rest", formatDuration(loadedWorkout.roundRest)],
+    ["Starting countdown", formatDuration(loadedWorkout.prepTime)],
+    ["Exercise rest", formatDuration(loadedWorkout.defaultRest)]
+  ];
+  settings.forEach(([label, value]) => {
+    const item = document.createElement("div");
+    const term = document.createElement("dt");
+    const description = document.createElement("dd");
+    term.textContent = label;
+    description.textContent = value;
+    item.append(term, description);
+    dom.loadedSessionSettings.append(item);
+  });
+
+  dom.loadedExerciseList.replaceChildren();
+  loadedWorkout.exercises.forEach((exercise, index) => {
+    const card = document.createElement("article");
+    card.className = "loaded-exercise-card";
+
+    const heading = document.createElement("div");
+    heading.className = "loaded-exercise-heading";
+    const number = document.createElement("span");
+    number.className = "loaded-exercise-number";
+    number.textContent = String(index + 1);
+    const name = document.createElement("h4");
+    name.textContent = exercise.name || `Exercise ${index + 1}`;
+    const target = document.createElement("span");
+    target.className = "loaded-exercise-target";
+    target.textContent = targetText(exercise);
+    heading.append(number, name, target);
+
+    const details = document.createElement("dl");
+    details.className = "loaded-exercise-details";
+    const detailRows = [
+      ["Weight / equipment", formatRoutineWeight(exercise.weight) || "None"],
+      ["Rest after", exercise.rest > 0 ? formatDuration(exercise.rest) : "No rest"]
+    ];
+    detailRows.forEach(([label, value]) => {
+      const item = document.createElement("div");
+      const term = document.createElement("dt");
+      const description = document.createElement("dd");
+      term.textContent = label;
+      description.textContent = value;
+      item.append(term, description);
+      details.append(item);
+    });
+    card.append(heading, details);
+
+    if (exercise.note.trim()) {
+      const note = document.createElement("p");
+      note.className = "loaded-exercise-note";
+      note.textContent = exercise.note;
+      card.append(note);
+    }
+    dom.loadedExerciseList.append(card);
+  });
+}
+
+function editLoadedWorkout() {
+  const record = activeSavedWorkoutId ? findSavedWorkout(activeSavedWorkoutId) : null;
+  if (!record) {
+    setupEditMode = true;
+    setActiveSavedWorkoutId(null);
+    renderSetupHomepage();
+    return;
+  }
+
+  setupEditMode = true;
+  populateForm(cloneWorkout(record.workout, false));
+  hideFormError();
+  renderSetupHomepage();
+  requestAnimationFrame(() => dom.workoutName.focus());
+}
+
+function startLoadedWorkout() {
+  const record = activeSavedWorkoutId ? findSavedWorkout(activeSavedWorkoutId) : null;
+  if (!record) {
+    setupEditMode = true;
+    setActiveSavedWorkoutId(null);
+    renderSetupHomepage();
+    showToast("Choose or create a workout first.");
+    return;
+  }
+  startWorkout(cloneWorkout(record.workout, false));
 }
 
 function renderSuggestedRoutines(records) {
@@ -2940,6 +3070,8 @@ function saveCurrentWorkout(asNew = false) {
     syncSavedWorkouts().catch(() => {});
     setActiveSavedWorkoutId(targetId);
     saveSettings(candidate);
+    setupEditMode = false;
+    renderSetupHomepage();
     showToast("Workout changes saved.");
     return;
   }
@@ -2958,6 +3090,8 @@ function saveCurrentWorkout(asNew = false) {
   dom.workoutName.value = record.workout.name;
   saveSettings(record.workout);
   setActiveSavedWorkoutId(record.id);
+  setupEditMode = false;
+  renderSetupHomepage();
   showToast(asNew ? "Workout copy saved." : "Workout saved.");
 }
 
@@ -2970,6 +3104,7 @@ function loadSavedWorkout(id) {
   }
 
   const loaded = cloneWorkout(record.workout, false);
+  setupEditMode = false;
   setActiveSavedWorkoutId(record.id);
   populateForm(loaded);
   saveSettings(loaded);
@@ -3053,6 +3188,7 @@ function renameSavedWorkout(id) {
   if (activeSavedWorkoutId === id) {
     dom.workoutName.value = nextName;
     saveSettings(collectWorkoutFromForm());
+    renderSetupHomepage();
   }
 
   updateSavedWorkoutStatus();
@@ -3070,7 +3206,11 @@ function deleteSavedWorkout(id) {
   saveSavedWorkouts(records.filter((item) => item.id !== id));
   queueSavedWorkoutDelete(id);
   syncSavedWorkouts().catch(() => {});
-  if (activeSavedWorkoutId === id) setActiveSavedWorkoutId(null);
+  if (activeSavedWorkoutId === id) {
+    setupEditMode = true;
+    setActiveSavedWorkoutId(null);
+    renderSetupHomepage();
+  }
   renderSavedWorkouts();
   showToast("Saved workout deleted.");
 }
@@ -3095,6 +3235,7 @@ function createBlankWorkout() {
 
 function startNewWorkout() {
   const fresh = createBlankWorkout();
+  setupEditMode = true;
   setActiveSavedWorkoutId(null);
   populateForm(fresh);
   saveSettings(fresh);
@@ -3432,6 +3573,7 @@ function showScreen(name) {
   dom.settingsNavButton.setAttribute("aria-pressed", String(name === "settings"));
   dom.notificationsButton.setAttribute("aria-pressed", String(name === "notifications"));
 
+  if (name === "setup") renderSetupHomepage();
   if (name === "saved") renderSavedWorkouts();
   if (name === "recovery") renderRecoveryScreen();
   if (name === "trends") renderTrends();
@@ -4058,8 +4200,9 @@ async function endWorkoutAndReturnToSetup(options = {}) {
   clearSavedSession();
   runtime = createEmptyRuntime();
   workout = null;
-  showScreen("setup");
   populateForm(loadSettings());
+  setupEditMode = options.edit === true || !activeSavedWorkoutId;
+  showScreen("setup");
 }
 
 async function confirmEndWorkout() {
@@ -5552,6 +5695,8 @@ function bindEvents() {
   dom.snoozeWeightReminderButton.addEventListener("click", snoozeWeightReminder);
   dom.dismissWeightReminderButton.addEventListener("click", dismissWeightReminderForToday);
   dom.openWeightEntryButton.addEventListener("click", openWeightEntryFromReminder);
+  dom.startLoadedWorkoutButton.addEventListener("click", startLoadedWorkout);
+  dom.editLoadedWorkoutButton.addEventListener("click", editLoadedWorkout);
   dom.saveWorkoutButton.addEventListener("click", () => saveCurrentWorkout(false));
   dom.saveWorkoutAsButton.addEventListener("click", () => saveCurrentWorkout(true));
   dom.newWorkoutButton.addEventListener("click", startNewWorkout);
@@ -5615,7 +5760,7 @@ function bindEvents() {
   dom.completeReviewForm.addEventListener("submit", submitCompleteSessionReview);
   dom.copyCompleteSessionForAiButton.addEventListener("click", copyCompleteSessionForAi);
   dom.repeatWorkoutButton.addEventListener("click", () => startWorkout(workout));
-  dom.editWorkoutButton.addEventListener("click", endWorkoutAndReturnToSetup);
+  dom.editWorkoutButton.addEventListener("click", () => endWorkoutAndReturnToSetup({ edit: true }));
   dom.resumeSavedSession.addEventListener("click", resumeSavedSession);
   dom.discardSavedSession.addEventListener("click", clearSavedSession);
   dom.trainingPhase.addEventListener("change", scheduleTrainingContextSave);
@@ -5683,9 +5828,11 @@ async function init() {
   const savedWorkouts = loadSavedWorkouts();
   const storedActiveId = loadActiveSavedWorkoutId();
   activeSavedWorkoutId = savedWorkouts.some((record) => record.id === storedActiveId) ? storedActiveId : null;
+  setupEditMode = !activeSavedWorkoutId;
   if (!activeSavedWorkoutId && storedActiveId) setActiveSavedWorkoutId(null);
 
   populateForm(loadSettings());
+  renderSetupHomepage();
   populateTrainingContext();
   renderSavedWorkouts();
   initializeWellness();
