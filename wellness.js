@@ -676,6 +676,7 @@ async function syncWellnessData(options = {}) {
     const syncedAt = Date.now();
     localStorage.setItem(wellnessLastSyncKey(authSession.user.id), String(syncedAt));
     renderRecoveryScreen();
+    document.dispatchEvent(new Event("wellbeing:weight-state-changed"));
     renderTrends();
     renderSettingsSummary();
     setWellnessSyncStatus(cloudCount
@@ -793,6 +794,7 @@ function submitWeightForm(event) {
     updatedAt: now
   });
   saveWeightEntries([...records.filter((item) => item.measurementDate !== measurementDate), record]);
+  document.dispatchEvent(new Event("wellbeing:weight-saved"));
   queueWellnessOperation(WELLNESS_ENTITY.WEIGHT, "upsert", record);
   populateWeightForm(measurementDate);
   renderRecoveryScreen({ preserveForms: true });

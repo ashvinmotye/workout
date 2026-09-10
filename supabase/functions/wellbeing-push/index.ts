@@ -97,14 +97,26 @@ async function authenticatedUser(req: Request) {
 }
 
 async function stateForUser(userId: string) {
-  const [{ data: preferenceData, error: preferenceError }, { data: notifications, error: notificationError }] = await Promise.all([
-    db.from("wellbeing_notification_preferences").select("enabled, weight_enabled, waist_enabled, workout_enabled, time_zone").eq("user_id", userId).maybeSingle(),
-    db.from("wellbeing_notifications").select("id, type, title, body, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(200)
-  ]);
+  const { data: preferenceData, error: preferenceError } = await db
+    .from("wellbeing_notification_preferences")
+    .select("enabled, weight_enabled, waist_enabled, workout_enabled, time_zone")
+    .eq("user_id", userId)
+    .maybeSingle();
   if (preferenceError) throw preferenceError;
+  const preferences = preferencesFromRow(preferenceData);
+  const today = dateKey(localParts(new Date(), preferences.timeZone));
+  const tomorrow = shiftDateKey(today, 1);
+  const { data: notifications, error: notificationError } = await db
+    .from("wellbeing_notifications")
+    .select("id, type, title, body, is_read, read_at, created_at")
+    .eq("user_id", userId)
+    .gte("created_at", zonedBoundaryIso(today, preferences.timeZone))
+    .lt("created_at", zonedBoundaryIso(tomorrow, preferences.timeZone))
+    .order("created_at", { ascending: false })
+    .limit(200);
   if (notificationError) throw notificationError;
   return {
-    preferences: preferencesFromRow(preferenceData),
+    preferences,
     notifications: notifications || [],
     vapidPublicKey
   };
@@ -260,7 +272,7 @@ async function createAndSendNotification(userId: string, type: "weight" | "waist
     title,
     body,
     tag: key,
-    url: "./?notifications=1"
+    url: type === "weight" ? "./?weight=1" : "./?notifications=1"
   });
   let delivered = 0;
   for (const subscription of subscriptions) {
@@ -400,17 +412,34 @@ Deno.serve(async (req) => {
       return json({ ok: true, test, ...(await stateForUser(user.id)) });
     }
 
-    if (body.action === "clear") {
+    if (body.action === "read" || body.action === "clear") {
       const ids = Array.isArray(body.ids) ? body.ids.filter((id: unknown) => typeof id === "string").slice(0, 200) : [];
       if (ids.length) {
-        const { error } = await db.from("wellbeing_notifications").delete().eq("user_id", user.id).in("id", ids);
+        const { error } = await db.from("wellbeing_notifications")
+          .update({ is_read: true, read_at: new Date().toISOString() })
+          .eq("user_id", user.id)
+          .in("id", ids);
         if (error) throw error;
       }
       return json({ ok: true, ...(await stateForUser(user.id)) });
     }
 
-    if (body.action === "clear-all") {
-      const { error } = await db.from("wellbeing_notifications").delete().eq("user_id", user.id);
+    if (body.action === "read-all" || body.action === "clear-all") {
+      const { data: preferenceData, error: preferenceError } = await db
+        .from("wellbeing_notification_preferences")
+        .select("time_zone")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (preferenceError) throw preferenceError;
+      const timeZone = preferencesFromRow(preferenceData).timeZone;
+      const today = dateKey(localParts(new Date(), timeZone));
+      const tomorrow = shiftDateKey(today, 1);
+      const { error } = await db.from("wellbeing_notifications")
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .eq("is_read", false)
+        .gte("created_at", zonedBoundaryIso(today, timeZone))
+        .lt("created_at", zonedBoundaryIso(tomorrow, timeZone));
       if (error) throw error;
       return json({ ok: true, ...(await stateForUser(user.id)) });
     }

@@ -21,7 +21,7 @@
   <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
   <link rel="shortcut icon" href="icons/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-v31.png" />
-  <link rel="stylesheet" href="styles.css?v=36" />
+  <link rel="stylesheet" href="styles.css?v=37" />
 </head>
 <body data-design-system="auraos">
   <div class="app-shell">
@@ -61,6 +61,21 @@
         </button>
       </div>
     </header>
+
+    <section id="weightReminderSlab" class="weight-reminder-slab" aria-labelledby="weightReminderTitle" hidden>
+      <div class="weight-reminder-copy">
+        <span class="weight-reminder-mark" aria-hidden="true">kg</span>
+        <div>
+          <strong id="weightReminderTitle">Today’s weight is still open</strong>
+          <p>Add it now to keep your trend current, or pause this reminder.</p>
+        </div>
+      </div>
+      <div class="weight-reminder-actions">
+        <button id="snoozeWeightReminderButton" class="button button-ghost button-small" type="button">Snooze 1 hour</button>
+        <button id="dismissWeightReminderButton" class="button button-ghost button-small" type="button">Dismiss for today</button>
+        <button id="openWeightEntryButton" class="button button-primary button-small" type="button">Save weight</button>
+      </div>
+    </section>
 
     <nav id="mainNavigation" class="app-navigation" aria-label="Wellbeing app sections" hidden>
       <button id="setupNavButton" class="nav-button is-active" type="button" aria-current="page">
@@ -292,7 +307,7 @@
           <div>
             <p class="eyebrow">NOTIFICATION CENTRE</p>
             <h2 id="notificationsTitle">Your reminders</h2>
-            <p class="subtle">Notifications remain here until you clear them.</p>
+            <p class="subtle">Today’s reminders remain visible after they are marked as read.</p>
           </div>
           <div class="hero-badge notifications-hero-badge" aria-hidden="true">
             <svg class="screen-hero-svg" viewBox="0 0 24 24" fill="none" focusable="false">
@@ -305,15 +320,15 @@
         <section class="panel notification-centre-panel" aria-labelledby="notificationListTitle">
           <div class="panel-heading notification-centre-heading">
             <div>
-              <p class="eyebrow">UNCLEARED</p>
+              <p class="eyebrow">TODAY</p>
               <h3 id="notificationListTitle">Notifications</h3>
             </div>
-            <button id="clearAllNotificationsButton" class="button button-ghost button-small danger-text" type="button" hidden>Clear all</button>
+            <button id="clearAllNotificationsButton" class="button button-ghost button-small" type="button" hidden>Mark all read</button>
           </div>
           <div id="notificationEmptyState" class="empty-state notification-empty-state">
             <div class="empty-state-icon" aria-hidden="true">✓</div>
-            <h3>All clear</h3>
-            <p>Weight, waist and workout reminders will appear here.</p>
+            <h3>No reminders today</h3>
+            <p>Today’s weight, waist and workout reminders will appear here.</p>
           </div>
           <div id="notificationList" class="notification-list"></div>
           <p id="notificationListStatus" class="account-message" role="status" aria-live="polite"></p>
@@ -905,6 +920,33 @@
           </label>
         </section>
 
+        <section class="panel training-context-panel" aria-labelledby="trainingContextTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">AI ANALYSIS</p>
+              <h3 id="trainingContextTitle">Training context</h3>
+            </div>
+            <span id="trainingContextStatus" class="autosave-status" role="status" aria-live="polite">Saved on this device</span>
+          </div>
+          <p class="subtle">Included whenever you copy a completed session for AI analysis.</p>
+          <div class="training-context-grid">
+            <label class="field">
+              <span>Current phase</span>
+              <select id="trainingPhase">
+                <option value="Awakening (Phase 1)">Awakening · Phase 1</option>
+                <option value="Foundation (Phase 2)">Foundation · Phase 2</option>
+                <option value="Ascension (Phase 3)">Ascension · Phase 3</option>
+                <option value="Evolution (Phase 4)">Evolution · Phase 4</option>
+                <option value="Transcendence (Phase 5)">Transcendence · Phase 5</option>
+              </select>
+            </label>
+            <label class="field field-wide">
+              <span>Goals</span>
+              <textarea id="trainingGoals" rows="3" maxlength="600" placeholder="What are you training toward?"></textarea>
+            </label>
+          </div>
+        </section>
+
         <section class="panel account-panel" aria-labelledby="accountTitle">
           <div class="panel-heading account-heading">
             <div>
@@ -1160,6 +1202,7 @@
 
             <div class="session-review-actions">
               <button id="saveCompleteReviewButton" class="button button-secondary" type="submit">Save session review</button>
+              <button id="copyCompleteSessionForAiButton" class="button button-ghost" type="button">Copy for AI</button>
               <span id="completeReviewStatus" class="session-review-status" role="status" aria-live="polite"></span>
             </div>
           </form>
@@ -1233,11 +1276,14 @@
     <article class="saved-workout-card">
       <div class="saved-workout-card-main">
         <div class="saved-workout-title-row">
-          <button class="saved-workout-drag-handle sortable-handle" type="button" aria-label="Drag to reorder routine" title="Drag to reorder">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
-          </button>
           <h3 class="saved-workout-name"></h3>
-          <span class="saved-workout-active-badge" hidden>Loaded</span>
+          <button class="saved-workout-drag-handle sortable-handle" type="button" aria-label="Drag to reorder routine" title="Drag to reorder">
+            <svg viewBox="0 0 28 34" aria-hidden="true" focusable="false">
+              <circle cx="9" cy="8" r="2.2"></circle><circle cx="19" cy="8" r="2.2"></circle>
+              <circle cx="9" cy="17" r="2.2"></circle><circle cx="19" cy="17" r="2.2"></circle>
+              <circle cx="9" cy="26" r="2.2"></circle><circle cx="19" cy="26" r="2.2"></circle>
+            </svg>
+          </button>
         </div>
         <p class="saved-workout-summary"></p>
         <p class="saved-workout-weights" hidden></p>
@@ -1247,6 +1293,12 @@
         <small class="saved-workout-date"></small>
       </div>
       <div class="saved-workout-card-controls">
+        <div class="saved-workout-loaded-state" hidden>
+          <span class="loaded-checkmark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false"><path d="m7 12.5 3.2 3.2L17.5 8.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </span>
+          <span>Loaded</span>
+        </div>
         <div class="saved-workout-actions">
           <button class="button button-primary button-small load-saved-workout" type="button">Load</button>
           <button class="button button-ghost button-small routine-more-button" type="button" aria-label="More routine actions" aria-expanded="false">•••</button>
@@ -1343,6 +1395,10 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <div id="chartPopover" class="chart-popover" role="status" aria-live="polite" hidden>
+    <strong id="chartPopoverValue"></strong>
+    <span id="chartPopoverLabel"></span>
+  </div>
 
   <dialog id="confirmDialog" class="confirm-dialog">
     <form method="dialog">
@@ -1357,7 +1413,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=36" defer></script>
-  <script src="app.js?v=36" defer></script>
+  <script src="wellness.js?v=37" defer></script>
+  <script src="app.js?v=37" defer></script>
 </body>
 </html>

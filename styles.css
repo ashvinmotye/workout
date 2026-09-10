@@ -5562,3 +5562,353 @@ body.is-reordering {
     display: none;
   }
 }
+
+/* Version 37: routine cards, read-state reminders, AI export and chart values */
+.weight-reminder-slab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto 14px;
+  padding: 13px 14px;
+  border: 1px solid rgb(var(--aura-highlight-rgb) / 0.38);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgb(var(--aura-highlight-rgb) / 0.13), var(--surface-floating));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(24px);
+}
+
+.weight-reminder-slab[hidden] {
+  display: none;
+}
+
+.weight-reminder-copy,
+.weight-reminder-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.weight-reminder-copy {
+  min-width: 0;
+}
+
+.weight-reminder-copy > div {
+  min-width: 0;
+}
+
+.weight-reminder-copy p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.weight-reminder-mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.3);
+  border-radius: 12px;
+  background: rgb(var(--aura-accent-rgb) / 0.13);
+  color: var(--primary-dark);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.notification-item.is-read {
+  border-left-color: var(--line-strong);
+  opacity: 0.72;
+}
+
+.mark-notification-read {
+  color: var(--primary-dark);
+}
+
+.mark-notification-read:disabled {
+  border-color: transparent;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  opacity: 1;
+}
+
+.saved-workout-card {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+}
+
+.saved-workout-card-main {
+  padding: 16px 16px 14px;
+}
+
+.saved-workout-title-row {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.saved-workout-name,
+.saved-workout-title-row .saved-workout-name {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  line-height: 1.28;
+}
+
+.saved-workout-drag-handle {
+  flex: 0 0 58px;
+  width: 58px;
+  height: 52px;
+  margin: -6px -6px 0 0;
+  padding: 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface-input);
+  color: var(--text-muted);
+}
+
+.saved-workout-drag-handle svg,
+.sortable-handle.saved-workout-drag-handle svg {
+  width: 28px;
+  height: 34px;
+  fill: currentColor;
+}
+
+.saved-workout-preview {
+  margin-top: 8px;
+}
+
+.saved-workout-exercise-list {
+  gap: 5px;
+  padding-left: 19px;
+}
+
+.saved-workout-exercise-list.is-collapsed .is-extra {
+  display: none;
+}
+
+.saved-workout-card-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 62px;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.saved-workout-loaded-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--primary-dark);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.saved-workout-loaded-state[hidden] {
+  display: none;
+}
+
+.loaded-checkmark {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 1px solid rgb(var(--aura-accent-rgb) / 0.38);
+  border-radius: 50%;
+  background: rgb(var(--aura-accent-rgb) / 0.14);
+}
+
+.loaded-checkmark svg {
+  width: 18px;
+  height: 18px;
+}
+
+.saved-workout-actions {
+  margin-left: auto;
+}
+
+.saved-workout-schedule-editor {
+  grid-column: auto;
+  margin: 0;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.training-context-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.training-context-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.45fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.autosave-status {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.chart-hit-target {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.chart-bar-group,
+.load-bar-column[role="button"] {
+  cursor: pointer;
+}
+
+.load-bar-column[role="button"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.chart-popover {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  min-width: 118px;
+  max-width: min(240px, calc(100vw - 20px));
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--floating-border);
+  border-radius: 13px;
+  background: var(--contrast-surface);
+  color: var(--contrast-text);
+  box-shadow: var(--dialog-shadow);
+  pointer-events: none;
+  text-align: center;
+}
+
+.chart-popover[hidden] {
+  display: none;
+}
+
+.chart-popover strong {
+  font-size: 0.9rem;
+}
+
+.chart-popover span {
+  color: var(--contrast-muted, currentColor);
+  font-size: 0.7rem;
+}
+
+.copy-session-for-ai {
+  margin-top: 10px;
+}
+
+@media (max-width: 760px) {
+  .weight-reminder-slab {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .weight-reminder-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .weight-reminder-actions .button {
+    min-width: 0;
+    padding-inline: 8px;
+  }
+
+  .training-context-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .saved-workout-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
+  }
+
+  .saved-workout-card-main {
+    grid-column: auto;
+    padding: 13px 13px 11px;
+  }
+
+  .saved-workout-card-controls {
+    position: static;
+    padding: 9px 11px;
+  }
+
+  .saved-workout-title-row {
+    padding-right: 0;
+  }
+
+  .saved-workout-drag-handle {
+    flex-basis: 60px;
+    width: 60px;
+    height: 54px;
+    margin: -4px -4px 0 0;
+  }
+
+  .saved-workout-exercise-list.is-collapsed .is-extra {
+    display: list-item;
+  }
+
+  .saved-workout-preview-toggle {
+    display: none;
+  }
+
+  .exercise-card {
+    padding: 9px;
+  }
+
+  .field-grid,
+  .exercise-fields {
+    gap: 6px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  select {
+    min-height: 36px;
+    height: 36px;
+    padding-block: 4px;
+  }
+
+  textarea {
+    min-height: 52px;
+    padding-block: 6px;
+  }
+}
+
+@media (max-width: 460px) {
+  .weight-reminder-slab {
+    width: min(100% - 20px, 1120px);
+    padding: 11px;
+  }
+
+  .weight-reminder-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .weight-reminder-actions .button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .saved-workout-loaded-state > span:last-child {
+    display: none;
+  }
+}

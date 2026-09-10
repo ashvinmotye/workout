@@ -20,6 +20,8 @@ const SAVED_WORKOUT_LAST_SYNC_KEY_PREFIX = "voiceWorkout.savedWorkoutLastSync.v1
 const SAVED_WORKOUT_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutCloudIds.v1";
 const SAVED_WORKOUT_PULL_IDS_KEY_PREFIX = "voiceWorkout.savedWorkoutPullIds.v1";
 const NOTIFICATION_PREFERENCES_KEY = "voiceWorkout.notificationPreferences.v1";
+const WEIGHT_REMINDER_STATE_KEY = "voiceWorkout.weightReminderState.v1";
+const TRAINING_CONTEXT_KEY = "voiceWorkout.trainingContext.v1";
 const AUTOMATIC_CLOUD_REFRESH_THROTTLE_MS = 15 * 1000;
 const SUPABASE_URL = "https://xacwgipxqujbqvhzogbd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-_rGsscYv3ipNd7hW23-RQ_bUCB9hTf";
@@ -74,6 +76,10 @@ const dom = {
   notificationEmptyState: document.querySelector("#notificationEmptyState"),
   notificationListStatus: document.querySelector("#notificationListStatus"),
   clearAllNotificationsButton: document.querySelector("#clearAllNotificationsButton"),
+  weightReminderSlab: document.querySelector("#weightReminderSlab"),
+  snoozeWeightReminderButton: document.querySelector("#snoozeWeightReminderButton"),
+  dismissWeightReminderButton: document.querySelector("#dismissWeightReminderButton"),
+  openWeightEntryButton: document.querySelector("#openWeightEntryButton"),
   notificationsEnabled: document.querySelector("#notificationsEnabled"),
   weightNotificationsEnabled: document.querySelector("#weightNotificationsEnabled"),
   waistNotificationsEnabled: document.querySelector("#waistNotificationsEnabled"),
@@ -140,6 +146,7 @@ const dom = {
   completeSummary: document.querySelector("#completeSummary"),
   completeReviewForm: document.querySelector("#completeReviewForm"),
   saveCompleteReviewButton: document.querySelector("#saveCompleteReviewButton"),
+  copyCompleteSessionForAiButton: document.querySelector("#copyCompleteSessionForAiButton"),
   completeReviewStatus: document.querySelector("#completeReviewStatus"),
   repeatWorkoutButton: document.querySelector("#repeatWorkoutButton"),
   editWorkoutButton: document.querySelector("#editWorkoutButton"),
@@ -179,6 +186,9 @@ const dom = {
   overallInterpretation: document.querySelector("#overallInterpretation"),
   loadChartSummary: document.querySelector("#loadChartSummary"),
   loadChart: document.querySelector("#loadChart"),
+  chartPopover: document.querySelector("#chartPopover"),
+  chartPopoverValue: document.querySelector("#chartPopoverValue"),
+  chartPopoverLabel: document.querySelector("#chartPopoverLabel"),
   overallZoneSummary: document.querySelector("#overallZoneSummary"),
   overallZoneDistribution: document.querySelector("#overallZoneDistribution"),
   currentStreak: document.querySelector("#currentStreak"),
@@ -200,6 +210,9 @@ const dom = {
   importBackupButton: document.querySelector("#importBackupButton"),
   importBackupInput: document.querySelector("#importBackupInput"),
   backupStatus: document.querySelector("#backupStatus"),
+  trainingPhase: document.querySelector("#trainingPhase"),
+  trainingGoals: document.querySelector("#trainingGoals"),
+  trainingContextStatus: document.querySelector("#trainingContextStatus"),
   accountEmail: document.querySelector("#accountEmail"),
   accountConnectionStatus: document.querySelector("#accountConnectionStatus"),
   signOutButton: document.querySelector("#signOutButton"),
@@ -250,6 +263,9 @@ let lastAutomaticCloudRefreshAt = 0;
 let completeSessionId = null;
 let notificationRecords = [];
 let notificationBusy = false;
+let trainingContextSaveTimer = null;
+let weightReminderTimer = null;
+let pendingLaunchDestination = null;
 
 function createEmptyRuntime() {
   return {
@@ -330,8 +346,121 @@ function safeJsonParse(value) {
   }
 }
 
+function defaultTrainingContext() {
+  return {
+    phase: "Awakening (Phase 1)",
+    goals: "Build whole-body strength and capacity toward safely carrying or lifting a 60 kg person."
+  };
+}
+
+function normalizeTrainingContext(candidate) {
+  const fallback = defaultTrainingContext();
+  if (!candidate || typeof candidate !== "object") return fallback;
+  const supportedPhases = new Set([
+    "Awakening (Phase 1)",
+    "Foundation (Phase 2)",
+    "Ascension (Phase 3)",
+    "Evolution (Phase 4)",
+    "Transcendence (Phase 5)"
+  ]);
+  const phase = supportedPhases.has(candidate.phase) ? candidate.phase : fallback.phase;
+  const goals = typeof candidate.goals === "string"
+    ? candidate.goals.slice(0, 600)
+    : fallback.goals;
+  return { phase, goals };
+}
+
+function loadTrainingContext() {
+  try {
+    return normalizeTrainingContext(safeJsonParse(localStorage.getItem(TRAINING_CONTEXT_KEY)));
+  } catch {
+    return defaultTrainingContext();
+  }
+}
+
+function saveTrainingContext(context) {
+  const normalized = normalizeTrainingContext(context);
+  localStorage.setItem(TRAINING_CONTEXT_KEY, JSON.stringify(normalized));
+  return normalized;
+}
+
+function populateTrainingContext() {
+  if (!dom.trainingPhase || !dom.trainingGoals) return;
+  const context = loadTrainingContext();
+  dom.trainingPhase.value = context.phase;
+  dom.trainingGoals.value = context.goals;
+}
+
+function scheduleTrainingContextSave() {
+  if (!dom.trainingPhase || !dom.trainingGoals) return;
+  window.clearTimeout(trainingContextSaveTimer);
+  dom.trainingContextStatus.textContent = "Saving…";
+  trainingContextSaveTimer = window.setTimeout(() => {
+    saveTrainingContext({ phase: dom.trainingPhase.value, goals: dom.trainingGoals.value });
+    dom.trainingContextStatus.textContent = "Saved on this device";
+  }, 350);
+}
+
+function loadWeightReminderState() {
+  try {
+    const state = safeJsonParse(localStorage.getItem(WEIGHT_REMINDER_STATE_KEY));
+    return state && typeof state === "object" ? state : {};
+  } catch {
+    return {};
+  }
+}
+
+function hasWeightForToday() {
+  if (typeof loadWeightEntries !== "function" || typeof wellnessTodayKey !== "function") return true;
+  const today = wellnessTodayKey();
+  return loadWeightEntries().some((record) => record.measurementDate === today);
+}
+
+function renderWeightReminderSlab() {
+  if (!dom.weightReminderSlab) return;
+  window.clearTimeout(weightReminderTimer);
+  weightReminderTimer = null;
+  const today = typeof wellnessTodayKey === "function" ? wellnessTodayKey() : "";
+  const state = loadWeightReminderState();
+  const snoozedUntil = state.date === today ? Number(state.snoozedUntil || 0) : 0;
+  const dismissed = state.date === today && state.dismissed === true;
+  const shouldShow = dom.authScreen.hidden && !hasWeightForToday() && !dismissed && snoozedUntil <= Date.now();
+  dom.weightReminderSlab.hidden = !shouldShow;
+  if (!shouldShow && !dismissed && snoozedUntil > Date.now()) {
+    weightReminderTimer = window.setTimeout(renderWeightReminderSlab, snoozedUntil - Date.now() + 250);
+  }
+}
+
+function snoozeWeightReminder() {
+  const date = wellnessTodayKey();
+  localStorage.setItem(WEIGHT_REMINDER_STATE_KEY, JSON.stringify({ date, snoozedUntil: Date.now() + 60 * 60 * 1000 }));
+  renderWeightReminderSlab();
+  showToast("Weight reminder snoozed for 1 hour.");
+}
+
+function dismissWeightReminderForToday() {
+  localStorage.setItem(WEIGHT_REMINDER_STATE_KEY, JSON.stringify({ date: wellnessTodayKey(), dismissed: true }));
+  renderWeightReminderSlab();
+  showToast("Weight reminder dismissed for today.");
+}
+
+function openWeightEntryFromReminder() {
+  showScreen("recovery");
+  if (typeof populateWeightForm === "function") populateWeightForm(wellnessTodayKey());
+  requestAnimationFrame(() => {
+    dom.weightReminderSlab.hidden = true;
+    const input = document.querySelector("#weightForm [name='weightKg']");
+    input?.scrollIntoView({ behavior: "smooth", block: "center" });
+    input?.focus({ preventScroll: true });
+  });
+}
+
 function binIconMarkup() {
   return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+}
+
+function checkIconMarkup() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6.5 12.5 3.3 3.3 7.7-7.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>';
 }
 
 function defaultNotificationPreferences() {
@@ -437,17 +566,30 @@ function formatNotificationTimestamp(value) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
+function isNotificationFromToday(record) {
+  const date = new Date(record.created_at ?? record.createdAt);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear()
+    && date.getMonth() === now.getMonth()
+    && date.getDate() === now.getDate();
+}
+
 function renderNotificationCentre() {
+  notificationRecords = notificationRecords.filter(isNotificationFromToday);
+  const unreadCount = notificationRecords.filter((record) => !(record.is_read ?? record.isRead)).length;
   dom.notificationList.replaceChildren();
   dom.notificationEmptyState.hidden = notificationRecords.length > 0;
-  dom.clearAllNotificationsButton.hidden = notificationRecords.length === 0;
-  dom.notificationBadge.textContent = notificationRecords.length > 99 ? "99+" : String(notificationRecords.length);
-  dom.notificationBadge.hidden = notificationRecords.length === 0;
+  dom.clearAllNotificationsButton.hidden = unreadCount === 0;
+  dom.notificationBadge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+  dom.notificationBadge.hidden = unreadCount === 0;
 
   notificationRecords.forEach((record) => {
     const article = document.createElement("article");
     article.className = "notification-item";
     article.dataset.type = record.type || "reminder";
+    const isRead = Boolean(record.is_read ?? record.isRead);
+    article.classList.toggle("is-read", isRead);
     const copy = document.createElement("div");
     const title = document.createElement("strong");
     const body = document.createElement("p");
@@ -456,14 +598,15 @@ function renderNotificationCentre() {
     body.textContent = record.body || "";
     time.textContent = formatNotificationTimestamp(record.created_at ?? record.createdAt);
     copy.append(title, body, time);
-    const clearButton = document.createElement("button");
-    clearButton.className = "mini-icon danger-icon clear-notification";
-    clearButton.type = "button";
-    clearButton.title = "Clear notification";
-    clearButton.setAttribute("aria-label", `Clear ${title.textContent}`);
-    clearButton.innerHTML = binIconMarkup();
-    clearButton.addEventListener("click", () => clearNotifications([record.id]));
-    article.append(copy, clearButton);
+    const readButton = document.createElement("button");
+    readButton.className = "mini-icon mark-notification-read";
+    readButton.type = "button";
+    readButton.title = isRead ? "Read" : "Mark as read";
+    readButton.setAttribute("aria-label", isRead ? `${title.textContent} is read` : `Mark ${title.textContent} as read`);
+    readButton.innerHTML = checkIconMarkup();
+    readButton.disabled = isRead;
+    if (!isRead) readButton.addEventListener("click", () => markNotificationsRead([record.id]));
+    article.append(copy, readButton);
     dom.notificationList.append(article);
   });
 }
@@ -601,27 +744,30 @@ async function sendTestNotification() {
   }
 }
 
-async function clearNotifications(ids = []) {
+async function markNotificationsRead(ids = []) {
   if (!authSession || !navigator.onLine || !ids.length) return;
   try {
-    await notificationApi({ method: "POST", body: JSON.stringify({ action: "clear", ids }) });
-    const cleared = new Set(ids);
-    notificationRecords = notificationRecords.filter((record) => !cleared.has(record.id));
+    const result = await notificationApi({ method: "POST", body: JSON.stringify({ action: "read", ids }) });
+    notificationRecords = Array.isArray(result.notifications)
+      ? result.notifications
+      : notificationRecords.map((record) => ids.includes(record.id) ? { ...record, is_read: true, read_at: new Date().toISOString() } : record);
     renderNotificationCentre();
   } catch (error) {
-    dom.notificationListStatus.textContent = error?.message || "The notification could not be cleared.";
+    dom.notificationListStatus.textContent = error?.message || "The notification could not be marked as read.";
   }
 }
 
-async function clearAllNotifications() {
-  if (!notificationRecords.length) return;
+async function markAllNotificationsRead() {
+  if (!notificationRecords.some((record) => !(record.is_read ?? record.isRead))) return;
   if (!authSession || !navigator.onLine) return;
   try {
-    await notificationApi({ method: "POST", body: JSON.stringify({ action: "clear-all" }) });
-    notificationRecords = [];
+    const result = await notificationApi({ method: "POST", body: JSON.stringify({ action: "read-all" }) });
+    notificationRecords = Array.isArray(result.notifications)
+      ? result.notifications
+      : notificationRecords.map((record) => ({ ...record, is_read: true, read_at: new Date().toISOString() }));
     renderNotificationCentre();
   } catch (error) {
-    dom.notificationListStatus.textContent = error?.message || "Notifications could not be cleared.";
+    dom.notificationListStatus.textContent = error?.message || "Notifications could not be marked as read.";
   }
 }
 
@@ -636,12 +782,15 @@ function openNotifications() {
   refreshNotificationState({ manual: true }).catch(() => {});
 }
 
-function maybeOpenNotificationsFromLaunch() {
+function maybeOpenLaunchDestination() {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has("notifications")) return;
+  const openWeight = url.searchParams.has("weight");
+  const shouldOpenNotifications = url.searchParams.has("notifications");
+  if (!openWeight && !shouldOpenNotifications) return;
+  url.searchParams.delete("weight");
   url.searchParams.delete("notifications");
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  window.setTimeout(openNotifications, 0);
+  window.setTimeout(openWeight ? openWeightEntryFromReminder : openNotifications, 0);
 }
 
 function getAuthRedirectUrl() {
@@ -760,7 +909,13 @@ function showAuthenticatedApp(session, options = {}) {
   updateWellnessSyncStatus();
   if (linkedLegacySessions) renderTrends();
   requestAutomaticCloudRefresh();
-  refreshNotificationState().then(maybeOpenNotificationsFromLaunch).catch(() => {});
+  renderWeightReminderSlab();
+  refreshNotificationState().then(maybeOpenLaunchDestination).catch(() => maybeOpenLaunchDestination());
+  if (pendingLaunchDestination) {
+    const destination = pendingLaunchDestination;
+    pendingLaunchDestination = null;
+    window.setTimeout(destination === "weight" ? openWeightEntryFromReminder : openNotifications, 0);
+  }
 }
 
 function showAuthForm(message = "", type = "") {
@@ -790,6 +945,7 @@ function handleAuthStateChange(event, session) {
     updateWellnessSyncStatus();
     notificationRecords = [];
     renderNotificationCentre();
+    if (dom.weightReminderSlab) dom.weightReminderSlab.hidden = true;
     setAuthMode("signin", false);
     showAuthForm("You have been signed out.", "success");
   }
@@ -1088,7 +1244,7 @@ function getRoutineWeightLabels(workout) {
 
 function formatRoutineWeightSummary(workout) {
   const labels = getRoutineWeightLabels(workout);
-  return labels.length ? `Weights · ${labels.join(", ")}` : "";
+  return labels.length ? `Equipment · ${labels.join(", ")}` : "";
 }
 
 function loadSettings() {
@@ -2205,6 +2361,7 @@ function createBackupPayload() {
       savedWorkouts: loadSavedWorkouts(),
       activeSavedWorkoutId: loadActiveSavedWorkoutId(),
       workoutHistory: loadWorkoutHistory(),
+      trainingContext: loadTrainingContext(),
       ...getWellnessBackupData(),
       activeSession: getStoredJson(SESSION_KEY),
       theme: loadTheme()
@@ -2304,6 +2461,7 @@ function validateBackupPayload(candidate) {
     savedWorkouts,
     activeSavedWorkoutId,
     workoutHistory,
+    trainingContext: normalizeTrainingContext(data.trainingContext),
     ...wellnessData,
     activeSession: data.activeSession,
     theme: data.theme,
@@ -2324,6 +2482,7 @@ function applyImportedBackup(data) {
     SAVED_WORKOUTS_KEY,
     ACTIVE_SAVED_WORKOUT_KEY,
     HISTORY_KEY,
+    TRAINING_CONTEXT_KEY,
     RECOVERY_CHECKINS_KEY,
     BODY_WEIGHT_ENTRIES_KEY,
     BODY_WAIST_ENTRIES_KEY,
@@ -2337,6 +2496,7 @@ function applyImportedBackup(data) {
     saveSettings(data.settings);
     saveSavedWorkouts(data.savedWorkouts);
     saveWorkoutHistory(data.workoutHistory);
+    saveTrainingContext(data.trainingContext);
     applyWellnessBackupData(data);
     if (data.activeSavedWorkoutId) localStorage.setItem(ACTIVE_SAVED_WORKOUT_KEY, data.activeSavedWorkoutId);
     else localStorage.removeItem(ACTIVE_SAVED_WORKOUT_KEY);
@@ -2354,6 +2514,7 @@ function applyImportedBackup(data) {
   if (authSession) autoLinkLegacyRoutineSessions();
   applyTheme(data.theme, false);
   populateForm(data.settings);
+  populateTrainingContext();
   renderSavedWorkouts();
   renderRecoveryScreen();
   renderTrends();
@@ -2633,7 +2794,6 @@ function renderSavedWorkouts() {
     const card = cardFragment.querySelector(".saved-workout-card");
     const exerciseNames = record.workout.exercises.map((exercise) => exercise.name).filter(Boolean);
     const weightSummary = formatRoutineWeightSummary(record.workout);
-    const preview = exerciseNames.slice(0, 3).join(" • ");
     const remaining = Math.max(0, exerciseNames.length - 3);
 
     card.dataset.id = record.id;
@@ -2649,21 +2809,17 @@ function renderSavedWorkouts() {
     card.querySelector(".saved-workout-schedule-summary").classList.toggle("is-empty", record.designatedDays.length === 0);
     const previewElement = card.querySelector(".saved-workout-preview");
     const previewToggle = card.querySelector(".saved-workout-preview-toggle");
-    const collapsedPreview = preview ? `${preview}${remaining ? ` • +${remaining} more` : ""}` : "No named exercises";
     const renderPreview = (expanded) => {
       previewElement.replaceChildren();
-      if (!expanded) {
-        previewElement.textContent = collapsedPreview;
-        return;
-      }
       if (!exerciseNames.length) {
         previewElement.textContent = "No named exercises";
         return;
       }
       const list = document.createElement("ul");
-      list.className = "saved-workout-exercise-list";
-      exerciseNames.forEach((name) => {
+      list.className = `saved-workout-exercise-list${expanded ? "" : " is-collapsed"}`;
+      exerciseNames.forEach((name, index) => {
         const item = document.createElement("li");
+        item.classList.toggle("is-extra", index >= 3);
         item.textContent = name;
         list.append(item);
       });
@@ -2678,7 +2834,7 @@ function renderSavedWorkouts() {
       renderPreview(expanded);
     });
     card.querySelector(".saved-workout-date").textContent = `Updated ${formatSavedDate(record.updatedAt)}`;
-    card.querySelector(".saved-workout-active-badge").hidden = record.id !== activeSavedWorkoutId;
+    card.querySelector(".saved-workout-loaded-state").hidden = record.id !== activeSavedWorkoutId;
 
     card.querySelector(".load-saved-workout").addEventListener("click", () => loadSavedWorkout(record.id));
     const moreButton = card.querySelector(".routine-more-button");
@@ -3248,6 +3404,7 @@ function saveFormDraft() {
 }
 
 function showScreen(name) {
+  hideChartPopover();
   dom.authScreen.hidden = name !== "auth";
   dom.setupScreen.hidden = name !== "setup";
   dom.savedWorkoutsScreen.hidden = name !== "saved";
@@ -3285,6 +3442,10 @@ function showScreen(name) {
     updateSavedWorkoutSyncStatus();
     updateWellnessSyncStatus();
     applyNotificationPreferences();
+  }
+  if (dom.weightReminderSlab) {
+    if (showNavigation) renderWeightReminderSlab();
+    else dom.weightReminderSlab.hidden = true;
   }
   window.scrollTo({ top: 0, behavior: "auto" });
 }
@@ -4122,6 +4283,43 @@ function buildActivityBuckets(records, range) {
   });
 }
 
+function hideChartPopover() {
+  if (dom.chartPopover) dom.chartPopover.hidden = true;
+}
+
+function showChartPopover(anchor, label, value) {
+  if (!dom.chartPopover || !anchor) return;
+  dom.chartPopoverValue.textContent = value;
+  dom.chartPopoverLabel.textContent = label;
+  dom.chartPopover.hidden = false;
+  const anchorRect = anchor.getBoundingClientRect();
+  const popoverRect = dom.chartPopover.getBoundingClientRect();
+  const left = Math.min(
+    window.innerWidth - popoverRect.width - 10,
+    Math.max(10, anchorRect.left + anchorRect.width / 2 - popoverRect.width / 2)
+  );
+  const preferredTop = anchorRect.top - popoverRect.height - 10;
+  const top = preferredTop >= 10 ? preferredTop : Math.min(window.innerHeight - popoverRect.height - 10, anchorRect.bottom + 10);
+  dom.chartPopover.style.left = `${Math.round(left)}px`;
+  dom.chartPopover.style.top = `${Math.round(top)}px`;
+}
+
+function makeChartValueInteractive(element, anchor, label, value) {
+  element.setAttribute("role", "button");
+  element.setAttribute("tabindex", "0");
+  element.setAttribute("aria-label", `${label}: ${value}`);
+  const open = (event) => {
+    event.stopPropagation();
+    showChartPopover(anchor, label, value);
+  };
+  element.addEventListener("click", open);
+  element.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    open(event);
+  });
+}
+
 function renderActivityChart(records) {
   const buckets = buildActivityBuckets(records, activeTrendRange);
   const totalMinutes = buckets.reduce((sum, bucket) => sum + bucket.minutes, 0);
@@ -4170,9 +4368,19 @@ function renderActivityChart(records) {
     const x = margin.left + slot * index + (slot - barWidth) / 2;
     const y = margin.top + chartHeight - barHeight;
     const group = document.createElementNS(namespace, "g");
+    group.classList.add("chart-bar-group");
     const title = document.createElementNS(namespace, "title");
-    title.textContent = `${bucket.title}: ${Math.round(bucket.minutes)} minutes`;
+    const formattedValue = formatDuration(Math.round(bucket.minutes * 60));
+    title.textContent = `${bucket.title}: ${formattedValue}`;
     group.appendChild(title);
+
+    const hitTarget = document.createElementNS(namespace, "rect");
+    hitTarget.setAttribute("x", margin.left + slot * index);
+    hitTarget.setAttribute("y", margin.top);
+    hitTarget.setAttribute("width", slot);
+    hitTarget.setAttribute("height", chartHeight);
+    hitTarget.classList.add("chart-hit-target");
+    group.appendChild(hitTarget);
 
     const bar = document.createElementNS(namespace, "rect");
     bar.setAttribute("x", x);
@@ -4183,6 +4391,7 @@ function renderActivityChart(records) {
     bar.classList.add("chart-bar");
     if (!bucket.minutes) bar.classList.add("is-empty");
     group.appendChild(bar);
+    makeChartValueInteractive(group, barHeight ? bar : hitTarget, bucket.title, formattedValue);
     svg.appendChild(group);
 
     if (bucket.label && (index % labelEvery === 0 || index === buckets.length - 1)) {
@@ -4255,7 +4464,8 @@ function renderLoadChart(records) {
   buckets.forEach((bucket, index) => {
     const column = document.createElement("div");
     column.className = "load-bar-column";
-    column.title = `${bucket.title}: ${Math.round(bucket.load)} load`;
+    const value = `${Math.round(bucket.load)} load`;
+    column.title = `${bucket.title}: ${value}`;
     const showLabel = bucket.label && (index % labelEvery === 0 || index === buckets.length - 1);
     const height = bucket.load ? Math.max(3, bucket.load / maxLoad * 100) : 0;
     column.innerHTML = `
@@ -4263,6 +4473,7 @@ function renderLoadChart(records) {
       <span class="load-bar-track"><i class="${bucket.load ? "" : "is-empty"}" style="height: ${height.toFixed(2)}%"></i></span>
       <small>${showLabel ? escapeHtml(bucket.label) : ""}</small>
     `;
+    makeChartValueInteractive(column, column.querySelector(".load-bar-track"), bucket.title, value);
     bars.appendChild(column);
   });
   dom.loadChart.appendChild(bars);
@@ -4875,6 +5086,7 @@ function prepareCompleteSessionReview(record) {
   dom.completeReviewForm.reset();
   dom.completeReviewStatus.textContent = "";
   dom.saveCompleteReviewButton.disabled = !record;
+  dom.copyCompleteSessionForAiButton.disabled = !record;
   if (!record) return;
   dom.completeReviewForm.elements.rpe.value = Number.isFinite(record.rpe) ? String(record.rpe) : "";
   HEART_RATE_ZONES.forEach((zone) => {
@@ -4899,6 +5111,20 @@ function submitCompleteSessionReview(event) {
   }
 }
 
+async function copyCompleteSessionForAi() {
+  if (!completeSessionId) return;
+  dom.copyCompleteSessionForAiButton.disabled = true;
+  try {
+    const updated = saveSessionReview(completeSessionId, collectSessionReview(dom.completeReviewForm));
+    prepareCompleteSessionReview(updated);
+    await copySessionForAi(updated.id);
+  } catch (error) {
+    dom.completeReviewStatus.textContent = error instanceof Error ? error.message : "The session could not be prepared for AI.";
+  } finally {
+    dom.copyCompleteSessionForAiButton.disabled = false;
+  }
+}
+
 function submitHistorySessionReview(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -4910,6 +5136,163 @@ function submitHistorySessionReview(event) {
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Session review could not be saved.");
     button.disabled = false;
+  }
+}
+
+function sessionForAi(record) {
+  const readiness = getRecoveryCheckinForTimestamp(record.endedAt);
+  const zones = Object.fromEntries(HEART_RATE_ZONES.map((zone) => [
+    `Z${zone.number}`,
+    {
+      seconds: Math.max(0, Number(record[zone.key]) || 0),
+      formatted: formatZoneDuration(Math.max(0, Number(record[zone.key]) || 0))
+    }
+  ]));
+  return {
+    session_id: record.id,
+    routine_id: record.routineId,
+    routine: record.workoutName,
+    date: new Date(record.endedAt).toISOString(),
+    local_date: formatSessionDate(record.endedAt),
+    status: record.status,
+    duration_seconds: record.durationSeconds,
+    duration: formatDuration(record.durationSeconds),
+    rounds: { completed: record.completedRounds, planned: record.plannedRounds },
+    exercise_sets_completed: completedSetCount(record),
+    exercises: record.exercises.map((exercise) => ({
+      name: exercise.name,
+      mode: exercise.mode,
+      target: exercise.mode === "time" ? `${exercise.value} seconds` : `${exercise.value} reps`,
+      per_side: exercise.perSide,
+      weight_or_equipment: exercise.weight || null,
+      sets_completed: exercise.completedSets,
+      note: exercise.note || null
+    })),
+    rpe: Number.isFinite(record.rpe) ? record.rpe : null,
+    session_load: getSessionLoad(record),
+    heart_rate_zones: zones,
+    heart_rate_total: formatZoneDuration(getTotalZoneSeconds(record)),
+    readiness: readiness ? {
+      score: readiness.readinessScore,
+      sleep_quality: readiness.sleepQuality,
+      energy: readiness.energyLevel,
+      muscle_soreness: readiness.muscleSoreness,
+      stress: readiness.stressLevel,
+      motivation: readiness.motivationLevel,
+      notes: readiness.notes || null
+    } : null,
+    notes: record.notes || null
+  };
+}
+
+function measurementTrendForAi(records, valueKey, unit, recentCount) {
+  if (!records.length) return { entries: 0, latest: null, recent_change: null, since_first_change: null };
+  const latest = records[0];
+  const recentOldest = records[Math.min(recentCount - 1, records.length - 1)];
+  const first = records[records.length - 1];
+  const round = (value) => Math.round(value * 100) / 100;
+  return {
+    entries: records.length,
+    latest: { date: latest.measurementDate, value: latest[valueKey], unit },
+    recent_window: `last ${Math.min(recentCount, records.length)} measurements`,
+    recent_change: records.length > 1 ? round(latest[valueKey] - recentOldest[valueKey]) : null,
+    since_first_change: records.length > 1 ? round(latest[valueKey] - first[valueKey]) : null
+  };
+}
+
+function trendContextForAi(referenceTime = Date.now()) {
+  const weights = typeof loadWeightEntries === "function" ? loadWeightEntries() : [];
+  const waists = typeof loadWaistEntries === "function" ? loadWaistEntries() : [];
+  const checkins = typeof loadRecoveryCheckins === "function" ? loadRecoveryCheckins() : [];
+  const history = loadWorkoutHistory();
+  const recentStart = referenceTime - 28 * 86400000;
+  const previousStart = referenceTime - 56 * 86400000;
+  const zone2Total = (records) => records.reduce((sum, record) => sum + Math.max(0, Number(record.zone2Seconds) || 0), 0);
+  const recentZone2 = history.filter((record) => record.endedAt >= recentStart && record.endedAt <= referenceTime);
+  const previousZone2 = history.filter((record) => record.endedAt >= previousStart && record.endedAt < recentStart);
+  const recentReadiness = checkins.slice(0, 7);
+  const averageReadiness = recentReadiness.length
+    ? Math.round(recentReadiness.reduce((sum, record) => sum + record.readinessScore, 0) / recentReadiness.length)
+    : null;
+  return {
+    body_weight: measurementTrendForAi(weights, "weightKg", "kg", 7),
+    waist: measurementTrendForAi(waists, "waistCm", "cm", 5),
+    zone_2: {
+      latest_28_days_seconds: zone2Total(recentZone2),
+      latest_28_days: formatZoneDuration(zone2Total(recentZone2)),
+      previous_28_days_seconds: zone2Total(previousZone2),
+      previous_28_days: formatZoneDuration(zone2Total(previousZone2)),
+      sessions_with_zone_2_latest_28_days: recentZone2.filter((record) => Number(record.zone2Seconds) > 0).length
+    },
+    recovery: {
+      latest_checkin: checkins[0] ? {
+        date: checkins[0].checkinDate,
+        readiness_score: checkins[0].readinessScore,
+        sleep_quality: checkins[0].sleepQuality,
+        energy: checkins[0].energyLevel,
+        muscle_soreness: checkins[0].muscleSoreness,
+        stress: checkins[0].stressLevel,
+        motivation: checkins[0].motivationLevel
+      } : null,
+      average_readiness_last_7_checkins: averageReadiness,
+      checkins_in_average: recentReadiness.length
+    }
+  };
+}
+
+function buildSessionAiExport(record) {
+  if (dom.trainingPhase && dom.trainingGoals) {
+    window.clearTimeout(trainingContextSaveTimer);
+    saveTrainingContext({ phase: dom.trainingPhase.value, goals: dom.trainingGoals.value });
+    dom.trainingContextStatus.textContent = "Saved on this device";
+  }
+  const history = loadWorkoutHistory();
+  const comparable = history
+    .filter((candidate) => candidate.id !== record.id && candidate.endedAt < record.endedAt)
+    .filter((candidate) => (record.routineId && candidate.routineId === record.routineId)
+      || candidate.workoutName.trim().toLocaleLowerCase() === record.workoutName.trim().toLocaleLowerCase())
+    .slice(0, 5);
+  const payload = {
+    export_type: "Wellbeing / Forge progression review",
+    generated_at: new Date().toISOString(),
+    analysis_request: "Analyse this session in the context of the comparable sessions, current training phase and longer-term wellbeing trends. Identify progression, fatigue or asymmetry signals, and give practical recommendations for the next comparable session.",
+    training_context: loadTrainingContext(),
+    current_session: sessionForAi(record),
+    comparable_previous_sessions: comparable.map(sessionForAi),
+    comparable_sessions_available: comparable.length,
+    wellbeing_trends: trendContextForAi(record.endedAt)
+  };
+  return `WELLBEING / FORGE — AI TRAINING ANALYSIS\n\n${JSON.stringify(payload, null, 2)}`;
+}
+
+async function writeClipboardText(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const field = document.createElement("textarea");
+  field.value = value;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  document.body.appendChild(field);
+  field.select();
+  const copied = document.execCommand("copy");
+  field.remove();
+  if (!copied) throw new Error("Copy is not available in this browser.");
+}
+
+async function copySessionForAi(sessionId) {
+  const record = loadWorkoutHistory().find((candidate) => candidate.id === sessionId);
+  if (!record) {
+    showToast("This session is no longer available.");
+    return;
+  }
+  try {
+    await writeClipboardText(buildSessionAiExport(record));
+    showToast("Session and progression context copied for AI.");
+  } catch (error) {
+    showToast(error?.message || "The AI summary could not be copied.");
   }
 }
 
@@ -4967,9 +5350,11 @@ function renderHistoryList(records) {
         <summary>Exercise breakdown</summary>
         <ul>${exerciseDetails}</ul>
       </details>
+      <button class="button button-ghost button-small copy-session-for-ai" type="button">Copy for AI</button>
       ${renderSessionReviewForm(record)}
     `;
     article.querySelector(".delete-history-session").addEventListener("click", () => deleteHistorySession(record.id));
+    article.querySelector(".copy-session-for-ai").addEventListener("click", () => copySessionForAi(record.id));
     article.querySelector(".history-session-review-form").addEventListener("submit", submitHistorySessionReview);
     dom.historyList.appendChild(article);
   });
@@ -5163,7 +5548,10 @@ function bindEvents() {
         dom.notificationSettingsStatus.textContent = error?.message || "Notification preferences could not be saved.";
       });
     }));
-  dom.clearAllNotificationsButton.addEventListener("click", clearAllNotifications);
+  dom.clearAllNotificationsButton.addEventListener("click", markAllNotificationsRead);
+  dom.snoozeWeightReminderButton.addEventListener("click", snoozeWeightReminder);
+  dom.dismissWeightReminderButton.addEventListener("click", dismissWeightReminderForToday);
+  dom.openWeightEntryButton.addEventListener("click", openWeightEntryFromReminder);
   dom.saveWorkoutButton.addEventListener("click", () => saveCurrentWorkout(false));
   dom.saveWorkoutAsButton.addEventListener("click", () => saveCurrentWorkout(true));
   dom.newWorkoutButton.addEventListener("click", startNewWorkout);
@@ -5225,10 +5613,13 @@ function bindEvents() {
   dom.voiceToggleButton.addEventListener("click", toggleVoice);
   dom.backToSetupButton.addEventListener("click", confirmEndWorkout);
   dom.completeReviewForm.addEventListener("submit", submitCompleteSessionReview);
+  dom.copyCompleteSessionForAiButton.addEventListener("click", copyCompleteSessionForAi);
   dom.repeatWorkoutButton.addEventListener("click", () => startWorkout(workout));
   dom.editWorkoutButton.addEventListener("click", endWorkoutAndReturnToSetup);
   dom.resumeSavedSession.addEventListener("click", resumeSavedSession);
   dom.discardSavedSession.addEventListener("click", clearSavedSession);
+  dom.trainingPhase.addEventListener("change", scheduleTrainingContextSave);
+  dom.trainingGoals.addEventListener("input", scheduleTrainingContextSave);
   bindWellnessEvents();
 
   setupPointerSortable(dom.exerciseList, ".exercise-card", ".exercise-drag-handle", () => {
@@ -5238,6 +5629,7 @@ function bindEvents() {
   setupPointerSortable(dom.savedWorkoutList, ".saved-workout-card", ".saved-workout-drag-handle", reorderSavedWorkouts);
 
   document.addEventListener("click", (event) => {
+    if (!event.target.closest("#chartPopover, .chart-bar-group, .load-bar-column")) hideChartPopover();
     if (event.target.closest(".saved-workout-actions")) return;
     dom.savedWorkoutList.querySelectorAll(".saved-workout-more-menu:not([hidden])").forEach((menu) => {
       menu.hidden = true;
@@ -5250,16 +5642,28 @@ function bindEvents() {
       if (event.data?.type === "WELLBEING_PUSH_RECEIVED" || event.data?.type === "WELLBEING_OPEN_NOTIFICATIONS") {
         refreshNotificationState().catch(() => {});
       }
-      if (event.data?.type === "WELLBEING_OPEN_NOTIFICATIONS") openNotifications();
+      if (event.data?.type === "WELLBEING_OPEN_NOTIFICATIONS") {
+        if (dom.authScreen.hidden) openNotifications();
+        else pendingLaunchDestination = "notifications";
+      }
+      if (event.data?.type === "WELLBEING_OPEN_WEIGHT") {
+        if (dom.authScreen.hidden) openWeightEntryFromReminder();
+        else pendingLaunchDestination = "weight";
+      }
     });
   }
 
+  document.addEventListener("wellbeing:weight-saved", renderWeightReminderSlab);
+  document.addEventListener("wellbeing:weight-state-changed", renderWeightReminderSlab);
   document.addEventListener("visibilitychange", handleAppVisibilityChange);
   window.addEventListener("beforeunload", persistSession);
   window.addEventListener("focus", () => {
     requestAutomaticCloudRefresh();
     refreshNotificationState().catch(() => {});
+    renderWeightReminderSlab();
   });
+  window.addEventListener("resize", hideChartPopover);
+  window.addEventListener("scroll", hideChartPopover, true);
   window.addEventListener("online", refreshAuthenticationAfterReconnect);
   window.addEventListener("offline", () => {
     const user = authSession?.user || loadCachedAuthUser();
@@ -5282,6 +5686,7 @@ async function init() {
   if (!activeSavedWorkoutId && storedActiveId) setActiveSavedWorkoutId(null);
 
   populateForm(loadSettings());
+  populateTrainingContext();
   renderSavedWorkouts();
   initializeWellness();
   renderTrends();

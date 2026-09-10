@@ -46,7 +46,7 @@ const workout = {
   ]
 };
 
-assert.equal(context.formatRoutineWeightSummary(workout), "Weights · 6kg, 2 x 5kg, 3kg");
+assert.equal(context.formatRoutineWeightSummary(workout), "Equipment · 6kg, 2 x 5kg, 3kg");
 assert.equal(context.formatRoutineWeightSummary({ exercises: [{ weight: "" }] }), "");
 assert.match(html, /class="saved-workout-weights" hidden/, "routine cards should include a hidden weight row");
 assert.match(app, /weights\.hidden = !weightSummary;/, "unweighted routines should hide the weight row");

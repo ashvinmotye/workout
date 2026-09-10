@@ -1,5 +1,5 @@
--- Wellbeing v33 notification preferences, device subscriptions and manually
--- cleared notification history. This migration is additive and idempotent.
+-- Wellbeing notification preferences, device subscriptions and read-state
+-- notification history. This migration is additive and idempotent.
 
 create table if not exists public.wellbeing_notification_preferences (
   user_id uuid primary key
@@ -40,9 +40,17 @@ create table if not exists public.wellbeing_notifications (
   body text not null
     check (char_length(body) between 1 and 500),
   notification_key text not null,
+  is_read boolean not null default false,
+  read_at timestamptz,
   created_at timestamptz not null default now(),
   unique (user_id, notification_key)
 );
+
+alter table public.wellbeing_notifications
+  add column if not exists is_read boolean not null default false;
+
+alter table public.wellbeing_notifications
+  add column if not exists read_at timestamptz;
 
 create index if not exists wellbeing_notifications_user_created_idx
   on public.wellbeing_notifications (user_id, created_at desc);

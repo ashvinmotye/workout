@@ -25,14 +25,12 @@ assert.match(app, /document\.addEventListener\("pointermove"/, "pointer sorting 
 assert.match(app, /container\.addEventListener\("touchstart"/, "older touch browsers should have an explicit fallback");
 assert.match(app, /rect\.top \+ rect\.height \/ 2/, "touch sorting should compare the pointer with each card midpoint");
 assert.match(styles, /\.exercise-drag-handle \{[\s\S]*?min-height: 48px;/, "the Forge drag handle should expose a large touch area");
-assert.match(styles, /\.saved-workout-drag-handle \{[\s\S]*?width: 48px;[\s\S]*?height: 48px;/, "the routine drag handle should expose a large touch area");
-assert.match(styles, /\.saved-workout-title-row \{[\s\S]*?gap: 4px;/, "the routine title should sit close to its drag handle");
-assert.match(styles, /\.saved-workout-drag-handle \{[\s\S]*?justify-content: flex-end;/, "the drag bars should sit on the title-facing edge of the touch area");
+assert.match(styles, /Version 37:[\s\S]*?\.saved-workout-drag-handle \{[\s\S]*?width: 58px;[\s\S]*?height: 52px;/, "the routine drag handle should expose a larger touch area");
 assert.match(styles, /\.sortable-handle svg \{[\s\S]*?width: 30px;[\s\S]*?pointer-events: none;/, "drag bars should be large and should not intercept the handle press");
-assert.match(html, /d="M3 6h18M3 12h18M3 18h18"/, "drag bars should span most of the handle width");
+assert.match(html, /<circle cx="9" cy="8"[\s\S]*<circle cx="19" cy="26"/, "the routine handle should use a two-by-three dot grid");
 assert.doesNotMatch(html, /move-saved-workout-up|move-saved-workout-down|class="mini-icon move-up"|class="mini-icon move-down"/, "arrow sorting buttons should be removed");
 assert.match(html, /class="saved-workout-preview-toggle"/, "routine exercise lists should be expandable");
-assert.match(app, /className = "saved-workout-exercise-list"/, "expanded routine previews should use a vertical list");
+assert.match(app, /className = `saved-workout-exercise-list/, "expanded routine previews should use a vertical list");
 assert.match(html, /routine-more-button/, "routine secondary actions should be compacted into an overflow menu");
 assert.match(html, /delete-saved-workout danger-text[\s\S]*?<svg/, "routine deletion should use a bin icon");
 
@@ -48,7 +46,7 @@ assert.match(html, /id="notificationsScreen"/, "the app should include a manuall
 assert.match(html, /Daily weight · 07:00/, "the daily weight reminder should be configured");
 assert.match(html, /Monday waist · 08:00/, "the weekly waist reminder should be configured");
 assert.match(html, /Main workout · 16:00/, "the incomplete main-workout reminder should be configured");
-assert.match(app, /action: "clear"/, "notification history should support manual clearing");
+assert.match(app, /action: "read"/, "notification history should support marking reminders as read");
 assert.match(html, /id="testNotificationButton"/, "settings should expose an end-to-end notification test");
 assert.match(pushFunction, /body\.action === "test"/, "the push function should support test notifications");
 assert.match(worker, /addEventListener\("push"/, "the service worker should display Web Push messages");
@@ -65,4 +63,4 @@ assert.match(pushFunction, /Last 7 days:[\s\S]*since first:/, "weight reminders 
 
 assert.match(styles, /@media \(max-width: 620px\)[\s\S]*?min-height: 38px;/, "mobile form controls should use a compact height");
 
-console.log("Wellbeing Version 36 feature tests passed");
+console.log("Wellbeing Version 37 feature tests passed");

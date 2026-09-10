@@ -4,6 +4,22 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface uses **AuraOS**, the shared design language established by Level90: luminous depth, translucent surfaces, compact labels, floating navigation and a morphing halo/orb as the main focus element. See `AURAOS.md` for the reusable specification.
 
+## Version 37 backlog completion
+
+- Redesigns routine cards with fully wrapping titles, a larger right-side 2 × 3 dot drag handle and a divided footer containing the Level90-style Loaded checkmark, Load and More actions.
+- Shows routine equipment/weight requirements and expands every exercise vertically on mobile while keeping workout inputs compact.
+- Changes notification clearing into persistent read state, keeps read reminders visible and limits the centre to the current local day. The bell badge now counts unread reminders only.
+- Routes weight-notification taps directly to today’s weight entry. When today’s weight is missing, the app shows a dismissible top reminder with **Snooze 1 hour**, **Dismiss for today** and **Save weight**.
+- Makes training-minutes and training-load bars tappable and keyboard accessible, with exact values and dates/labels in a popover.
+- Adds **Copy for AI** to the completion screen and every saved session. The export includes the current session, up to five comparable earlier sessions, exercise details, RPE, duration, heart-rate zones, readiness, notes, weight/waist/Zone 2/recovery trends, plus editable training phase and goals.
+- Adds the training phase and goals to JSON backup/restore and advances the offline app-shell cache to Version 37.
+
+### Upgrade from Version 36
+
+1. Run `supabase/migrations/20260903_create_wellbeing_notifications.sql` again in the Supabase SQL Editor. It safely adds notification read-state columns if they do not exist.
+2. Redeploy `supabase/functions/wellbeing-push/index.ts` with **Verify JWT disabled**. Existing VAPID secrets and the Cron schedule stay unchanged.
+3. Replace the hosted PWA files, open the app once online, then fully close and reopen the installed app.
+
 ## Version 36 compact routine-title spacing
 
 - Keeps the routine reorder target at 48px while aligning its bars to the title-facing edge.
