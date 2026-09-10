@@ -4,6 +4,14 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system: a solid navy field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 40 alignment polish
+
+- Keeps each loaded exercise’s target, equipment and rest together on one horizontally scrollable metadata line on narrow screens.
+- Removes the leftover horizontal padding from completed and ended-early session labels so they align with the workout title.
+- Adds breathing room above the **New workout** action on the Routines screen.
+- Locks measurement-date and measurement-value controls to the same height on desktop and mobile.
+- Advances the offline app-shell cache and asset URLs to Version 40. No Supabase change is required.
+
 ## Version 39 Minimal Navy redesign
 
 - Rebuilds the visual language around the supplied minimalist reference using its exact navy (`#203444`) and off-white (`#D9D9D9`) foundation.

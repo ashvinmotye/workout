@@ -21,10 +21,10 @@ assert.match(app, /function startLoadedWorkout\(\)[\s\S]*startWorkout\(cloneWork
 assert.match(app, /function editLoadedWorkout\(\)[\s\S]*setupEditMode = true;[\s\S]*populateForm\(cloneWorkout\(record\.workout, false\)\)/, "the icon action should open the loaded routine in edit mode");
 assert.match(app, /function startNewWorkout\(\)[\s\S]*setupEditMode = true;[\s\S]*setActiveSavedWorkoutId\(null\)/, "no loaded routine should open data-entry mode");
 assert.match(app, /setActiveSavedWorkoutId\(record\.id\);[\s\S]*setupEditMode = false;[\s\S]*renderSetupHomepage\(\);/, "saving should return Home to read-only mode");
-assert.match(app, /\["Weight \/ equipment", formatRoutineWeight\(exercise\.weight\) \|\| "None"\]/, "exercise cards should show equipment requirements");
+assert.match(app, /formatRoutineWeight\(exercise\.weight\) \|\| "None"/, "exercise cards should show equipment requirements");
 
 assert.match(styles, /\.home-workout-cta-actions #startLoadedWorkoutButton \{[\s\S]*min-width: 220px;/, "the read-only start action should be visually prominent");
 assert.match(styles, /\.loaded-workout-edit-button \{[\s\S]*width: 60px;/, "the edit action should remain a compact square target");
-assert.match(worker, /wellbeing-v39/, "the current app should retain a fresh offline cache");
+assert.match(worker, /wellbeing-v40/, "the current app should retain a fresh offline cache");
 
 console.log("Wellbeing Version 38 homepage tests passed");

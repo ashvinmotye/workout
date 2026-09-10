@@ -7398,3 +7398,57 @@ textarea:focus {
     animation: none;
   }
 }
+
+/* Version 40: Minimal Navy alignment corrections */
+.loaded-exercise-meta {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  overflow-x: auto;
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.7;
+  letter-spacing: 0.10em;
+  scrollbar-width: none;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+.loaded-exercise-meta::-webkit-scrollbar {
+  display: none;
+}
+
+.history-status {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.saved-workouts-hero-actions {
+  margin-top: 28px;
+}
+
+.weight-form-grid input[name="measurementDate"],
+.weight-form-grid input[name="weightKg"],
+.waist-form-grid input[name="measurementDate"],
+.waist-form-grid input[name="waistCm"] {
+  height: 50px;
+  min-height: 50px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+@media (max-width: 620px) {
+  .weight-form-grid input[name="measurementDate"],
+  .weight-form-grid input[name="weightKg"],
+  .waist-form-grid input[name="measurementDate"],
+  .waist-form-grid input[name="waistCm"] {
+    height: 38px;
+    min-height: 38px;
+  }
+}
+
+@media (max-width: 460px) {
+  .loaded-exercise-meta {
+    font-size: 0.82rem;
+    letter-spacing: 0.07em;
+  }
+}

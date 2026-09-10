@@ -2746,27 +2746,16 @@ function renderSetupHomepage() {
     number.textContent = String(index + 1);
     const name = document.createElement("h4");
     name.textContent = exercise.name || `Exercise ${index + 1}`;
-    const target = document.createElement("span");
-    target.className = "loaded-exercise-target";
-    target.textContent = targetText(exercise);
-    heading.append(number, name, target);
+    heading.append(number, name);
 
-    const details = document.createElement("dl");
-    details.className = "loaded-exercise-details";
-    const detailRows = [
-      ["Weight / equipment", formatRoutineWeight(exercise.weight) || "None"],
-      ["Rest after", exercise.rest > 0 ? `${formatDuration(exercise.rest)} rest` : "No rest"]
-    ];
-    detailRows.forEach(([label, value]) => {
-      const item = document.createElement("div");
-      const term = document.createElement("dt");
-      const description = document.createElement("dd");
-      term.textContent = label;
-      description.textContent = value;
-      item.append(term, description);
-      details.append(item);
-    });
-    card.append(heading, details);
+    const meta = document.createElement("p");
+    meta.className = "loaded-exercise-meta";
+    meta.textContent = [
+      targetText(exercise),
+      formatRoutineWeight(exercise.weight) || "None",
+      exercise.rest > 0 ? `${formatDuration(exercise.rest)} rest` : "No rest"
+    ].join(" • ");
+    card.append(heading, meta);
 
     if (exercise.note.trim()) {
       const note = document.createElement("p");

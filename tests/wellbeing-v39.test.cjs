@@ -22,6 +22,6 @@ assert.match(styles, /\.button-primary \{[\s\S]*background: var\(--minimal-actio
 assert.match(styles, /\.app-navigation \{[\s\S]*border-radius: 0;[\s\S]*box-shadow: none;/, "navigation should use the same flat geometry");
 assert.match(app, /dom\.setupEyebrow\.textContent = "YOUR WORKOUT";/, "the loaded Home title should follow the reference");
 assert.equal(manifest.theme_color, "#203444", "the installed app chrome should match the new navy");
-assert.match(worker, /wellbeing-v39/, "Version 39 should use a fresh offline cache");
+assert.match(worker, /wellbeing-v40/, "the current app should retain a fresh offline cache");
 
 console.log("Wellbeing Version 39 Minimal Navy tests passed");
