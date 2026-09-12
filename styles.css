@@ -7452,3 +7452,61 @@ textarea:focus {
     letter-spacing: 0.07em;
   }
 }
+
+/* Version 41: direct body-entry reminders and overall trend guides */
+.weight-chart .overall-trend-line {
+  stroke: var(--text-muted);
+  stroke-width: 2;
+  stroke-dasharray: 7 8;
+  opacity: 0.38;
+}
+
+.quick-entry-dialog {
+  width: min(calc(100% - 28px), 560px);
+  max-height: min(88dvh, 860px);
+}
+
+.readiness-quick-entry-dialog {
+  width: min(calc(100% - 28px), 680px);
+}
+
+.quick-entry-form {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: min(88dvh, 860px);
+}
+
+.quick-entry-content {
+  display: grid;
+  gap: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 3px;
+}
+
+.quick-entry-content .recovery-form-status {
+  margin: 0;
+}
+
+.quick-entry-actions {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.quick-readiness-result {
+  margin: 0 0 6px;
+}
+
+@media (max-width: 460px) {
+  .quick-entry-dialog {
+    width: min(calc(100% - 24px), 560px);
+  }
+
+  .quick-entry-form {
+    padding: 18px 14px;
+  }
+
+  .quick-entry-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}

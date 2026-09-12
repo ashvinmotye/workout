@@ -226,28 +226,29 @@ async function waistMessage(userId: string, today: string) {
 }
 
 async function unfinishedMainWorkoutMessage(userId: string, today: string, dayNumber: number, timeZone: string) {
-  const { data: routines, error: routineError } = await db.from("saved_workouts")
-    .select("id, name")
+  const { data: mainRoutines, error: routineError } = await db.from("saved_workouts")
+    .select("id, name, designated_days")
     .eq("user_id", userId)
-    .eq("routine_role", "main")
-    .contains("designated_days", [dayNumber]);
+    .eq("routine_role", "main");
   if (routineError) throw routineError;
-  if (!routines?.length) return null;
+  const scheduledRoutines = (mainRoutines || []).filter((routine) => Array.isArray(routine.designated_days)
+    && routine.designated_days.includes(dayNumber));
+  if (!scheduledRoutines.length) return null;
 
-  const routineIds = routines.map((routine) => routine.id);
+  const mainRoutineIds = (mainRoutines || []).map((routine) => routine.id);
   const tomorrow = shiftDateKey(today, 1);
   const { data: completed, error: historyError } = await db.from("workout_sessions")
     .select("routine_id")
     .eq("user_id", userId)
     .eq("status", "completed")
-    .in("routine_id", routineIds)
+    .in("routine_id", mainRoutineIds)
     .gte("ended_at", zonedBoundaryIso(today, timeZone))
     .lt("ended_at", zonedBoundaryIso(tomorrow, timeZone))
     .limit(1);
   if (historyError) throw historyError;
   if (completed?.length) return null;
 
-  const names = routines.map((routine) => routine.name).filter(Boolean);
+  const names = scheduledRoutines.map((routine) => routine.name).filter(Boolean);
   const summary = names.length === 1 ? `“${names[0]}”` : `${names.length} main workouts`;
   return `${summary} is scheduled today and has not been completed yet.`;
 }
@@ -272,7 +273,9 @@ async function createAndSendNotification(userId: string, type: "weight" | "waist
     title,
     body,
     tag: key,
-    url: type === "weight" ? "./?weight=1" : "./?notifications=1"
+    url: type === "weight"
+      ? "./?weight=1"
+      : (type === "waist" ? "./?waist=1" : "./?notifications=1")
   });
   let delivered = 0;
   for (const subscription of subscriptions) {

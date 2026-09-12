@@ -21,7 +21,7 @@
   <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
   <link rel="shortcut icon" href="icons/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-v31.png" />
-  <link rel="stylesheet" href="styles.css?v=40" />
+  <link rel="stylesheet" href="styles.css?v=41" />
 </head>
 <body data-design-system="minimal-navy">
   <div class="app-shell">
@@ -899,7 +899,7 @@
             <label class="toggle-row">
               <span>
                 <strong>Main workout · 16:00</strong>
-                <small>Only when today's scheduled main workout is not complete</small>
+                <small>Only when no main workout has been completed today</small>
               </span>
               <input id="workoutNotificationsEnabled" type="checkbox" checked />
             </label>
@@ -1435,6 +1435,133 @@
     </div>
   </dialog>
 
+  <dialog id="weightQuickEntryDialog" class="history-dialog quick-entry-dialog" aria-labelledby="weightQuickEntryTitle">
+    <form id="weightQuickEntryForm" class="history-dialog-shell quick-entry-form">
+      <div class="history-dialog-heading">
+        <div>
+          <p class="eyebrow">TODAY</p>
+          <h2 id="weightQuickEntryTitle">Add your weight</h2>
+        </div>
+      </div>
+      <div class="quick-entry-content">
+        <label class="field field-wide">
+          <span>Weight <small>kg</small></span>
+          <input name="weightKg" type="number" min="30" max="300" step="0.1" inputmode="decimal" placeholder="69.2" required />
+        </label>
+        <p id="weightQuickEntryStatus" class="recovery-form-status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="dialog-actions quick-entry-actions">
+        <button id="cancelWeightQuickEntryButton" class="button button-ghost" type="button">Cancel</button>
+        <button id="saveWeightQuickEntryButton" class="button button-primary" type="submit">Save weight</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="readinessQuickEntryDialog" class="history-dialog quick-entry-dialog readiness-quick-entry-dialog" aria-labelledby="readinessQuickEntryTitle">
+    <form id="readinessQuickEntryForm" class="history-dialog-shell quick-entry-form readiness-form">
+      <div class="history-dialog-heading">
+        <div>
+          <p class="eyebrow">NEXT</p>
+          <h2 id="readinessQuickEntryTitle">Check your readiness</h2>
+        </div>
+      </div>
+      <div class="quick-entry-content">
+        <div id="readinessQuickResult" class="readiness-result quick-readiness-result" data-level="moderate" aria-live="polite">
+          <div class="readiness-orb" aria-hidden="true">
+            <strong id="readinessQuickScore">50</strong>
+            <small>/100</small>
+          </div>
+          <div>
+            <span id="readinessQuickLabel" class="readiness-label">Moderate readiness</span>
+            <p id="readinessQuickGuidance">Use your warm-up as a final check and adjust the session if needed.</p>
+          </div>
+        </div>
+
+        <div class="recovery-factor-list">
+          <label class="recovery-factor">
+            <span><strong>Sleep quality</strong><small>Restless → restorative</small></span>
+            <span class="factor-control">
+              <input name="sleepQuality" type="range" min="1" max="5" step="1" value="3" aria-label="Sleep quality from 1 to 5" />
+              <output data-for="sleepQuality">3</output>
+            </span>
+          </label>
+          <label class="recovery-factor">
+            <span><strong>Energy</strong><small>Drained → energised</small></span>
+            <span class="factor-control">
+              <input name="energyLevel" type="range" min="1" max="5" step="1" value="3" aria-label="Energy level from 1 to 5" />
+              <output data-for="energyLevel">3</output>
+            </span>
+          </label>
+          <label class="recovery-factor">
+            <span><strong>Muscle soreness</strong><small>Fresh → very sore</small></span>
+            <span class="factor-control">
+              <input name="muscleSoreness" type="range" min="1" max="5" step="1" value="3" aria-label="Muscle soreness from 1 to 5" />
+              <output data-for="muscleSoreness">3</output>
+            </span>
+          </label>
+          <label class="recovery-factor">
+            <span><strong>Stress</strong><small>Calm → very stressed</small></span>
+            <span class="factor-control">
+              <input name="stressLevel" type="range" min="1" max="5" step="1" value="3" aria-label="Stress level from 1 to 5" />
+              <output data-for="stressLevel">3</output>
+            </span>
+          </label>
+          <label class="recovery-factor">
+            <span><strong>Motivation</strong><small>Reluctant → eager</small></span>
+            <span class="factor-control">
+              <input name="motivationLevel" type="range" min="1" max="5" step="1" value="3" aria-label="Training motivation from 1 to 5" />
+              <output data-for="motivationLevel">3</output>
+            </span>
+          </label>
+        </div>
+
+        <label class="field field-wide recovery-notes-field">
+          <span>Context <small>optional</small></span>
+          <textarea name="notes" rows="3" maxlength="500" placeholder="Sleep disruption, pain, illness, travel, or anything that affects today"></textarea>
+        </label>
+        <p id="readinessQuickEntryStatus" class="recovery-form-status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="dialog-actions quick-entry-actions">
+        <button id="cancelReadinessQuickEntryButton" class="button button-ghost" type="button">Cancel</button>
+        <button id="saveReadinessQuickEntryButton" class="button button-primary" type="submit">Save readiness</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="waistQuickEntryDialog" class="history-dialog quick-entry-dialog" aria-labelledby="waistQuickEntryTitle">
+    <form id="waistQuickEntryForm" class="history-dialog-shell quick-entry-form">
+      <div class="history-dialog-heading">
+        <div>
+          <p class="eyebrow">WEEKLY MEASUREMENT</p>
+          <h2 id="waistQuickEntryTitle">Add your waist</h2>
+        </div>
+      </div>
+      <div class="quick-entry-content">
+        <label class="field field-wide">
+          <span>Waist <small>cm</small></span>
+          <input name="waistCm" type="number" min="40" max="250" step="0.1" inputmode="decimal" placeholder="96.0" required />
+        </label>
+        <label class="field field-wide">
+          <span>Measurement method</span>
+          <select name="method">
+            <option value="midpoint">Midpoint between lowest rib and top of hip</option>
+            <option value="navel">At navel level</option>
+          </select>
+          <small>Keep using the same method so your trend remains comparable.</small>
+        </label>
+        <label class="field field-wide">
+          <span>Note <small>optional</small></span>
+          <input name="notes" type="text" maxlength="200" placeholder="Morning, before breakfast" />
+        </label>
+        <p id="waistQuickEntryStatus" class="recovery-form-status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="dialog-actions quick-entry-actions">
+        <button id="cancelWaistQuickEntryButton" class="button button-ghost" type="button">Cancel</button>
+        <button id="saveWaistQuickEntryButton" class="button button-primary" type="submit">Save waist</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <div id="chartPopover" class="chart-popover" role="status" aria-live="polite" hidden>
     <strong id="chartPopoverValue"></strong>
@@ -1454,7 +1581,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=40" defer></script>
-  <script src="app.js?v=40" defer></script>
+  <script src="wellness.js?v=41" defer></script>
+  <script src="app.js?v=41" defer></script>
 </body>
 </html>

@@ -4,6 +4,19 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system: a solid navy field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 41 direct body entries and reminder logic
+
+- Opens the Home weight action in a direct weight popup, then continues to a readiness popup after a successful save. Both steps provide Save/Cancel controls and success toasts.
+- Opens Monday waist-notification taps in a single-screen waist-entry popup with a success toast.
+- Adds a faint dotted first-to-last trend guide to both body-weight and waist graphs.
+- Suppresses the 16:00 reminder when any saved main routine was completed that day, while keeping the reminder copy based on the main routine scheduled for that day.
+- Advances the offline app-shell cache and asset URLs to Version 41.
+
+### Upgrade from Version 40
+
+1. Replace the hosted PWA files and reopen the installed app once while online.
+2. Redeploy `supabase/functions/wellbeing-push/index.ts` with **Verify JWT disabled** so waist deep links and the revised 16:00 suppression rule take effect. Existing migrations, VAPID secrets and Cron schedule remain unchanged.
+
 ## Version 40 alignment polish
 
 - Keeps each loaded exercise’s target, equipment and rest together on one horizontally scrollable metadata line on narrow screens.

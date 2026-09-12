@@ -1,13 +1,13 @@
 "use strict";
 
-const CACHE_NAME = "wellbeing-v40";
+const CACHE_NAME = "wellbeing-v41";
 const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=40",
-  "./wellness.js?v=40",
-  "./app.js?v=40",
+  "./styles.css?v=41",
+  "./wellness.js?v=41",
+  "./app.js?v=41",
   "./manifest.webmanifest",
   "./icons/favicon.ico",
   "./icons/favicon-16.png",
@@ -103,8 +103,11 @@ self.addEventListener("notificationclick", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
       const existing = clients.find((client) => client.url.startsWith(self.registration.scope));
       if (existing) {
+        const notificationType = event.notification.data?.type;
         existing.postMessage({
-          type: event.notification.data?.type === "weight" ? "WELLBEING_OPEN_WEIGHT" : "WELLBEING_OPEN_NOTIFICATIONS"
+          type: notificationType === "weight"
+            ? "WELLBEING_OPEN_WEIGHT"
+            : (notificationType === "waist" ? "WELLBEING_OPEN_WAIST" : "WELLBEING_OPEN_NOTIFICATIONS")
         });
         return existing.focus();
       }

@@ -457,14 +457,27 @@ function dismissWeightReminderForToday() {
 }
 
 function openWeightEntryFromReminder() {
+  if (typeof openWeightQuickEntry === "function") {
+    openWeightQuickEntry();
+    return;
+  }
   showScreen("recovery");
   if (typeof populateWeightForm === "function") populateWeightForm(wellnessTodayKey());
-  requestAnimationFrame(() => {
-    dom.weightReminderSlab.hidden = true;
-    const input = document.querySelector("#weightForm [name='weightKg']");
-    input?.scrollIntoView({ behavior: "smooth", block: "center" });
-    input?.focus({ preventScroll: true });
-  });
+}
+
+function openWaistEntryFromReminder() {
+  if (typeof openWaistQuickEntry === "function") {
+    openWaistQuickEntry();
+    return;
+  }
+  showScreen("recovery");
+  if (typeof populateWaistForm === "function") populateWaistForm(wellnessTodayKey());
+}
+
+function openLaunchDestination(destination) {
+  if (destination === "weight") openWeightEntryFromReminder();
+  else if (destination === "waist") openWaistEntryFromReminder();
+  else openNotifications();
 }
 
 function binIconMarkup() {
@@ -797,12 +810,15 @@ function openNotifications() {
 function maybeOpenLaunchDestination() {
   const url = new URL(window.location.href);
   const openWeight = url.searchParams.has("weight");
+  const openWaist = url.searchParams.has("waist");
   const shouldOpenNotifications = url.searchParams.has("notifications");
-  if (!openWeight && !shouldOpenNotifications) return;
+  if (!openWeight && !openWaist && !shouldOpenNotifications) return;
   url.searchParams.delete("weight");
+  url.searchParams.delete("waist");
   url.searchParams.delete("notifications");
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  window.setTimeout(openWeight ? openWeightEntryFromReminder : openNotifications, 0);
+  const destination = openWeight ? "weight" : (openWaist ? "waist" : "notifications");
+  window.setTimeout(() => openLaunchDestination(destination), 0);
 }
 
 function getAuthRedirectUrl() {
@@ -926,7 +942,7 @@ function showAuthenticatedApp(session, options = {}) {
   if (pendingLaunchDestination) {
     const destination = pendingLaunchDestination;
     pendingLaunchDestination = null;
-    window.setTimeout(destination === "weight" ? openWeightEntryFromReminder : openNotifications, 0);
+    window.setTimeout(() => openLaunchDestination(destination), 0);
   }
 }
 
@@ -5783,6 +5799,10 @@ function bindEvents() {
       if (event.data?.type === "WELLBEING_OPEN_WEIGHT") {
         if (dom.authScreen.hidden) openWeightEntryFromReminder();
         else pendingLaunchDestination = "weight";
+      }
+      if (event.data?.type === "WELLBEING_OPEN_WAIST") {
+        if (dom.authScreen.hidden) openWaistEntryFromReminder();
+        else pendingLaunchDestination = "waist";
       }
     });
   }

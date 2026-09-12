@@ -20,7 +20,7 @@ assert.match(pushFunction, /update\(\{ is_read: true, read_at:/, "read actions s
 assert.match(app, /unreadCount = notificationRecords\.filter/, "the bell badge should count only unread reminders");
 assert.match(app, /article\.classList\.toggle\("is-read"/, "read reminders should remain rendered");
 
-assert.match(pushFunction, /type === "weight" \? "\.\/\?weight=1"/, "weight pushes should deep-link to weight entry");
+assert.match(pushFunction, /type === "weight"[\s\S]*?"\.\/\?weight=1"/, "weight pushes should deep-link to weight entry");
 assert.match(worker, /WELLBEING_OPEN_WEIGHT/, "an open app should route weight taps directly to entry");
 assert.match(html, /id="weightReminderSlab"/, "a missing-weight fallback slab should be available");
 assert.match(html, /Snooze 1 hour[\s\S]*Dismiss for today[\s\S]*Save weight/, "the fallback slab should expose all requested actions");

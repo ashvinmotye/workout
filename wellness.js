@@ -63,6 +63,22 @@ const wellnessDom = {
   waistHistoryCount: document.querySelector("#waistHistoryCount"),
   waistHistory: document.querySelector("#waistHistory"),
   showAllWaistButton: document.querySelector("#showAllWaistButton"),
+  weightQuickEntryDialog: document.querySelector("#weightQuickEntryDialog"),
+  weightQuickEntryForm: document.querySelector("#weightQuickEntryForm"),
+  weightQuickEntryStatus: document.querySelector("#weightQuickEntryStatus"),
+  cancelWeightQuickEntryButton: document.querySelector("#cancelWeightQuickEntryButton"),
+  readinessQuickEntryDialog: document.querySelector("#readinessQuickEntryDialog"),
+  readinessQuickEntryForm: document.querySelector("#readinessQuickEntryForm"),
+  readinessQuickEntryStatus: document.querySelector("#readinessQuickEntryStatus"),
+  readinessQuickResult: document.querySelector("#readinessQuickResult"),
+  readinessQuickScore: document.querySelector("#readinessQuickScore"),
+  readinessQuickLabel: document.querySelector("#readinessQuickLabel"),
+  readinessQuickGuidance: document.querySelector("#readinessQuickGuidance"),
+  cancelReadinessQuickEntryButton: document.querySelector("#cancelReadinessQuickEntryButton"),
+  waistQuickEntryDialog: document.querySelector("#waistQuickEntryDialog"),
+  waistQuickEntryForm: document.querySelector("#waistQuickEntryForm"),
+  waistQuickEntryStatus: document.querySelector("#waistQuickEntryStatus"),
+  cancelWaistQuickEntryButton: document.querySelector("#cancelWaistQuickEntryButton"),
   readinessHistoryDialog: document.querySelector("#readinessHistoryDialog"),
   readinessHistoryDialogList: document.querySelector("#readinessHistoryDialogList"),
   readinessHistoryPagination: document.querySelector("#readinessHistoryPagination"),
@@ -697,8 +713,7 @@ async function syncWellnessData(options = {}) {
   }
 }
 
-function currentReadinessFormValues() {
-  const form = wellnessDom.readinessForm;
+function readinessFormValues(form) {
   return {
     sleepQuality: Number(form.elements.sleepQuality.value),
     energyLevel: Number(form.elements.energyLevel.value),
@@ -706,6 +721,10 @@ function currentReadinessFormValues() {
     stressLevel: Number(form.elements.stressLevel.value),
     motivationLevel: Number(form.elements.motivationLevel.value)
   };
+}
+
+function currentReadinessFormValues() {
+  return readinessFormValues(wellnessDom.readinessForm);
 }
 
 function renderLiveReadinessScore() {
@@ -863,6 +882,150 @@ function populateWaistForm(date = wellnessTodayKey()) {
   form.elements.notes.value = record?.notes || "";
   wellnessDom.saveWaistButton.textContent = record ? "Update waist" : "Save waist";
   wellnessDom.waistFormStatus.textContent = "";
+}
+
+function finishQuickWellnessSave(message) {
+  renderRecoveryScreen();
+  renderTrends();
+  renderSettingsSummary();
+  showToast(message);
+  syncWellnessData().catch(() => {});
+}
+
+function focusQuickEntryInput(dialog, selector) {
+  requestAnimationFrame(() => dialog.querySelector(selector)?.focus({ preventScroll: true }));
+}
+
+function openWeightQuickEntry() {
+  const today = wellnessTodayKey();
+  const existing = loadWeightEntries().find((record) => record.measurementDate === today);
+  const form = wellnessDom.weightQuickEntryForm;
+  form.elements.weightKg.value = existing ? String(existing.weightKg) : "";
+  wellnessDom.weightQuickEntryStatus.textContent = "";
+  showHistoryDialog(wellnessDom.weightQuickEntryDialog);
+  focusQuickEntryInput(wellnessDom.weightQuickEntryDialog, "[name='weightKg']");
+}
+
+function submitWeightQuickEntry(event) {
+  event.preventDefault();
+  const weightKg = Number(wellnessDom.weightQuickEntryForm.elements.weightKg.value);
+  if (!Number.isFinite(weightKg) || weightKg < 30 || weightKg > 300) {
+    wellnessDom.weightQuickEntryStatus.textContent = "Enter a weight between 30 and 300 kg.";
+    return;
+  }
+  const measurementDate = wellnessTodayKey();
+  const records = loadWeightEntries();
+  const existing = records.find((record) => record.measurementDate === measurementDate);
+  const now = Date.now();
+  const record = normalizeWeightEntry({
+    id: existing?.id || wellnessRecordId(WELLNESS_ENTITY.WEIGHT, measurementDate),
+    measurementDate,
+    weightKg,
+    notes: existing?.notes || "",
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  });
+  saveWeightEntries([...records.filter((item) => item.measurementDate !== measurementDate), record]);
+  document.dispatchEvent(new Event("wellbeing:weight-saved"));
+  queueWellnessOperation(WELLNESS_ENTITY.WEIGHT, "upsert", record);
+  closeHistoryDialog(wellnessDom.weightQuickEntryDialog);
+  finishQuickWellnessSave("Weight saved.");
+  window.setTimeout(openReadinessQuickEntry, 900);
+}
+
+function populateReadinessQuickEntry() {
+  const today = wellnessTodayKey();
+  const record = loadRecoveryCheckins().find((item) => item.checkinDate === today);
+  const form = wellnessDom.readinessQuickEntryForm;
+  form.elements.sleepQuality.value = String(record?.sleepQuality ?? 3);
+  form.elements.energyLevel.value = String(record?.energyLevel ?? 3);
+  form.elements.muscleSoreness.value = String(record?.muscleSoreness ?? 3);
+  form.elements.stressLevel.value = String(record?.stressLevel ?? 3);
+  form.elements.motivationLevel.value = String(record?.motivationLevel ?? 3);
+  form.elements.notes.value = record?.notes || "";
+  wellnessDom.readinessQuickEntryStatus.textContent = "";
+  renderQuickReadinessScore();
+}
+
+function renderQuickReadinessScore() {
+  const form = wellnessDom.readinessQuickEntryForm;
+  form.querySelectorAll("input[type='range']").forEach((input) => {
+    const output = form.querySelector(`output[data-for="${input.name}"]`);
+    if (output) output.value = input.value;
+  });
+  const score = calculateReadinessScore(readinessFormValues(form));
+  const level = getReadinessLevel(score);
+  wellnessDom.readinessQuickScore.textContent = String(score);
+  wellnessDom.readinessQuickLabel.textContent = level.label;
+  wellnessDom.readinessQuickGuidance.textContent = level.guidance;
+  wellnessDom.readinessQuickResult.dataset.level = level.key;
+}
+
+function openReadinessQuickEntry() {
+  populateReadinessQuickEntry();
+  showHistoryDialog(wellnessDom.readinessQuickEntryDialog);
+  focusQuickEntryInput(wellnessDom.readinessQuickEntryDialog, "input[type='range']");
+}
+
+function submitReadinessQuickEntry(event) {
+  event.preventDefault();
+  const checkinDate = wellnessTodayKey();
+  const records = loadRecoveryCheckins();
+  const existing = records.find((record) => record.checkinDate === checkinDate);
+  const now = Date.now();
+  const record = normalizeRecoveryCheckin({
+    id: existing?.id || wellnessRecordId(WELLNESS_ENTITY.RECOVERY, checkinDate),
+    checkinDate,
+    ...readinessFormValues(wellnessDom.readinessQuickEntryForm),
+    notes: wellnessDom.readinessQuickEntryForm.elements.notes.value,
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  });
+  saveRecoveryCheckins([...records.filter((item) => item.checkinDate !== checkinDate), record]);
+  queueWellnessOperation(WELLNESS_ENTITY.RECOVERY, "upsert", record);
+  closeHistoryDialog(wellnessDom.readinessQuickEntryDialog);
+  finishQuickWellnessSave("Readiness saved.");
+}
+
+function openWaistQuickEntry() {
+  const today = wellnessTodayKey();
+  const records = loadWaistEntries();
+  const existing = records.find((record) => record.measurementDate === today);
+  const latest = records[0];
+  const form = wellnessDom.waistQuickEntryForm;
+  form.elements.waistCm.value = existing ? String(existing.waistCm) : "";
+  form.elements.method.value = existing?.method || latest?.method || "midpoint";
+  form.elements.notes.value = existing?.notes || "";
+  wellnessDom.waistQuickEntryStatus.textContent = "";
+  showHistoryDialog(wellnessDom.waistQuickEntryDialog);
+  focusQuickEntryInput(wellnessDom.waistQuickEntryDialog, "[name='waistCm']");
+}
+
+function submitWaistQuickEntry(event) {
+  event.preventDefault();
+  const form = wellnessDom.waistQuickEntryForm;
+  const waistCm = Number(form.elements.waistCm.value);
+  if (!Number.isFinite(waistCm) || waistCm < 40 || waistCm > 250) {
+    wellnessDom.waistQuickEntryStatus.textContent = "Enter a waist measurement between 40 and 250 cm.";
+    return;
+  }
+  const measurementDate = wellnessTodayKey();
+  const records = loadWaistEntries();
+  const existing = records.find((record) => record.measurementDate === measurementDate);
+  const now = Date.now();
+  const record = normalizeWaistEntry({
+    id: existing?.id || wellnessRecordId(WELLNESS_ENTITY.WAIST, measurementDate),
+    measurementDate,
+    waistCm,
+    method: form.elements.method.value,
+    notes: form.elements.notes.value,
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  });
+  saveWaistEntries([...records.filter((item) => item.measurementDate !== measurementDate), record]);
+  queueWellnessOperation(WELLNESS_ENTITY.WAIST, "upsert", record);
+  closeHistoryDialog(wellnessDom.waistQuickEntryDialog);
+  finishQuickWellnessSave("Waist measurement saved.");
 }
 
 function formatWeight(value, signed = false) {
@@ -1047,6 +1210,7 @@ function renderWeightChart(records) {
         <text x="${paddingX}" y="25">${rawMax.toFixed(1)} kg</text>
         <text x="${paddingX}" y="${height - 9}">${escapeHtml(formatWellnessDate(firstDisplayed.measurementDate, { short: true }))}</text>
         <text x="${width - paddingX}" y="${height - 9}" text-anchor="end">${escapeHtml(formatWellnessDate(latestDisplayed.measurementDate, { short: true }))}</text>
+        <line class="overall-trend-line" x1="${x(0).toFixed(1)}" y1="${y(firstDisplayed.weightKg).toFixed(1)}" x2="${x(displayed.length - 1).toFixed(1)}" y2="${y(latestDisplayed.weightKg).toFixed(1)}"></line>
         <polyline points="${points}"></polyline>
         ${circles}
       </svg>`;
@@ -1090,6 +1254,7 @@ function renderWaistChart(records) {
         <text x="${paddingX}" y="25">${rawMax.toFixed(1)} cm</text>
         <text x="${paddingX}" y="${height - 9}">${escapeHtml(formatWellnessDate(firstDisplayed.measurementDate, { short: true }))}</text>
         <text x="${width - paddingX}" y="${height - 9}" text-anchor="end">${escapeHtml(formatWellnessDate(latestDisplayed.measurementDate, { short: true }))}</text>
+        <line class="overall-trend-line" x1="${x(0).toFixed(1)}" y1="${y(firstDisplayed.waistCm).toFixed(1)}" x2="${x(displayed.length - 1).toFixed(1)}" y2="${y(latestDisplayed.waistCm).toFixed(1)}"></line>
         <polyline points="${points}"></polyline>
         ${circles}
       </svg>`;
@@ -1497,6 +1662,15 @@ function bindWellnessEvents() {
   wellnessDom.waistForm.elements.measurementDate.addEventListener("change", (event) => populateWaistForm(event.target.value));
   wellnessDom.waistForm.addEventListener("submit", submitWaistForm);
   wellnessDom.resetWaistButton.addEventListener("click", () => populateWaistForm(wellnessTodayKey()));
+  wellnessDom.weightQuickEntryForm.addEventListener("submit", submitWeightQuickEntry);
+  wellnessDom.cancelWeightQuickEntryButton.addEventListener("click", () => closeHistoryDialog(wellnessDom.weightQuickEntryDialog));
+  wellnessDom.readinessQuickEntryForm.addEventListener("input", (event) => {
+    if (event.target.matches("input[type='range']")) renderQuickReadinessScore();
+  });
+  wellnessDom.readinessQuickEntryForm.addEventListener("submit", submitReadinessQuickEntry);
+  wellnessDom.cancelReadinessQuickEntryButton.addEventListener("click", () => closeHistoryDialog(wellnessDom.readinessQuickEntryDialog));
+  wellnessDom.waistQuickEntryForm.addEventListener("submit", submitWaistQuickEntry);
+  wellnessDom.cancelWaistQuickEntryButton.addEventListener("click", () => closeHistoryDialog(wellnessDom.waistQuickEntryDialog));
   wellnessDom.syncWellnessButton.addEventListener("click", () => syncWellnessData({ manual: true }));
   wellnessDom.readinessHistory.addEventListener("click", (event) => {
     const editButton = event.target.closest(".edit-readiness-entry");
