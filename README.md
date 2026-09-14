@@ -2,7 +2,21 @@
 
 A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript. **Forge** remains the training system inside the broader app, alongside body measurements, recovery and whole-picture progress.
 
-The interface now uses Wellbeing’s **Minimal Navy** design system: a solid navy field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
+The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
+
+## Version 42 manual sessions and offline access
+
+- Adds manual workout-session recording to Progress, including name, date and time, exact duration, RPE, heart-rate zones and detailed notes.
+- Reuses stable manual-workout IDs through a previous-workout selector, so repeated outside walks or watch-recorded sessions remain comparable without duplicating workout definitions.
+- Adds full editing and deletion for manual sessions; offline changes use the existing local queue and sync after reconnection.
+- Opens cached accounts and device data when the account service is unavailable, with a finite session-check timeout instead of an indefinite connection screen.
+- Gives session notes equal weight in Copy for AI exports.
+- Shows Version 42 discreetly in Settings, loads Google Font Inter, changes the main colour to `#191919`, removes hover animation from the theme and Settings icons, and replaces the voice emoji with the supplied speaker SVG.
+- Advances the offline app-shell cache and asset URLs to Version 42. No Supabase migration is required.
+
+### Upgrade from Version 41
+
+Replace the hosted PWA files, open the app once online, then fully close and reopen the installed app so Version 42 takes control. Existing queued local changes will sync after authentication reconnects.
 
 ## Version 41 direct body entries and reminder logic
 
@@ -27,7 +41,7 @@ The interface now uses Wellbeing’s **Minimal Navy** design system: a solid nav
 
 ## Version 39 Minimal Navy redesign
 
-- Rebuilds the visual language around the supplied minimalist reference using its exact navy (`#203444`) and off-white (`#D9D9D9`) foundation.
+- Rebuilds the visual language around the supplied minimalist reference using charcoal (`#191919`) and off-white (`#D9D9D9`) as its foundation.
 - Replaces luminous gradients, glass surfaces, glows, floating cards, rounded pills and decorative halos with flat sections, square actions and thin dividers.
 - Applies the new system across Home, Routines, Notifications, Body, Progress, Settings, active workouts, session review, dialogs and navigation.
 - Gives the loaded-workout Home the closest match to the reference: large wordmark, **Your workout** title block, flat CTA row, text-only settings and a clean exercise ledger.

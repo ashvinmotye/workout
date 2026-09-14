@@ -6,7 +6,9 @@ const THEME_KEY = "voiceWorkout.theme.v1";
 const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
+const APP_VERSION = "42";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const AUTH_SESSION_CHECK_TIMEOUT_MS = 4000;
 const BACKUP_APP_ID = "wellbeing";
 const SUPPORTED_BACKUP_APP_IDS = Object.freeze([BACKUP_APP_ID, "forge", "voice-workout"]);
 const BACKUP_SCHEMA_VERSION = 1;
@@ -214,6 +216,18 @@ const dom = {
   historyCount: document.querySelector("#historyCount"),
   historyList: document.querySelector("#historyList"),
   clearHistoryButton: document.querySelector("#clearHistoryButton"),
+  recordManualSessionButton: document.querySelector("#recordManualSessionButton"),
+  recordManualSessionEmptyButton: document.querySelector("#recordManualSessionEmptyButton"),
+  manualSessionDialog: document.querySelector("#manualSessionDialog"),
+  manualSessionForm: document.querySelector("#manualSessionForm"),
+  manualSessionTitle: document.querySelector("#manualSessionTitle"),
+  manualSessionTemplate: document.querySelector("#manualSessionTemplate"),
+  manualSessionName: document.querySelector("#manualSessionName"),
+  manualSessionStatus: document.querySelector("#manualSessionStatus"),
+  closeManualSessionButton: document.querySelector("#closeManualSessionButton"),
+  cancelManualSessionButton: document.querySelector("#cancelManualSessionButton"),
+  saveManualSessionButton: document.querySelector("#saveManualSessionButton"),
+  appVersion: document.querySelector("#appVersion"),
   settingsSavedWorkoutCount: document.querySelector("#settingsSavedWorkoutCount"),
   settingsHistoryCount: document.querySelector("#settingsHistoryCount"),
   settingsActiveSession: document.querySelector("#settingsActiveSession"),
@@ -273,6 +287,8 @@ let automaticCloudRefreshTimer = null;
 let automaticCloudRefreshDueAt = 0;
 let lastAutomaticCloudRefreshAt = 0;
 let completeSessionId = null;
+let editingManualSessionId = null;
+let editingManualRoutineId = null;
 let notificationRecords = [];
 let notificationBusy = false;
 let trainingContextSaveTimer = null;
@@ -310,6 +326,14 @@ function workoutUid() {
 
 function sessionUid() {
   return `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function manualSessionUid() {
+  return `manual-session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function manualRoutineUid() {
+  return `manual-workout-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function defaultWorkout() {
@@ -981,10 +1005,10 @@ function handleAuthStateChange(event, session) {
 
 async function initializeAuthentication() {
   showAuthLoading();
+  const cachedUser = loadCachedAuthUser();
 
   if (!window.supabase?.createClient) {
-    const cachedUser = loadCachedAuthUser();
-    if (!navigator.onLine && cachedUser) {
+    if (cachedUser) {
       showAuthenticatedApp(null, { user: cachedUser, offline: true });
       return;
     }
@@ -1005,23 +1029,30 @@ async function initializeAuthentication() {
   });
   authSubscription = listener.data.subscription;
 
+  if (!navigator.onLine && cachedUser) {
+    showAuthenticatedApp(null, { user: cachedUser, offline: true });
+    return;
+  }
+
   try {
-    const { data, error } = await authClient.auth.getSession();
+    const sessionCheck = authClient.auth.getSession();
+    const timeout = new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error("The account check timed out.")), AUTH_SESSION_CHECK_TIMEOUT_MS);
+    });
+    const { data, error } = await Promise.race([sessionCheck, timeout]);
     if (error) throw error;
     if (data.session?.user) {
       showAuthenticatedApp(data.session);
       return;
     }
 
-    const cachedUser = loadCachedAuthUser();
     if (!navigator.onLine && cachedUser) {
       showAuthenticatedApp(null, { user: cachedUser, offline: true });
       return;
     }
     showAuthForm();
   } catch (error) {
-    const cachedUser = loadCachedAuthUser();
-    if (!navigator.onLine && cachedUser) {
+    if (cachedUser) {
       showAuthenticatedApp(null, { user: cachedUser, offline: true });
       return;
     }
@@ -1315,8 +1346,10 @@ function normalizeHistoryRecord(record) {
     return Number.isFinite(parsed) ? Math.max(0, parsed) : null;
   };
 
+  const id = typeof record.id === "string" && record.id ? record.id : sessionUid();
   return {
-    id: typeof record.id === "string" && record.id ? record.id : sessionUid(),
+    id,
+    manual: Boolean(record.manual) || id.startsWith("manual-session-"),
     routineId: typeof (record.routineId ?? record.routine_id) === "string" && String(record.routineId ?? record.routine_id).trim()
       ? String(record.routineId ?? record.routine_id).trim()
       : null,
@@ -1353,6 +1386,170 @@ function saveWorkoutHistory(records) {
     .filter(Boolean)
     .sort((a, b) => b.endedAt - a.endedAt);
   localStorage.setItem(HISTORY_KEY, JSON.stringify(normalized));
+}
+
+function isManualSession(record) {
+  return Boolean(record?.manual) || String(record?.id || "").startsWith("manual-session-");
+}
+
+function getManualWorkoutTemplates(records = loadWorkoutHistory()) {
+  const seen = new Set();
+  return records
+    .filter((record) => isManualSession(record) && record.routineId && record.workoutName)
+    .filter((record) => {
+      if (seen.has(record.routineId)) return false;
+      seen.add(record.routineId);
+      return true;
+    })
+    .map((record) => ({ routineId: record.routineId, workoutName: record.workoutName }));
+}
+
+function localDateInputValue(timestamp) {
+  const date = new Date(timestamp);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function localTimeInputValue(timestamp) {
+  const date = new Date(timestamp);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function setManualSessionDuration(totalSeconds) {
+  const safe = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  dom.manualSessionForm.elements.durationHours.value = String(Math.floor(safe / 3600));
+  dom.manualSessionForm.elements.durationMinutes.value = String(Math.floor((safe % 3600) / 60));
+  dom.manualSessionForm.elements.durationSeconds.value = String(safe % 60);
+}
+
+function populateManualSessionTemplates(selectedRoutineId = "") {
+  const templates = getManualWorkoutTemplates();
+  dom.manualSessionTemplate.replaceChildren(new Option("New workout", ""));
+  templates.forEach((template) => {
+    const option = new Option(template.workoutName, template.routineId);
+    option.dataset.workoutName = template.workoutName;
+    dom.manualSessionTemplate.add(option);
+  });
+  dom.manualSessionTemplate.value = templates.some((template) => template.routineId === selectedRoutineId)
+    ? selectedRoutineId
+    : "";
+}
+
+function applyManualSessionTemplate() {
+  const selected = dom.manualSessionTemplate.selectedOptions[0];
+  if (!selected?.value) return;
+  dom.manualSessionName.value = selected.dataset.workoutName || selected.textContent || "";
+}
+
+function openManualSessionDialog(record = null) {
+  if (record && !isManualSession(record)) return;
+  editingManualSessionId = record?.id || null;
+  editingManualRoutineId = record?.routineId || null;
+  dom.manualSessionForm.reset();
+  dom.manualSessionStatus.textContent = "";
+  dom.manualSessionTitle.textContent = record ? "Edit manual session" : "Record a session";
+  dom.saveManualSessionButton.textContent = record ? "Save changes" : "Save session";
+  populateManualSessionTemplates(record?.routineId || "");
+
+  const endedAt = record?.endedAt || Date.now();
+  dom.manualSessionForm.elements.sessionDate.value = localDateInputValue(endedAt);
+  dom.manualSessionForm.elements.sessionTime.value = localTimeInputValue(endedAt);
+  dom.manualSessionName.value = record?.workoutName || "";
+  setManualSessionDuration(record?.durationSeconds ?? 1800);
+  dom.manualSessionForm.elements.rpe.value = Number.isFinite(record?.rpe) ? String(record.rpe) : "";
+  HEART_RATE_ZONES.forEach((zone) => {
+    dom.manualSessionForm.elements[`zone${zone.number}Minutes`].value = formatZoneInputValue(record?.[zone.key]);
+  });
+  dom.manualSessionForm.elements.notes.value = record?.notes || "";
+
+  if (typeof dom.manualSessionDialog.showModal === "function") dom.manualSessionDialog.showModal();
+  else dom.manualSessionDialog.setAttribute("open", "");
+  window.setTimeout(() => dom.manualSessionName.focus(), 0);
+}
+
+function closeManualSessionDialog() {
+  editingManualSessionId = null;
+  editingManualRoutineId = null;
+  if (typeof dom.manualSessionDialog.close === "function") dom.manualSessionDialog.close();
+  else dom.manualSessionDialog.removeAttribute("open");
+}
+
+function manualSessionTimestamp(dateValue, timeValue) {
+  const timestamp = new Date(`${dateValue}T${timeValue}:00`).getTime();
+  if (!Number.isFinite(timestamp)) throw new Error("Choose a valid session date and end time.");
+  if (timestamp > Date.now() + 5 * 60 * 1000) throw new Error("The session end time cannot be in the future.");
+  return timestamp;
+}
+
+function manualSessionDuration(formData) {
+  const hours = clampInteger(formData.get("durationHours"), 0, 48, 0);
+  const minutes = clampInteger(formData.get("durationMinutes"), 0, 59, 0);
+  const seconds = clampInteger(formData.get("durationSeconds"), 0, 59, 0);
+  const total = hours * 3600 + minutes * 60 + seconds;
+  if (!total) throw new Error("Enter a workout duration greater than zero.");
+  return total;
+}
+
+function resolveManualRoutineId(selectedRoutineId, workoutName) {
+  if (selectedRoutineId) return selectedRoutineId;
+  if (editingManualRoutineId) return editingManualRoutineId;
+  const matchingTemplate = getManualWorkoutTemplates().find((template) =>
+    template.workoutName.trim().toLocaleLowerCase() === workoutName.trim().toLocaleLowerCase()
+  );
+  return matchingTemplate?.routineId || manualRoutineUid();
+}
+
+function submitManualSession(event) {
+  event.preventDefault();
+  dom.saveManualSessionButton.disabled = true;
+  dom.manualSessionStatus.textContent = "";
+  try {
+    const formData = new FormData(dom.manualSessionForm);
+    const workoutName = String(formData.get("workoutName") || "").trim().slice(0, 100);
+    if (!workoutName) throw new Error("Enter a workout name.");
+    const endedAt = manualSessionTimestamp(formData.get("sessionDate"), formData.get("sessionTime"));
+    const durationSeconds = manualSessionDuration(formData);
+    const review = collectSessionReview(dom.manualSessionForm);
+    const zoneTotal = HEART_RATE_ZONES.reduce((sum, zone) => sum + Math.max(0, Number(review[zone.key]) || 0), 0);
+    if (zoneTotal > durationSeconds) throw new Error("Heart-rate zone time cannot be longer than the session duration.");
+
+    const records = loadWorkoutHistory();
+    const existing = editingManualSessionId
+      ? records.find((record) => record.id === editingManualSessionId && isManualSession(record))
+      : null;
+    if (editingManualSessionId && !existing) throw new Error("This manual session is no longer available.");
+    const routineId = resolveManualRoutineId(String(formData.get("templateRoutineId") || ""), workoutName);
+    const updated = normalizeHistoryRecord({
+      ...(existing || {}),
+      id: existing?.id || manualSessionUid(),
+      manual: true,
+      routineId,
+      workoutName,
+      endedAt,
+      startedAt: endedAt - durationSeconds * 1000,
+      durationSeconds,
+      status: "completed",
+      plannedRounds: 1,
+      completedRounds: 1,
+      exercises: [],
+      ...review
+    });
+    const nextRecords = existing
+      ? records.map((record) => record.id === existing.id ? updated : record)
+      : [updated, ...records];
+    saveWorkoutHistory(nextRecords);
+    queueHistoryUpsert(updated);
+    renderTrends();
+    renderSettingsSummary();
+    closeManualSessionDialog();
+    syncWorkoutHistory().catch(() => {});
+    showToast(navigator.onLine ? "Manual session saved and syncing." : "Manual session saved. Sync pending.");
+  } catch (error) {
+    dom.manualSessionStatus.textContent = error instanceof Error ? error.message : "The session could not be saved.";
+  } finally {
+    dom.saveManualSessionButton.disabled = false;
+  }
 }
 
 function syncOperationUid() {
@@ -4009,7 +4206,9 @@ function cancelSpeech() {
 
 function updateVoiceToggle() {
   dom.voiceToggleButton.setAttribute("aria-pressed", String(runtime.voiceEnabled));
-  dom.voiceToggleButton.textContent = runtime.voiceEnabled ? "🔊" : "🔇";
+  dom.voiceToggleButton.setAttribute("aria-label", runtime.voiceEnabled ? "Turn voice guidance off" : "Turn voice guidance on");
+  dom.voiceToggleButton.title = runtime.voiceEnabled ? "Voice guidance on" : "Voice guidance off";
+  dom.voiceToggleButton.classList.toggle("is-muted", !runtime.voiceEnabled);
 }
 
 function toggleVoice() {
@@ -5006,6 +5205,30 @@ function comparisonMetric(label, delta, previous, current, tone = "") {
 
 function buildComparisonInsight(record, previous) {
   const insights = [];
+  if (isManualSession(record)) {
+    const durationDifference = record.durationSeconds - previous.durationSeconds;
+    if (durationDifference) {
+      insights.push(`The recorded duration was ${formatZoneDuration(Math.abs(durationDifference))} ${durationDifference > 0 ? "longer" : "shorter"} than last time.`);
+    } else {
+      insights.push("The recorded duration matched the previous session.");
+    }
+    if (Number.isFinite(record.rpe) && Number.isFinite(previous.rpe)) {
+      const rpeDifference = record.rpe - previous.rpe;
+      if (rpeDifference < 0) insights.push("The session felt easier based on the recorded RPE.");
+      else if (rpeDifference > 0) insights.push("The session felt harder based on the recorded RPE.");
+      else insights.push("The recorded RPE was unchanged.");
+    }
+    const currentZoneTotal = getTotalZoneSeconds(record);
+    const previousZoneTotal = getTotalZoneSeconds(previous);
+    if (currentZoneTotal && previousZoneTotal) {
+      const currentHighShare = (Number(record.zone4Seconds || 0) + Number(record.zone5Seconds || 0)) / currentZoneTotal * 100;
+      const previousHighShare = (Number(previous.zone4Seconds || 0) + Number(previous.zone5Seconds || 0)) / previousZoneTotal * 100;
+      const highShareDifference = currentHighShare - previousHighShare;
+      if (highShareDifference >= 3) insights.push("A larger share reached Z4–Z5, indicating more high-intensity exposure.");
+      else if (highShareDifference <= -3) insights.push("A smaller share reached Z4–Z5, indicating less high-intensity exposure.");
+    }
+    return insights.slice(0, 4).join(" ");
+  }
   const currentRoundShare = record.completedRounds / Math.max(1, record.plannedRounds);
   const previousRoundShare = previous.completedRounds / Math.max(1, previous.plannedRounds);
   const setDifference = completedSetCount(record) - completedSetCount(previous);
@@ -5077,22 +5300,25 @@ function renderSessionComparison(record, previous) {
       formatSignedDuration(record.durationSeconds - previous.durationSeconds),
       formatDuration(previous.durationSeconds),
       formatDuration(record.durationSeconds)
-    ),
-    comparisonMetric(
+    )
+  ];
+
+  if (!isManualSession(record)) {
+    metrics.push(comparisonMetric(
       "Exercise sets",
       formatSignedValue(currentSets - previousSets),
       String(previousSets),
       String(currentSets),
       currentSets > previousSets ? "is-positive" : currentSets < previousSets ? "is-negative" : ""
-    ),
-    comparisonMetric(
+    ));
+    metrics.push(comparisonMetric(
       "Round completion",
       formatSignedValue(currentRoundShare - previousRoundShare, " pp"),
       `${previousRoundShare}%`,
       `${currentRoundShare}%`,
       currentRoundShare > previousRoundShare ? "is-positive" : currentRoundShare < previousRoundShare ? "is-negative" : ""
-    )
-  ];
+    ));
+  }
 
   if (Number.isFinite(record.rpe) && Number.isFinite(previous.rpe)) {
     metrics.push(comparisonMetric(
@@ -5299,6 +5525,7 @@ function sessionForAi(record) {
   return {
     session_id: record.id,
     routine_id: record.routineId,
+    entry_method: isManualSession(record) ? "manual" : "tracked_in_app",
     routine: record.workoutName,
     date: new Date(record.endedAt).toISOString(),
     local_date: formatSessionDate(record.endedAt),
@@ -5403,7 +5630,7 @@ function buildSessionAiExport(record) {
   const payload = {
     export_type: "Wellbeing / Forge progression review",
     generated_at: new Date().toISOString(),
-    analysis_request: "Analyse this session in the context of the comparable sessions, current training phase and longer-term wellbeing trends. Identify progression, fatigue or asymmetry signals, and give practical recommendations for the next comparable session.",
+    analysis_request: "Analyse this session in the context of the comparable sessions, current training phase and longer-term wellbeing trends. Treat the user's session notes with equal weight to the numerical metrics: they often contain the most detailed evidence about execution, technique, symptoms, fatigue, equipment and context. Identify progression, fatigue or asymmetry signals, and give practical recommendations for the next comparable session.",
     training_context: loadTrainingContext(),
     current_session: sessionForAi(record),
     comparable_previous_sessions: comparable.map(sessionForAi),
@@ -5455,7 +5682,9 @@ function renderSessionAnalysis(record, previous) {
         <div><strong>${formatDuration(record.durationSeconds)}</strong><span>Duration</span><small>elapsed session time</small></div>
         <div><strong>${Number.isFinite(record.rpe) ? `${record.rpe}/10` : "—"}</strong><span>RPE</span><small>whole-session effort</small></div>
         <div><strong>${sessionLoad === null ? "—" : sessionLoad}</strong><span>Session load</span><small>minutes × RPE</small></div>
-        <div><strong>${record.completedRounds}/${record.plannedRounds}</strong><span>Rounds</span><small>completed / planned</small></div>
+        ${isManualSession(record)
+          ? '<div><strong>Manual</strong><span>Entry</span><small>recorded after workout</small></div>'
+          : `<div><strong>${record.completedRounds}/${record.plannedRounds}</strong><span>Rounds</span><small>completed / planned</small></div>`}
         <div><strong>${completedSets}</strong><span>Exercise sets</span><small>total completed</small></div>
         ${recoveryCheckin ? `<div><strong>${recoveryCheckin.readinessScore}/100</strong><span>Readiness</span><small>${escapeHtml(getReadinessLevel(recoveryCheckin.readinessScore).label)}</small></div>` : ""}
       </div>
@@ -5487,11 +5716,15 @@ function renderHistoryList(records) {
         <div>
           <div class="history-title-row">
             <h4>${escapeHtml(record.workoutName)}</h4>
+            ${isManualSession(record) ? '<span class="history-status is-manual">Manual</span>' : ""}
             <span class="history-status ${record.status === "completed" ? "is-complete" : "is-partial"}">${record.status === "completed" ? "Completed" : "Ended early"}</span>
           </div>
           <p>${formatSessionDate(record.endedAt)}</p>
         </div>
-        <button class="mini-icon delete-history-session danger-icon" type="button" aria-label="Delete this workout session">${binIconMarkup()}</button>
+        <div class="history-card-actions">
+          ${isManualSession(record) ? '<button class="button button-ghost button-small edit-manual-session" type="button">Edit</button>' : ""}
+          <button class="mini-icon delete-history-session danger-icon" type="button" aria-label="Delete this workout session">${binIconMarkup()}</button>
+        </div>
       </div>
       ${renderSessionAnalysis(record, previous)}
       <details class="history-details">
@@ -5502,6 +5735,7 @@ function renderHistoryList(records) {
       ${renderSessionReviewForm(record)}
     `;
     article.querySelector(".delete-history-session").addEventListener("click", () => deleteHistorySession(record.id));
+    article.querySelector(".edit-manual-session")?.addEventListener("click", () => openManualSessionDialog(record));
     article.querySelector(".copy-session-for-ai").addEventListener("click", () => copySessionForAi(record.id));
     article.querySelector(".history-session-review-form").addEventListener("submit", submitHistorySessionReview);
     dom.historyList.appendChild(article);
@@ -5573,7 +5807,7 @@ function applyTheme(theme, persist = true) {
   dom.themeToggleButton.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
   dom.themeToggleButton.title = isDark ? "Switch to light mode" : "Switch to dark mode";
   dom.themeToggleButton.setAttribute("aria-pressed", String(isDark));
-  dom.themeColorMeta.content = isDark ? "#203444" : "#f2f2f0";
+  dom.themeColorMeta.content = isDark ? "#191919" : "#f2f2f0";
 
   if (persist) {
     try {
@@ -5707,6 +5941,12 @@ function bindEvents() {
   dom.newWorkoutButton.addEventListener("click", startNewWorkout);
   dom.emptyStateSetupButton.addEventListener("click", () => showScreen("setup"));
   dom.trendsStartWorkoutButton.addEventListener("click", () => showScreen("setup"));
+  dom.recordManualSessionButton.addEventListener("click", () => openManualSessionDialog());
+  dom.recordManualSessionEmptyButton.addEventListener("click", () => openManualSessionDialog());
+  dom.manualSessionTemplate.addEventListener("change", applyManualSessionTemplate);
+  dom.manualSessionForm.addEventListener("submit", submitManualSession);
+  dom.closeManualSessionButton.addEventListener("click", closeManualSessionDialog);
+  dom.cancelManualSessionButton.addEventListener("click", closeManualSessionDialog);
   dom.clearHistoryButton.addEventListener("click", clearWorkoutHistory);
   dom.exportBackupButton.addEventListener("click", exportBackup);
   dom.importBackupButton.addEventListener("click", () => dom.importBackupInput.click());
@@ -5832,6 +6072,7 @@ function bindEvents() {
 }
 
 async function init() {
+  if (dom.appVersion) dom.appVersion.textContent = `Version ${APP_VERSION}`;
   hydrateScreenHeroIcons();
   applyTheme(loadTheme(), false);
   const savedWorkouts = loadSavedWorkouts();

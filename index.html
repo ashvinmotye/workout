@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta id="themeColorMeta" name="theme-color" content="#193546" />
+  <meta id="themeColorMeta" name="theme-color" content="#191919" />
   <meta name="description" content="Wellbeing brings Forge training, recovery, body measurements and progress into one personal health app." />
   <title>Wellbeing</title>
   <script>
@@ -21,7 +21,10 @@
   <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
   <link rel="shortcut icon" href="icons/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-v31.png" />
-  <link rel="stylesheet" href="styles.css?v=41" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=42" />
 </head>
 <body data-design-system="minimal-navy">
   <div class="app-shell">
@@ -683,7 +686,10 @@
           <div class="empty-state-icon" aria-hidden="true">↗</div>
           <h3>No workout history yet</h3>
           <p>Complete a workout, or save an ended session, and your trends will appear here.</p>
-          <button id="trendsStartWorkoutButton" class="button button-secondary" type="button">Start a workout</button>
+          <div class="empty-state-actions">
+            <button id="recordManualSessionEmptyButton" class="button button-primary" type="button">Record a session</button>
+            <button id="trendsStartWorkoutButton" class="button button-secondary" type="button">Start a workout</button>
+          </div>
         </section>
 
         <div id="trendsContent" hidden>
@@ -846,6 +852,7 @@
               </div>
               <div class="history-heading-actions">
                 <span id="historyCount" class="counter-pill">0 sessions</span>
+                <button id="recordManualSessionButton" class="button button-secondary button-small" type="button">Record session</button>
                 <button id="clearHistoryButton" class="button button-ghost button-small danger-text" type="button">Clear all</button>
               </div>
             </div>
@@ -1135,6 +1142,7 @@
           </div>
           <p id="backupStatus" class="backup-status" role="status" aria-live="polite"></p>
         </section>
+        <p id="appVersion" class="settings-version">Version 42</p>
       </section>
 
       <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
@@ -1144,7 +1152,9 @@
             <span id="workoutNameDisplay" class="workout-name-display">Workout</span>
             <span id="progressText" class="progress-text">Round 1 of 3</span>
           </div>
-          <button id="voiceToggleButton" class="icon-button" type="button" aria-label="Toggle voice guidance" aria-pressed="true">🔊</button>
+          <button id="voiceToggleButton" class="icon-button" type="button" aria-label="Turn voice guidance off" aria-pressed="true">
+            <svg class="speaker-svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M11.553 3.064A.75.75 0 0112 3.75v16.5a.75.75 0 01-1.255.555L5.46 16H2.75A1.75 1.75 0 011 14.25v-4.5C1 8.784 1.784 8 2.75 8h2.71l5.285-4.805a.75.75 0 01.808-.13zM10.5 5.445l-4.245 3.86a.75.75 0 01-.505.195h-3a.25.25 0 00-.25.25v4.5c0 .138.112.25.25.25h3a.75.75 0 01.505.195l4.245 3.86V5.445z"/><path d="M18.718 4.222a.75.75 0 011.06 0c4.296 4.296 4.296 11.26 0 15.556a.75.75 0 01-1.06-1.06 9.5 9.5 0 000-13.436.75.75 0 010-1.06z"/><path d="M16.243 7.757a.75.75 0 10-1.061 1.061 4.5 4.5 0 010 6.364.75.75 0 001.06 1.06 6 6 0 000-8.485z"/></svg>
+          </button>
         </div>
 
         <div class="timer-stage">
@@ -1562,6 +1572,73 @@
     </form>
   </dialog>
 
+  <dialog id="manualSessionDialog" class="history-dialog manual-session-dialog" aria-labelledby="manualSessionTitle">
+    <form id="manualSessionForm" class="history-dialog-shell manual-session-form">
+      <div class="history-dialog-heading">
+        <div>
+          <p class="eyebrow">WORKOUT HISTORY</p>
+          <h2 id="manualSessionTitle">Record a session</h2>
+        </div>
+        <button id="closeManualSessionButton" class="mini-icon" type="button" aria-label="Close manual session form">×</button>
+      </div>
+      <div class="manual-session-content">
+        <label class="field field-wide">
+          <span>Previously recorded workout <small>optional</small></span>
+          <select id="manualSessionTemplate" name="templateRoutineId">
+            <option value="">New workout</option>
+          </select>
+          <small>Selecting one preserves its workout ID for future comparisons.</small>
+        </label>
+        <label class="field field-wide">
+          <span>Workout name</span>
+          <input id="manualSessionName" name="workoutName" type="text" maxlength="100" autocomplete="off" placeholder="Outside walk" required />
+        </label>
+        <div class="manual-session-date-grid">
+          <label class="field"><span>Date</span><input name="sessionDate" type="date" required /></label>
+          <label class="field"><span>End time</span><input name="sessionTime" type="time" step="60" required /></label>
+        </div>
+        <fieldset class="manual-duration-fieldset">
+          <legend>Duration</legend>
+          <div class="manual-duration-grid">
+            <label><span>Hours</span><input name="durationHours" type="number" min="0" max="48" step="1" inputmode="numeric" value="0" /></label>
+            <label><span>Minutes</span><input name="durationMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" value="30" /></label>
+            <label><span>Seconds</span><input name="durationSeconds" type="number" min="0" max="59" step="1" inputmode="numeric" value="0" /></label>
+          </div>
+        </fieldset>
+        <label class="field session-rpe-field">
+          <span>Effort <small>RPE 1–10</small></span>
+          <select name="rpe" aria-label="Rate of perceived exertion">
+            <option value="">Not recorded</option>
+            <option value="1">1 — Very easy</option><option value="2">2</option><option value="3">3 — Easy</option>
+            <option value="4">4</option><option value="5">5 — Moderate</option><option value="6">6</option>
+            <option value="7">7 — Hard</option><option value="8">8</option><option value="9">9 — Very hard</option>
+            <option value="10">10 — Maximum</option>
+          </select>
+        </label>
+        <fieldset class="zone-input-fieldset">
+          <legend>Heart-rate zone time <small>min.sec</small></legend>
+          <div class="zone-input-grid">
+            <label><span>Z1</span><input name="zone1Minutes" type="number" min="0" max="2880.59" step="0.01" inputmode="decimal" placeholder="0.00" /></label>
+            <label><span>Z2</span><input name="zone2Minutes" type="number" min="0" max="2880.59" step="0.01" inputmode="decimal" placeholder="0.00" /></label>
+            <label><span>Z3</span><input name="zone3Minutes" type="number" min="0" max="2880.59" step="0.01" inputmode="decimal" placeholder="0.00" /></label>
+            <label><span>Z4</span><input name="zone4Minutes" type="number" min="0" max="2880.59" step="0.01" inputmode="decimal" placeholder="0.00" /></label>
+            <label><span>Z5</span><input name="zone5Minutes" type="number" min="0" max="2880.59" step="0.01" inputmode="decimal" placeholder="0.00" /></label>
+          </div>
+          <small class="zone-input-help">Enter minutes.seconds: 7.1 = 7m 01s · 4.32 = 4m 32s</small>
+        </fieldset>
+        <label class="field field-wide session-notes-field">
+          <span>Notes <small>optional</small></span>
+          <textarea name="notes" rows="4" maxlength="500" placeholder="Watch data, route, energy, technique, symptoms, or anything worth remembering"></textarea>
+        </label>
+        <p id="manualSessionStatus" class="session-review-status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="dialog-actions manual-session-actions">
+        <button id="cancelManualSessionButton" class="button button-ghost" type="button">Cancel</button>
+        <button id="saveManualSessionButton" class="button button-primary" type="submit">Save session</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <div id="chartPopover" class="chart-popover" role="status" aria-live="polite" hidden>
     <strong id="chartPopoverValue"></strong>
@@ -1581,7 +1658,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=41" defer></script>
-  <script src="app.js?v=41" defer></script>
+  <script src="wellness.js?v=42" defer></script>
+  <script src="app.js?v=42" defer></script>
 </body>
 </html>

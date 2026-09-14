@@ -4,7 +4,7 @@ Wellbeing uses a quiet, information-first interface derived from the supplied ho
 
 ## Foundation
 
-- Dark background: `#203444`
+- Dark background: `#191919`
 - Primary text: `#FFFFFF`
 - Action and selected-control fill: `#D9D9D9`
 - Muted text and dividers: white at reduced opacity
@@ -12,7 +12,7 @@ Wellbeing uses a quiet, information-first interface derived from the supplied ho
 
 ## Typography
 
-- Inter/system sans-serif throughout.
+- Google Font Inter with a system sans-serif fallback throughout.
 - The WELLBEING wordmark and section headings use bold uppercase text.
 - Eyebrows, metadata and controls use deliberate tracking.
 - Workout names and key values stay in readable mixed case.
