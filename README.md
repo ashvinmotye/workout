@@ -12,6 +12,7 @@ The interface now uses Wellbeing’s **Minimal Navy** design system with the upd
 - Opens cached accounts and device data when the account service is unavailable, with a finite session-check timeout instead of an indefinite connection screen.
 - Gives session notes equal weight in Copy for AI exports.
 - Shows Version 42 discreetly in Settings, loads Google Font Inter, changes the main colour to `#191919`, removes hover animation from the theme and Settings icons, and replaces the voice emoji with the supplied speaker SVG.
+- Replaces the complete install-icon family with the supplied Wellbeing heart-and-check mark, including standard, Apple Touch, maskable and favicon variants.
 - Advances the offline app-shell cache and asset URLs to Version 42. No Supabase migration is required.
 
 ### Upgrade from Version 41
@@ -231,14 +232,14 @@ The dispatcher reads the browser's IANA time zone saved when notifications are e
 - Fixed-size countdown orb and tabular timer digits that do not shift as values change
 - Matching custom SVGs in navigation and individual screen heroes
 
-## Forge icon and icon credits
+## Wellbeing icon and icon credits
 
-Version 31 rebuilds the complete icon family from the supplied navy dumbbell
-artwork. `icons/icon-source.png` preserves the exact original 2048px source.
-The package includes 16, 32, and 48px favicons, a multi-size `.ico`, a
-versioned 180px Apple Touch icon, and standard plus safely padded maskable PWA
-icons at 192 and 512px. Full generation details are recorded in
-`FORGE-ICON.md`.
+Version 42 rebuilds the complete icon family from the supplied Wellbeing
+heart-and-check artwork. `icons/wellbeing-icon.svg` preserves the exact vector
+source, and the supplied 192px and 512px PNGs remain unchanged as the standard
+PWA icons. The package also includes 16, 32, and 48px favicons, a multi-size
+`.ico`, a versioned 180px Apple Touch icon, and safely padded maskable PWA icons
+at 192 and 512px. Full generation details are recorded in `FORGE-ICON.md`.
 
 - Setup: [Iconsax](https://github.com/lusaxweb/iconsax), MIT License
 - Routines: [Muhammad Tajudin](https://dribbble.com/tcodesign), CC Attribution

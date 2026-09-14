@@ -9,15 +9,15 @@ const APP_SHELL = [
   "./wellness.js?v=42",
   "./app.js?v=42",
   "./manifest.webmanifest",
-  "./icons/favicon.ico",
-  "./icons/favicon-16.png",
-  "./icons/favicon-32.png",
-  "./icons/favicon-48.png",
-  "./icons/apple-touch-icon-v31.png",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/icon-maskable-192.png",
-  "./icons/icon-maskable-512.png"
+  "./icons/favicon.ico?v=42",
+  "./icons/favicon-16.png?v=42",
+  "./icons/favicon-32.png?v=42",
+  "./icons/favicon-48.png?v=42",
+  "./icons/apple-touch-icon-v42.png",
+  "./icons/icon-192.png?v=42",
+  "./icons/icon-512.png?v=42",
+  "./icons/icon-maskable-192.png?v=42",
+  "./icons/icon-maskable-512.png?v=42"
 ];
 
 self.addEventListener("install", (event) => {
@@ -77,8 +77,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "Wellbeing reminder";
   const options = {
     body: payload.body || "Open Wellbeing to view your reminder.",
-    icon: "./icons/icon-192.png",
-    badge: "./icons/favicon-48.png",
+    icon: "./icons/icon-192.png?v=42",
+    badge: "./icons/favicon-48.png?v=42",
     tag: payload.tag || `wellbeing-${payload.type || "reminder"}`,
     renotify: true,
     data: {
