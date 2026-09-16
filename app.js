@@ -6,7 +6,7 @@ const THEME_KEY = "voiceWorkout.theme.v1";
 const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
-const APP_VERSION = "43";
+const APP_VERSION = "44";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const AUTH_SESSION_CHECK_TIMEOUT_MS = 4000;
 const BACKUP_APP_ID = "wellbeing";
@@ -69,6 +69,13 @@ const dom = {
   loadedWorkoutCtaSummary: document.querySelector("#loadedWorkoutCtaSummary"),
   startLoadedWorkoutButton: document.querySelector("#startLoadedWorkoutButton"),
   editLoadedWorkoutButton: document.querySelector("#editLoadedWorkoutButton"),
+  configureCircuitButton: document.querySelector("#configureCircuitButton"),
+  configureCircuitDialog: document.querySelector("#configureCircuitDialog"),
+  circuitRoutineList: document.querySelector("#circuitRoutineList"),
+  circuitRoutineSelect: document.querySelector("#circuitRoutineSelect"),
+  circuitSelectionHint: document.querySelector("#circuitSelectionHint"),
+  cancelCircuitButton: document.querySelector("#cancelCircuitButton"),
+  startCircuitButton: document.querySelector("#startCircuitButton"),
   loadedSessionSettings: document.querySelector("#loadedSessionSettings"),
   loadedExerciseCount: document.querySelector("#loadedExerciseCount"),
   loadedExerciseList: document.querySelector("#loadedExerciseList"),
@@ -115,10 +122,6 @@ const dom = {
   voiceAvailability: document.querySelector("#voiceAvailability"),
   voiceDetail: document.querySelector("#voiceDetail"),
   exerciseList: document.querySelector("#exerciseList"),
-  circuitsContainer: document.querySelector("#circuitsContainer"),
-  firstCircuit: document.querySelector("#firstCircuit"),
-  circuitTemplate: document.querySelector("#circuitTemplate"),
-  addCircuitButton: document.querySelector("#addCircuitButton"),
   exerciseTemplate: document.querySelector("#exerciseTemplate"),
   exerciseCount: document.querySelector("#exerciseCount"),
   addExerciseButton: document.querySelector("#addExerciseButton"),
@@ -268,6 +271,8 @@ const dom = {
 };
 
 let workout = null;
+let routineSequence = null;
+let selectedCircuitRoutineIds = [];
 let runtime = createEmptyRuntime();
 let wakeLock = null;
 let audioContext = null;
@@ -302,9 +307,9 @@ let pendingLaunchDestination = null;
 function createEmptyRuntime() {
   return {
     routineId: null,
+    sequenceIndex: 0,
+    pendingNextRoutine: false,
     phase: null,
-    circuitIndex: 0,
-    nextCircuitIndex: 0,
     roundIndex: 0,
     exerciseIndex: 0,
     remainingSeconds: 0,
@@ -1220,56 +1225,35 @@ function handleAppVisibilityChange() {
 
 function normalizeWorkout(candidate) {
   const fallback = defaultWorkout();
-  const source = candidate && typeof candidate === "object" ? candidate : fallback;
-  const normalizeExercises = (items) => (Array.isArray(items) ? items : fallback.exercises)
-    .filter((exercise) => exercise && typeof exercise === "object")
-    .map((exercise) => ({
-      id: typeof exercise.id === "string" ? exercise.id : uid(),
-      name: typeof exercise.name === "string" ? exercise.name : "",
-      mode: exercise.mode === "time" ? "time" : "reps",
-      value: clampInteger(exercise.value, 1, exercise.mode === "time" ? 3600 : 9999, 10),
-      rest: clampInteger(exercise.rest, 0, 600, 20),
-      weight: typeof exercise.weight === "string" ? exercise.weight : "",
-      perSide: Boolean(exercise.perSide),
-      note: typeof exercise.note === "string" ? exercise.note : ""
-    }));
-  const circuitSources = Array.isArray(source.circuits) && source.circuits.length
-    ? source.circuits.slice(0, 20)
-    : [{ name: "Circuit 1", rounds: source.rounds, roundRest: source.roundRest, exercises: source.exercises }];
-  const circuits = circuitSources.map((circuit, index) => {
-    const entry = circuit && typeof circuit === "object" ? circuit : {};
-    const exercises = normalizeExercises(entry.exercises);
-    return {
-      name: typeof entry.name === "string" && entry.name.trim() ? entry.name.trim().slice(0, 60) : `Circuit ${index + 1}`,
-      rounds: clampInteger(entry.rounds, 1, 99, fallback.rounds),
-      roundRest: clampInteger(entry.roundRest, 0, 3600, fallback.roundRest),
-      exercises: exercises.length ? exercises : normalizeExercises(fallback.exercises)
-    };
-  });
+  if (!candidate || typeof candidate !== "object") return fallback;
+
+  const exercises = Array.isArray(candidate.exercises)
+    ? candidate.exercises.map((exercise) => ({
+        id: typeof exercise.id === "string" ? exercise.id : uid(),
+        name: typeof exercise.name === "string" ? exercise.name : "",
+        mode: exercise.mode === "time" ? "time" : "reps",
+        value: clampInteger(exercise.value, 1, 9999, 10),
+        rest: clampInteger(exercise.rest, 0, 600, 20),
+        weight: typeof exercise.weight === "string" ? exercise.weight : "",
+        perSide: Boolean(exercise.perSide),
+        note: typeof exercise.note === "string" ? exercise.note : ""
+      }))
+    : fallback.exercises;
 
   return {
-    name: typeof source.name === "string" && source.name.trim() ? source.name.trim() : fallback.name,
-    rounds: circuits[0].rounds,
-    roundRest: circuits[0].roundRest,
-    prepTime: clampInteger(source.prepTime, 0, 60, fallback.prepTime),
-    defaultRest: clampInteger(source.defaultRest, 0, 600, fallback.defaultRest),
-    voiceEnabled: source.voiceEnabled !== false,
-    countdownVoice: source.countdownVoice !== false,
-    soundEffects: source.soundEffects !== false,
-    voiceURI: typeof source.voiceURI === "string" ? source.voiceURI : "",
-    voiceName: typeof source.voiceName === "string" ? source.voiceName : "",
-    voiceDetail: source.voiceDetail === "minimal" ? "minimal" : "full",
-    exercises: circuits[0].exercises,
-    circuits
+    name: typeof candidate.name === "string" && candidate.name.trim() ? candidate.name.trim() : fallback.name,
+    rounds: clampInteger(candidate.rounds, 1, 99, fallback.rounds),
+    roundRest: clampInteger(candidate.roundRest, 0, 3600, fallback.roundRest),
+    prepTime: clampInteger(candidate.prepTime, 0, 60, fallback.prepTime),
+    defaultRest: clampInteger(candidate.defaultRest, 0, 600, fallback.defaultRest),
+    voiceEnabled: candidate.voiceEnabled !== false,
+    countdownVoice: candidate.countdownVoice !== false,
+    soundEffects: candidate.soundEffects !== false,
+    voiceURI: typeof candidate.voiceURI === "string" ? candidate.voiceURI : "",
+    voiceName: typeof candidate.voiceName === "string" ? candidate.voiceName : "",
+    voiceDetail: candidate.voiceDetail === "minimal" ? "minimal" : "full",
+    exercises: exercises.length ? exercises : fallback.exercises
   };
-}
-
-function allWorkoutExercises(candidate) {
-  return candidate.circuits.flatMap((circuit) => circuit.exercises);
-}
-
-function totalWorkoutRounds(candidate) {
-  return candidate.circuits.reduce((sum, circuit) => sum + circuit.rounds, 0);
 }
 
 function clampInteger(value, min, max, fallback) {
@@ -1317,7 +1301,7 @@ function formatRoutineWeight(value) {
 function getRoutineWeightLabels(workout) {
   const labels = [];
   const seen = new Set();
-  (workout?.circuits?.length ? allWorkoutExercises(workout) : (workout?.exercises || [])).forEach((exercise) => {
+  (workout?.exercises || []).forEach((exercise) => {
     const label = formatRoutineWeight(exercise.weight);
     if (!label) return;
     const key = label.toLocaleLowerCase().replace(/\s+/g, "").replaceAll("×", "x");
@@ -1353,8 +1337,8 @@ function normalizeHistoryExercise(exercise) {
     weight: typeof exercise.weight === "string" ? exercise.weight : "",
     perSide: Boolean(exercise.perSide),
     note: typeof exercise.note === "string" ? exercise.note : "",
-    circuitName: typeof exercise.circuitName === "string" ? exercise.circuitName.trim() : "",
-    circuitIndex: clampInteger(exercise.circuitIndex, 0, 19, 0),
+    circuitName: typeof exercise.circuitName === "string" ? exercise.circuitName : "",
+    circuitIndex: clampInteger(exercise.circuitIndex, 0, 9999, 0),
     completedSets: clampInteger(exercise.completedSets, 0, 9999, 0)
   };
 }
@@ -1387,8 +1371,8 @@ function normalizeHistoryRecord(record) {
     status: record.status === "partial" ? "partial" : "completed",
     workoutName: typeof record.workoutName === "string" && record.workoutName.trim() ? record.workoutName.trim() : "Workout",
     durationSeconds,
-    plannedRounds: clampInteger(record.plannedRounds, 1, 1980, 1),
-    completedRounds: clampInteger(record.completedRounds, 0, 1980, 0),
+    plannedRounds: clampInteger(record.plannedRounds, 1, 999999, 1),
+    completedRounds: clampInteger(record.completedRounds, 0, 999999, 0),
     exercises,
     rpe: Number.isFinite(rpe) && rpe >= 1 && rpe <= 10 ? rpe : null,
     zone1Seconds: normalizeOptionalSeconds(record.zone1Seconds),
@@ -1994,28 +1978,32 @@ function resumeSessionClock() {
 function recordWorkoutSession(status) {
   if (!workout || runtime.historyRecorded) return null;
   const endedAt = Date.now();
-  const counts = allWorkoutExercises(workout).map((_, index) => clampInteger(runtime.exerciseCompletionCounts[index], 0, 9999, 0));
-  const record = {
-    id: sessionUid(),
-    routineId: runtime.routineId || null,
-    startedAt: runtime.startedAt || endedAt,
-    endedAt,
-    status: status === "partial" ? "partial" : "completed",
-    workoutName: workout.name,
-    durationSeconds: Math.max(0, Math.round(getElapsedDurationMs(endedAt) / 1000)),
-    plannedRounds: totalWorkoutRounds(workout),
-    completedRounds: status === "completed" ? totalWorkoutRounds(workout) : runtime.completedRounds,
-    exercises: workout.circuits.flatMap((circuit, circuitIndex) => circuit.exercises.map((exercise, exerciseIndex) => ({
+  const counts = sequenceExercises().map((_, index) => clampInteger(runtime.exerciseCompletionCounts[index], 0, 9999, 0));
+  let exerciseIndex = 0;
+  const exercises = (routineSequence || [{ workout }]).flatMap((item, circuitIndex) =>
+    item.workout.exercises.map((exercise) => ({
       name: exercise.name,
-      circuitName: circuit.name,
+      circuitName: routineSequence ? item.workout.name : "",
       circuitIndex,
       mode: exercise.mode,
       value: exercise.value,
       weight: exercise.weight,
       perSide: exercise.perSide,
       note: exercise.note,
-      completedSets: counts[workout.circuits.slice(0, circuitIndex).reduce((sum, item) => sum + item.exercises.length, 0) + exerciseIndex]
-    })))
+      completedSets: counts[exerciseIndex++]
+    }))
+  );
+  const record = {
+    id: sessionUid(),
+    routineId: runtime.routineId || null,
+    startedAt: runtime.startedAt || endedAt,
+    endedAt,
+    status: status === "partial" ? "partial" : "completed",
+    workoutName: circuitSessionName(),
+    durationSeconds: Math.max(0, Math.round(getElapsedDurationMs(endedAt) / 1000)),
+    plannedRounds: sequenceRounds(),
+    completedRounds: status === "completed" ? sequenceRounds() : runtime.completedRounds,
+    exercises
   };
 
   const history = loadWorkoutHistory();
@@ -2099,7 +2087,7 @@ function autoLinkLegacyRoutineSessions() {
   const byFingerprint = new Map();
   routines.forEach((routine) => {
     addRoutineIdentityCandidate(byName, normalizeRoutineIdentityText(routine.workout.name), routine);
-    addRoutineIdentityCandidate(byFingerprint, routineExerciseFingerprint(allWorkoutExercises(routine.workout)), routine);
+    addRoutineIdentityCandidate(byFingerprint, routineExerciseFingerprint(routine.workout.exercises), routine);
   });
 
   const changed = [];
@@ -2847,17 +2835,12 @@ function renderSettingsSummary() {
 
 function cloneWorkout(candidate, regenerateExerciseIds = false) {
   const normalized = normalizeWorkout(candidate);
-  const circuits = normalized.circuits.map((circuit) => ({
-    ...circuit,
-    exercises: circuit.exercises.map((exercise) => ({
+  return {
+    ...normalized,
+    exercises: normalized.exercises.map((exercise) => ({
       ...exercise,
       id: regenerateExerciseIds ? uid() : (exercise.id || uid())
     }))
-  }));
-  return {
-    ...normalized,
-    circuits,
-    exercises: circuits[0].exercises
   };
 }
 
@@ -2954,22 +2937,22 @@ function renderSetupHomepage() {
     dom.setupTitle.textContent = activeSavedWorkoutId ? "Edit your workout" : "Set up your workout";
     dom.setupIntro.textContent = activeSavedWorkoutId
       ? "Adjust the loaded routine, then save your changes or start it from the editor."
-      : "Create a circuit, choose repetitions or timed exercises, then let the app guide you.";
+      : "Create a routine, choose repetitions or timed exercises, then let the app guide you.";
     return;
   }
 
   const loadedWorkout = normalizeWorkout(record.workout);
-  const exerciseCount = allWorkoutExercises(loadedWorkout).length;
-  const rounds = totalWorkoutRounds(loadedWorkout);
-  const circuitCount = loadedWorkout.circuits.length;
+  const exerciseCount = loadedWorkout.exercises.length;
   dom.setupEyebrow.textContent = "YOUR WORKOUT";
   dom.setupTitle.textContent = loadedWorkout.name;
   dom.setupIntro.textContent = "Your workout is loaded and ready. Review the session below, then start when you are set.";
-  dom.loadedWorkoutCtaSummary.textContent = `${circuitCount} ${circuitCount === 1 ? "circuit" : "circuits"} · ${rounds} ${rounds === 1 ? "round" : "rounds"} · ${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`;
+  dom.loadedWorkoutCtaSummary.textContent = `${loadedWorkout.rounds} ${loadedWorkout.rounds === 1 ? "round" : "rounds"} · ${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`;
   dom.loadedExerciseCount.textContent = `${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`;
 
   dom.loadedSessionSettings.replaceChildren();
   const settings = [
+    ["Rounds", String(loadedWorkout.rounds)],
+    ["Round rest", formatDuration(loadedWorkout.roundRest)],
     ["Starting countdown", formatDuration(loadedWorkout.prepTime)],
     ["Exercise rest", formatDuration(loadedWorkout.defaultRest)]
   ];
@@ -2984,45 +2967,35 @@ function renderSetupHomepage() {
   });
 
   dom.loadedExerciseList.replaceChildren();
-  loadedWorkout.circuits.forEach((circuit, circuitIndex) => {
-    const circuitHeading = document.createElement("div");
-    circuitHeading.className = "loaded-circuit-heading";
-    const title = document.createElement("h4");
-    title.textContent = `${circuitIndex + 1}. ${circuit.name}`;
-    const detail = document.createElement("p");
-    detail.textContent = `${circuit.rounds} ${circuit.rounds === 1 ? "round" : "rounds"} · ${formatDuration(circuit.roundRest)} rest${circuitIndex < circuitCount - 1 ? " before next circuit" : ""}`;
-    circuitHeading.append(title, detail);
-    dom.loadedExerciseList.append(circuitHeading);
-    circuit.exercises.forEach((exercise, index) => {
-      const card = document.createElement("article");
-      card.className = "loaded-exercise-card";
+  loadedWorkout.exercises.forEach((exercise, index) => {
+    const card = document.createElement("article");
+    card.className = "loaded-exercise-card";
 
-      const heading = document.createElement("div");
-      heading.className = "loaded-exercise-heading";
-      const number = document.createElement("span");
-      number.className = "loaded-exercise-number";
-      number.textContent = String(index + 1);
-      const name = document.createElement("h4");
-      name.textContent = exercise.name || `Exercise ${index + 1}`;
-      heading.append(number, name);
+    const heading = document.createElement("div");
+    heading.className = "loaded-exercise-heading";
+    const number = document.createElement("span");
+    number.className = "loaded-exercise-number";
+    number.textContent = String(index + 1);
+    const name = document.createElement("h4");
+    name.textContent = exercise.name || `Exercise ${index + 1}`;
+    heading.append(number, name);
 
-      const meta = document.createElement("p");
-      meta.className = "loaded-exercise-meta";
-      meta.textContent = [
-        targetText(exercise),
-        formatRoutineWeight(exercise.weight) || "None",
-        exercise.rest > 0 ? `${formatDuration(exercise.rest)} rest` : "No rest"
-      ].join(" • ");
-      card.append(heading, meta);
+    const meta = document.createElement("p");
+    meta.className = "loaded-exercise-meta";
+    meta.textContent = [
+      targetText(exercise),
+      formatRoutineWeight(exercise.weight) || "None",
+      exercise.rest > 0 ? `${formatDuration(exercise.rest)} rest` : "No rest"
+    ].join(" • ");
+    card.append(heading, meta);
 
-      if (exercise.note.trim()) {
-        const note = document.createElement("p");
-        note.className = "loaded-exercise-note";
-        note.textContent = exercise.note;
-        card.append(note);
-      }
-      dom.loadedExerciseList.append(card);
-    });
+    if (exercise.note.trim()) {
+      const note = document.createElement("p");
+      note.className = "loaded-exercise-note";
+      note.textContent = exercise.note;
+      card.append(note);
+    }
+    dom.loadedExerciseList.append(card);
   });
 }
 
@@ -3054,6 +3027,121 @@ function startLoadedWorkout() {
   startWorkout(cloneWorkout(record.workout, false));
 }
 
+function renderCircuitSelection() {
+  const records = loadSavedWorkouts();
+  const selected = new Set(selectedCircuitRoutineIds);
+  dom.circuitRoutineList.replaceChildren();
+  selectedCircuitRoutineIds.forEach((id, index) => {
+    const record = records.find((item) => item.id === id);
+    if (!record) return;
+    const item = document.createElement("li");
+    const details = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${index + 1}. ${record.workout.name}`;
+    const meta = document.createElement("small");
+    meta.textContent = `${record.workout.rounds} ${record.workout.rounds === 1 ? "round" : "rounds"} · ${record.workout.exercises.length} ${record.workout.exercises.length === 1 ? "exercise" : "exercises"}`;
+    details.append(title, meta);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "button button-ghost button-small";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove ${record.workout.name} from circuit`);
+    remove.addEventListener("click", () => {
+      selectedCircuitRoutineIds = selectedCircuitRoutineIds.filter((selectedId) => selectedId !== id);
+      renderCircuitSelection();
+      dom.circuitRoutineSelect.focus();
+    });
+    item.append(details, remove);
+    dom.circuitRoutineList.append(item);
+  });
+
+  dom.circuitRoutineSelect.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select a routine";
+  dom.circuitRoutineSelect.append(placeholder);
+  records.filter((record) => !selected.has(record.id)).forEach((record) => {
+    const option = document.createElement("option");
+    option.value = record.id;
+    option.textContent = record.workout.name;
+    dom.circuitRoutineSelect.append(option);
+  });
+  dom.circuitRoutineSelect.disabled = selected.size >= records.length;
+  const validSelection = selectedCircuitRoutineIds.length >= 2
+    && selectedCircuitRoutineIds.every((id) => records.some((record) => record.id === id));
+  dom.startCircuitButton.disabled = !validSelection;
+  dom.circuitSelectionHint.textContent = validSelection
+    ? `${selectedCircuitRoutineIds.length} routines will run in the order shown.`
+    : records.length < 2 ? "Save at least two routines to build a circuit." : "Choose at least two routines.";
+}
+
+function openCircuitDialog() {
+  selectedCircuitRoutineIds = [];
+  renderCircuitSelection();
+  if (typeof dom.configureCircuitDialog.showModal === "function") dom.configureCircuitDialog.showModal();
+  else dom.configureCircuitDialog.setAttribute("open", "");
+  dom.circuitRoutineSelect.focus();
+}
+
+function closeCircuitDialog() {
+  if (typeof dom.configureCircuitDialog.close === "function") dom.configureCircuitDialog.close();
+  else dom.configureCircuitDialog.removeAttribute("open");
+  selectedCircuitRoutineIds = [];
+}
+
+function startConfiguredCircuit() {
+  const records = loadSavedWorkouts();
+  const sequence = selectedCircuitRoutineIds.map((id) => records.find((record) => record.id === id));
+  if (sequence.length < 2 || sequence.some((record) => !record)) {
+    renderCircuitSelection();
+    return;
+  }
+  const snapshots = sequence.map((record) => ({ id: record.id, workout: cloneWorkout(record.workout) }));
+  closeCircuitDialog();
+  startWorkout(snapshots[0].workout, { sequence: snapshots });
+}
+
+function sequenceExercises() {
+  return routineSequence ? routineSequence.flatMap((item) => item.workout.exercises) : workout.exercises;
+}
+
+function sequenceRounds() {
+  return routineSequence
+    ? routineSequence.reduce((total, item) => total + item.workout.rounds, 0)
+    : workout.rounds;
+}
+
+function previousSequenceRounds() {
+  return routineSequence
+    ? routineSequence.slice(0, runtime.sequenceIndex).reduce((total, item) => total + item.workout.rounds, 0)
+    : 0;
+}
+
+function sequenceExerciseOffset() {
+  return routineSequence
+    ? routineSequence.slice(0, runtime.sequenceIndex).reduce((total, item) => total + item.workout.exercises.length, 0)
+    : 0;
+}
+
+function circuitSessionName() {
+  if (!routineSequence) return workout.name;
+  const names = routineSequence.map((item) => item.workout.name);
+  return names.length > 3
+    ? `Circuit: ${names[0]} → ${names[1]} → … → ${names[names.length - 1]}`
+    : `Circuit: ${names.join(" → ")}`;
+}
+
+function circuitRoutineId(sequence) {
+  const key = JSON.stringify(sequence.map((item) => item.id));
+  let first = 2166136261;
+  let second = 3674485669;
+  for (let index = 0; index < key.length; index += 1) {
+    first = Math.imul(first ^ key.charCodeAt(index), 16777619);
+    second = Math.imul(second ^ key.charCodeAt(index), 2246822519);
+  }
+  return `circuit-${(first >>> 0).toString(16)}-${(second >>> 0).toString(16)}`;
+}
+
 function renderSuggestedRoutines(records) {
   const today = new Date().getDay();
   const suggested = records
@@ -3078,8 +3166,7 @@ function renderSuggestedRoutines(records) {
     const summary = document.createElement("span");
     const weightSummary = formatRoutineWeightSummary(record.workout);
     name.textContent = record.workout.name;
-    const exerciseCount = allWorkoutExercises(record.workout).length;
-    summary.textContent = `${formatRoutineRole(record.routineRole)} · ${record.workout.circuits.length} ${record.workout.circuits.length === 1 ? "circuit" : "circuits"} · ${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"} · ${totalWorkoutRounds(record.workout)} rounds`;
+    summary.textContent = `${formatRoutineRole(record.routineRole)} · ${record.workout.exercises.length} ${record.workout.exercises.length === 1 ? "exercise" : "exercises"} · ${record.workout.rounds} ${record.workout.rounds === 1 ? "round" : "rounds"}`;
     copy.append(name, summary);
     if (weightSummary) {
       const weights = document.createElement("span");
@@ -3171,15 +3258,14 @@ function renderSavedWorkouts() {
   records.forEach((record) => {
     const cardFragment = dom.savedWorkoutTemplate.content.cloneNode(true);
     const card = cardFragment.querySelector(".saved-workout-card");
-    const exerciseNames = allWorkoutExercises(record.workout).map((exercise) => exercise.name).filter(Boolean);
+    const exerciseNames = record.workout.exercises.map((exercise) => exercise.name).filter(Boolean);
     const weightSummary = formatRoutineWeightSummary(record.workout);
     const remaining = Math.max(0, exerciseNames.length - 3);
 
     card.dataset.id = record.id;
     card.classList.toggle("is-active", record.id === activeSavedWorkoutId);
     card.querySelector(".saved-workout-name").textContent = record.workout.name;
-    const roundCount = totalWorkoutRounds(record.workout);
-    card.querySelector(".saved-workout-summary").textContent = `${record.workout.circuits.length} ${record.workout.circuits.length === 1 ? "circuit" : "circuits"} • ${exerciseNames.length} ${exerciseNames.length === 1 ? "exercise" : "exercises"} • ${roundCount} ${roundCount === 1 ? "round" : "rounds"}`;
+    card.querySelector(".saved-workout-summary").textContent = `${record.workout.exercises.length} ${record.workout.exercises.length === 1 ? "exercise" : "exercises"} • ${record.workout.rounds} ${record.workout.rounds === 1 ? "round" : "rounds"}`;
     const weights = card.querySelector(".saved-workout-weights");
     weights.textContent = weightSummary;
     weights.hidden = !weightSummary;
@@ -3467,20 +3553,19 @@ function deleteSavedWorkout(id) {
 
 function createBlankWorkout() {
   const current = loadSettings();
-  const firstCircuit = {
-    name: "Circuit 1",
-    rounds: current.rounds,
-    roundRest: current.roundRest,
-    exercises: [{
-      id: uid(), name: "", mode: "reps", value: 10,
-      rest: current.defaultRest, weight: "", perSide: false, note: ""
-    }]
-  };
   return {
     ...current,
     name: "My workout",
-    exercises: firstCircuit.exercises,
-    circuits: [firstCircuit]
+    exercises: [{
+      id: uid(),
+      name: "",
+      mode: "reps",
+      value: 10,
+      rest: current.defaultRest,
+      weight: "",
+      perSide: false,
+      note: ""
+    }]
   };
 }
 
@@ -3496,70 +3581,23 @@ function startNewWorkout() {
 }
 
 function populateForm(data) {
-  const normalized = normalizeWorkout(data);
-  dom.workoutName.value = normalized.name;
-  dom.prepTime.value = normalized.prepTime;
-  dom.defaultRest.value = normalized.defaultRest;
-  dom.voiceEnabled.checked = normalized.voiceEnabled;
-  dom.countdownVoice.checked = normalized.countdownVoice;
-  dom.soundEffects.checked = normalized.soundEffects;
-  dom.voiceDetail.value = normalized.voiceDetail;
-  populateVoiceOptions(normalized.voiceURI, normalized.voiceName);
-  dom.circuitsContainer.querySelectorAll(".circuit-panel:not(#firstCircuit)").forEach((section) => {
-    section.sortableCleanup?.();
-    section.remove();
-  });
-  const first = normalized.circuits[0];
-  dom.firstCircuit.querySelector(".circuit-name").value = first.name;
-  dom.rounds.value = first.rounds;
-  dom.roundRest.value = first.roundRest;
+  dom.workoutName.value = data.name;
+  dom.rounds.value = data.rounds;
+  dom.roundRest.value = data.roundRest;
+  dom.prepTime.value = data.prepTime;
+  dom.defaultRest.value = data.defaultRest;
+  dom.voiceEnabled.checked = data.voiceEnabled;
+  dom.countdownVoice.checked = data.countdownVoice;
+  dom.soundEffects.checked = data.soundEffects;
+  dom.voiceDetail.value = data.voiceDetail;
+  populateVoiceOptions(data.voiceURI, data.voiceName);
   dom.exerciseList.replaceChildren();
-  first.exercises.forEach((exercise) => addExerciseCard(exercise, dom.firstCircuit));
-  normalized.circuits.slice(1).forEach((circuit) => addCircuitSection(circuit, false));
-  updateCircuitNumbers();
+  data.exercises.forEach((exercise) => addExerciseCard(exercise));
+  updateExerciseCards();
   updateSavedWorkoutStatus();
 }
 
-function getCircuitSections() {
-  return [...dom.circuitsContainer.querySelectorAll(".circuit-panel")];
-}
-
-function updateCircuitNumbers() {
-  getCircuitSections().forEach((section, index) => {
-    section.querySelector(".circuit-position").textContent = `CIRCUIT ${index + 1}`;
-  });
-  dom.addCircuitButton.disabled = getCircuitSections().length >= 20;
-}
-
-function addCircuitSection(circuit = null, focus = true) {
-  if (getCircuitSections().length >= 20) return;
-  const index = getCircuitSections().length;
-  const fragment = dom.circuitTemplate.content.cloneNode(true);
-  const section = fragment.querySelector(".circuit-panel");
-  section.querySelector(".circuit-name").value = circuit?.name || `Circuit ${index + 1}`;
-  section.querySelector(".circuit-rounds").value = circuit?.rounds ?? 3;
-  section.querySelector(".circuit-round-rest").value = circuit?.roundRest ?? 60;
-  section.querySelector(".circuit-add-exercise").addEventListener("click", () => addExerciseCard(null, section));
-  section.querySelector(".remove-circuit").addEventListener("click", () => {
-    section.sortableCleanup?.();
-    section.remove();
-    updateCircuitNumbers();
-    saveFormDraft();
-  });
-  section.sortableCleanup = setupPointerSortable(section.querySelector(".circuit-exercise-list"), ".exercise-card", ".exercise-drag-handle", () => {
-    updateExerciseCards(section);
-    saveFormDraft();
-  });
-  dom.circuitsContainer.append(fragment);
-  (circuit?.exercises || [null]).forEach((exercise) => addExerciseCard(exercise, section));
-  updateCircuitNumbers();
-  if (focus) {
-    section.querySelector(".circuit-name").focus();
-    saveFormDraft();
-  }
-}
-
-function addExerciseCard(exercise = null, circuitSection = dom.firstCircuit) {
+function addExerciseCard(exercise = null) {
   const defaultRest = clampInteger(dom.defaultRest.value, 0, 600, 20);
   const data = exercise || {
     id: uid(),
@@ -3597,42 +3635,39 @@ function addExerciseCard(exercise = null, circuitSection = dom.firstCircuit) {
   card.addEventListener("input", () => saveFormDraft());
   card.addEventListener("change", () => saveFormDraft());
 
-  circuitSection.querySelector(".circuit-exercise-list").appendChild(fragment);
+  dom.exerciseList.appendChild(fragment);
   updateExerciseMode(card);
-  updateExerciseCards(circuitSection);
+  updateExerciseCards();
   if (!exercise) name.focus({ preventScroll: false });
 }
 
 function removeExerciseCard(card) {
-  const section = card.closest(".circuit-panel");
-  const cards = getExerciseCards(section);
+  const cards = getExerciseCards();
   if (cards.length <= 1) {
     showFormError("A workout needs at least one exercise.");
     return;
   }
   card.remove();
-  updateExerciseCards(section);
+  updateExerciseCards();
   saveFormDraft();
 }
 
-function getExerciseCards(section = dom.firstCircuit) {
-  return [...section.querySelectorAll(".circuit-exercise-list > .exercise-card")];
+function getExerciseCards() {
+  return [...dom.exerciseList.querySelectorAll(".exercise-card")];
 }
 
-function updateExerciseCards(section = dom.firstCircuit) {
-  const cards = getExerciseCards(section);
+function updateExerciseCards() {
+  const cards = getExerciseCards();
   cards.forEach((card, index) => {
     card.querySelector(".exercise-number").textContent = String(index + 1);
   });
-  section.querySelector(".counter-pill").textContent = `${cards.length} ${cards.length === 1 ? "exercise" : "exercises"}`;
+  dom.exerciseCount.textContent = `${cards.length} ${cards.length === 1 ? "exercise" : "exercises"}`;
 }
 
 function setupPointerSortable(container, itemSelector, handleSelector, onCommit) {
   let activeItem = null;
   let activePointerId = null;
   let moved = false;
-  const controller = new AbortController();
-  const signal = controller.signal;
 
   const orderedItems = () => [...container.querySelectorAll(itemSelector)];
   const commit = () => onCommit(orderedItems().map((item) => item.dataset.id).filter(Boolean));
@@ -3662,7 +3697,7 @@ function setupPointerSortable(container, itemSelector, handleSelector, onCommit)
     const changed = orderedItems().some((item, index) => item !== beforeOrder[index]);
     if (!changed) return;
     moved = true;
-    if (itemSelector === ".exercise-card") updateExerciseCards(activeItem.closest(".circuit-panel"));
+    if (itemSelector === ".exercise-card") updateExerciseCards();
   };
   const finish = () => {
     if (!activeItem) return;
@@ -3681,50 +3716,50 @@ function setupPointerSortable(container, itemSelector, handleSelector, onCommit)
       const handle = event.target.closest?.(handleSelector);
       if (!handle || !start(handle, event.pointerId)) return;
       event.preventDefault();
-    }, { signal });
+    });
 
     document.addEventListener("pointermove", (event) => {
       if (!activeItem || event.pointerId !== activePointerId) return;
       event.preventDefault();
       move(event.clientY);
-    }, { passive: false, signal });
+    }, { passive: false });
     document.addEventListener("pointerup", (event) => {
       if (activeItem && event.pointerId === activePointerId) finish();
-    }, { signal });
+    });
     document.addEventListener("pointercancel", (event) => {
       if (activeItem && event.pointerId === activePointerId) finish();
-    }, { signal });
+    });
   } else {
     container.addEventListener("touchstart", (event) => {
       if (event.touches.length !== 1) return;
       const handle = event.target.closest?.(handleSelector);
       if (!handle || !start(handle, event.touches[0].identifier)) return;
       event.preventDefault();
-    }, { passive: false, signal });
+    }, { passive: false });
     document.addEventListener("touchmove", (event) => {
       if (!activeItem) return;
       const touch = [...event.touches].find((candidate) => candidate.identifier === activePointerId);
       if (!touch) return;
       event.preventDefault();
       move(touch.clientY);
-    }, { passive: false, signal });
-    document.addEventListener("touchend", finish, { signal });
-    document.addEventListener("touchcancel", finish, { signal });
+    }, { passive: false });
+    document.addEventListener("touchend", finish);
+    document.addEventListener("touchcancel", finish);
 
     container.addEventListener("mousedown", (event) => {
       if (event.button > 0) return;
       const handle = event.target.closest?.(handleSelector);
       if (!handle || !start(handle, "mouse")) return;
       event.preventDefault();
-    }, { signal });
+    });
     document.addEventListener("mousemove", (event) => {
       if (!activeItem || activePointerId !== "mouse") return;
       event.preventDefault();
       move(event.clientY);
-    }, { signal });
+    });
     document.addEventListener("mouseup", () => {
       if (activeItem && activePointerId === "mouse") finish();
-    }, { signal });
+    });
   }
 
   container.addEventListener("keydown", (event) => {
@@ -3737,14 +3772,10 @@ function setupPointerSortable(container, itemSelector, handleSelector, onCommit)
     event.preventDefault();
     if (event.key === "ArrowUp") container.insertBefore(item, sibling);
     else container.insertBefore(sibling, item);
-    if (itemSelector === ".exercise-card") updateExerciseCards(item.closest(".circuit-panel"));
+    if (itemSelector === ".exercise-card") updateExerciseCards();
     commit();
     handle.focus();
-  }, { signal });
-  return () => {
-    finish();
-    controller.abort();
-  };
+  });
 }
 
 function updateExerciseMode(card) {
@@ -3756,20 +3787,15 @@ function updateExerciseMode(card) {
 }
 
 function collectWorkoutFromForm() {
-  const circuits = getCircuitSections().map((section) => ({
-    name: section.querySelector(".circuit-name").value.trim(),
-    rounds: Number.parseInt(section.querySelector(".circuit-rounds").value, 10),
-    roundRest: Number.parseInt(section.querySelector(".circuit-round-rest").value, 10),
-    exercises: getExerciseCards(section).map((card) => ({
-      id: card.dataset.id || uid(),
-      name: card.querySelector(".exercise-name").value.trim(),
-      mode: card.querySelector(".exercise-mode").value === "time" ? "time" : "reps",
-      value: Number.parseInt(card.querySelector(".exercise-value").value, 10),
-      rest: Number.parseInt(card.querySelector(".exercise-rest").value, 10),
-      weight: card.querySelector(".exercise-weight").value.trim(),
-      perSide: card.querySelector(".exercise-per-side").checked,
-      note: card.querySelector(".exercise-note").value.trim()
-    }))
+  const exercises = getExerciseCards().map((card) => ({
+    id: card.dataset.id || uid(),
+    name: card.querySelector(".exercise-name").value.trim(),
+    mode: card.querySelector(".exercise-mode").value === "time" ? "time" : "reps",
+    value: Number.parseInt(card.querySelector(".exercise-value").value, 10),
+    rest: Number.parseInt(card.querySelector(".exercise-rest").value, 10),
+    weight: card.querySelector(".exercise-weight").value.trim(),
+    perSide: card.querySelector(".exercise-per-side").checked,
+    note: card.querySelector(".exercise-note").value.trim()
   }));
 
   const selectedVoice = getVoiceByKey(dom.voiceSelect.value);
@@ -3777,8 +3803,8 @@ function collectWorkoutFromForm() {
 
   return {
     name: dom.workoutName.value.trim() || "My workout",
-    rounds: circuits[0].rounds,
-    roundRest: circuits[0].roundRest,
+    rounds: Number.parseInt(dom.rounds.value, 10),
+    roundRest: Number.parseInt(dom.roundRest.value, 10),
     prepTime: Number.parseInt(dom.prepTime.value, 10),
     defaultRest: Number.parseInt(dom.defaultRest.value, 10),
     voiceEnabled: dom.voiceEnabled.checked,
@@ -3787,8 +3813,7 @@ function collectWorkoutFromForm() {
     voiceURI: selectedVoice ? voiceKey(selectedVoice) : (dom.voiceSelect.value || ""),
     voiceName: selectedVoice?.name || selectedOption?.dataset.voiceName || "",
     voiceDetail: dom.voiceDetail.value === "minimal" ? "minimal" : "full",
-    exercises: circuits[0].exercises,
-    circuits
+    exercises
   };
 }
 
@@ -3796,41 +3821,33 @@ function validateWorkout(candidate) {
   clearInvalidFields();
   const problems = [];
 
+  validateNumberInput(dom.rounds, candidate.rounds, 1, 99, "Rounds must be between 1 and 99.", problems);
+  validateNumberInput(dom.roundRest, candidate.roundRest, 0, 3600, "Round rest must be between 0 and 3,600 seconds.", problems);
   validateNumberInput(dom.prepTime, candidate.prepTime, 0, 60, "Starting countdown must be between 0 and 60 seconds.", problems);
   validateNumberInput(dom.defaultRest, candidate.defaultRest, 0, 600, "Default rest must be between 0 and 600 seconds.", problems);
 
-  getCircuitSections().forEach((section, circuitIndex) => {
-    const circuit = candidate.circuits[circuitIndex];
-    const label = `Circuit ${circuitIndex + 1}`;
-    const name = section.querySelector(".circuit-name");
-    if (!circuit.name) {
-      name.classList.add("invalid");
-      problems.push(`${label} needs a name.`);
+  if (!candidate.exercises.length) problems.push("Add at least one exercise.");
+
+  getExerciseCards().forEach((card, index) => {
+    const exercise = candidate.exercises[index];
+    const nameInput = card.querySelector(".exercise-name");
+    const valueInput = card.querySelector(".exercise-value");
+    const restInput = card.querySelector(".exercise-rest");
+
+    if (!exercise.name) {
+      nameInput.classList.add("invalid");
+      problems.push(`Exercise ${index + 1} needs a name.`);
     }
-    validateNumberInput(section.querySelector(".circuit-rounds"), circuit.rounds, 1, 99, `${label} rounds must be between 1 and 99.`, problems);
-    validateNumberInput(section.querySelector(".circuit-round-rest"), circuit.roundRest, 0, 3600, `${label} round rest must be between 0 and 3,600 seconds.`, problems);
-    if (!circuit.exercises.length) problems.push(`${label} needs at least one exercise.`);
-    getExerciseCards(section).forEach((card, index) => {
-      const exercise = circuit.exercises[index];
-      const nameInput = card.querySelector(".exercise-name");
-      const valueInput = card.querySelector(".exercise-value");
-      const restInput = card.querySelector(".exercise-rest");
 
-      if (!exercise.name) {
-        nameInput.classList.add("invalid");
-        problems.push(`${label}, exercise ${index + 1} needs a name.`);
-      }
+    if (!Number.isInteger(exercise.value) || exercise.value < 1 || exercise.value > (exercise.mode === "time" ? 3600 : 9999)) {
+      valueInput.classList.add("invalid");
+      problems.push(`Exercise ${index + 1} needs a valid ${exercise.mode === "time" ? "duration" : "rep count"}.`);
+    }
 
-      if (!Number.isInteger(exercise.value) || exercise.value < 1 || exercise.value > (exercise.mode === "time" ? 3600 : 9999)) {
-        valueInput.classList.add("invalid");
-        problems.push(`${label}, exercise ${index + 1} needs a valid ${exercise.mode === "time" ? "duration" : "rep count"}.`);
-      }
-
-      if (!Number.isInteger(exercise.rest) || exercise.rest < 0 || exercise.rest > 600) {
-        restInput.classList.add("invalid");
-        problems.push(`${label}, exercise ${index + 1} rest must be between 0 and 600 seconds.`);
-      }
-    });
+    if (!Number.isInteger(exercise.rest) || exercise.rest < 0 || exercise.rest > 600) {
+      restInput.classList.add("invalid");
+      problems.push(`Exercise ${index + 1} rest must be between 0 and 600 seconds.`);
+    }
   });
 
   return [...new Set(problems)];
@@ -3911,16 +3928,19 @@ function showScreen(name) {
   window.scrollTo({ top: 0, behavior: "auto" });
 }
 
-async function startWorkout(candidate = null) {
-  workout = normalizeWorkout(candidate || collectWorkoutFromForm());
-  runtime = createEmptyRuntime();
-  runtime.routineId = activeSavedWorkoutId && findSavedWorkout(activeSavedWorkoutId)
-    ? activeSavedWorkoutId
+async function startWorkout(candidate = null, options = {}) {
+  routineSequence = Array.isArray(options.sequence) && options.sequence.length >= 2
+    ? options.sequence.map((item) => ({ id: item.id, workout: cloneWorkout(item.workout) }))
     : null;
+  workout = routineSequence ? routineSequence[0].workout : normalizeWorkout(candidate || collectWorkoutFromForm());
+  runtime = createEmptyRuntime();
+  runtime.routineId = routineSequence
+    ? circuitRoutineId(routineSequence)
+    : (activeSavedWorkoutId && findSavedWorkout(activeSavedWorkoutId) ? activeSavedWorkoutId : null);
   runtime.voiceEnabled = workout.voiceEnabled;
   runtime.startedAt = Date.now();
-  runtime.exerciseCompletionCounts = allWorkoutExercises(workout).map(() => 0);
-  saveSettings(workout);
+  runtime.exerciseCompletionCounts = sequenceExercises().map(() => 0);
+  if (!routineSequence) saveSettings(workout);
   clearSavedSession();
   updateVoiceToggle();
   showScreen("workout");
@@ -3943,11 +3963,9 @@ function startPrep() {
 }
 
 function startExercise(roundIndex, exerciseIndex, options = {}) {
-  runtime.circuitIndex = clampInteger(options.circuitIndex ?? runtime.circuitIndex, 0, workout.circuits.length - 1, 0);
-  const circuit = currentCircuit();
-  runtime.nextCircuitIndex = runtime.circuitIndex;
-  runtime.roundIndex = clampInteger(roundIndex, 0, circuit.rounds - 1, 0);
-  runtime.exerciseIndex = clampInteger(exerciseIndex, 0, circuit.exercises.length - 1, 0);
+  runtime.pendingNextRoutine = false;
+  runtime.roundIndex = clampInteger(roundIndex, 0, workout.rounds - 1, 0);
+  runtime.exerciseIndex = clampInteger(exerciseIndex, 0, workout.exercises.length - 1, 0);
   runtime.announcedCountdown.clear();
 
   const exercise = currentExercise();
@@ -3968,13 +3986,13 @@ function startExercise(roundIndex, exerciseIndex, options = {}) {
 
 function finishCurrentExercise(completed = true) {
   const exercise = currentExercise();
-  const circuit = currentCircuit();
   if (completed) {
-    const index = workout.circuits.slice(0, runtime.circuitIndex).reduce((sum, item) => sum + item.exercises.length, 0) + runtime.exerciseIndex;
-    runtime.exerciseCompletionCounts[index] = clampInteger(runtime.exerciseCompletionCounts[index], 0, 9999, 0) + 1;
+    const index = sequenceExerciseOffset() + runtime.exerciseIndex;
+    const currentCount = clampInteger(runtime.exerciseCompletionCounts[index], 0, 9999, 0);
+    runtime.exerciseCompletionCounts[index] = currentCount + 1;
   }
-  const isLastExercise = runtime.exerciseIndex === circuit.exercises.length - 1;
-  const isLastRound = runtime.roundIndex === circuit.rounds - 1;
+  const isLastExercise = runtime.exerciseIndex === workout.exercises.length - 1;
+  const isLastRound = runtime.roundIndex === workout.rounds - 1;
 
   if (!isLastExercise) {
     if (exercise.rest > 0) {
@@ -3985,16 +4003,24 @@ function finishCurrentExercise(completed = true) {
     return;
   }
 
-  runtime.completedRounds = workout.circuits.slice(0, runtime.circuitIndex).reduce((sum, item) => sum + item.rounds, 0) + runtime.roundIndex + 1;
-  const isLastCircuit = runtime.circuitIndex === workout.circuits.length - 1;
-  if (isLastRound && isLastCircuit) {
-    completeWorkout();
-  } else if (circuit.roundRest > 0) {
-    startRoundRest(circuit.roundRest, isLastRound ? runtime.circuitIndex + 1 : runtime.circuitIndex);
+  runtime.completedRounds = previousSequenceRounds() + runtime.roundIndex + 1;
+  if (isLastRound) {
+    if (routineSequence && runtime.sequenceIndex < routineSequence.length - 1) {
+      runtime.pendingNextRoutine = true;
+      if (workout.roundRest > 0) startRoundRest(workout.roundRest);
+      else {
+        announceRoundComplete(runtime.roundIndex + 1, false);
+        advanceAfterRoundRest();
+      }
+    } else {
+      completeWorkout();
+    }
+  } else if (workout.roundRest > 0) {
+    runtime.pendingNextRoutine = false;
+    startRoundRest(workout.roundRest);
   } else {
-    runtime.nextCircuitIndex = isLastRound ? runtime.circuitIndex + 1 : runtime.circuitIndex;
     announceRoundComplete(runtime.roundIndex + 1, false);
-    advanceAfterRoundRest();
+    startExercise(runtime.roundIndex + 1, 0);
   }
 }
 
@@ -4006,8 +4032,7 @@ function startExerciseRest(seconds) {
   startTimer(() => startExercise(runtime.roundIndex, runtime.exerciseIndex + 1));
 }
 
-function startRoundRest(seconds, nextCircuitIndex = runtime.circuitIndex) {
-  runtime.nextCircuitIndex = nextCircuitIndex;
+function startRoundRest(seconds) {
   setPhase(PHASE.ROUND_REST, seconds);
   updateWorkoutDisplay();
   playTone("round");
@@ -4016,13 +4041,21 @@ function startRoundRest(seconds, nextCircuitIndex = runtime.circuitIndex) {
 }
 
 function advanceAfterRoundRest() {
-  const nextCircuitIndex = runtime.nextCircuitIndex;
-  startExercise(nextCircuitIndex === runtime.circuitIndex ? runtime.roundIndex + 1 : 0, 0, { circuitIndex: nextCircuitIndex });
+  if (runtime.pendingNextRoutine && routineSequence) {
+    runtime.sequenceIndex += 1;
+    workout = routineSequence[runtime.sequenceIndex].workout;
+    runtime.pendingNextRoutine = false;
+    runtime.voiceEnabled = workout.voiceEnabled;
+    updateVoiceToggle();
+    startExercise(0, 0);
+  } else {
+    startExercise(runtime.roundIndex + 1, 0);
+  }
 }
 
 function completeWorkout() {
   clearTimer();
-  runtime.completedRounds = totalWorkoutRounds(workout);
+  runtime.completedRounds = sequenceRounds();
   const completedRecord = recordWorkoutSession("completed");
   prepareCompleteSessionReview(completedRecord);
   runtime.phase = PHASE.COMPLETE;
@@ -4031,9 +4064,11 @@ function completeWorkout() {
   cancelSpeech();
   playTone("complete");
   speak("Workout complete. Great job.", true);
-  dom.completeWorkoutName.textContent = workout.name;
-  const rounds = totalWorkoutRounds(workout);
-  dom.completeSummary.textContent = `${rounds} ${rounds === 1 ? "round" : "rounds"} across ${workout.circuits.length} ${workout.circuits.length === 1 ? "circuit" : "circuits"} completed`;
+  dom.completeWorkoutName.textContent = circuitSessionName();
+  const rounds = sequenceRounds();
+  dom.completeSummary.textContent = routineSequence
+    ? `${routineSequence.length} routines · ${rounds} rounds completed`
+    : `${rounds} ${rounds === 1 ? "round" : "rounds"} completed`;
   showScreen("complete");
 }
 
@@ -4079,23 +4114,18 @@ function clearTimer() {
   }
 }
 
-function currentCircuit() {
-  return workout.circuits[runtime.circuitIndex];
-}
-
 function currentExercise() {
-  return currentCircuit().exercises[runtime.exerciseIndex];
+  return workout.exercises[runtime.exerciseIndex];
 }
 
 function nextExercise() {
-  const circuit = currentCircuit();
-  if (runtime.exerciseIndex < circuit.exercises.length - 1) {
-    return circuit.exercises[runtime.exerciseIndex + 1];
+  if (runtime.exerciseIndex < workout.exercises.length - 1) {
+    return workout.exercises[runtime.exerciseIndex + 1];
   }
-  if (runtime.roundIndex < circuit.rounds - 1) {
-    return circuit.exercises[0];
+  if (runtime.roundIndex < workout.rounds - 1) {
+    return workout.exercises[0];
   }
-  return workout.circuits[runtime.circuitIndex + 1]?.exercises[0] || null;
+  return routineSequence?.[runtime.sequenceIndex + 1]?.workout.exercises[0] || null;
 }
 
 function previousStep() {
@@ -4107,7 +4137,7 @@ function previousStep() {
   }
 
   if (runtime.phase === PHASE.ROUND_REST) {
-    startExercise(runtime.roundIndex, currentCircuit().exercises.length - 1);
+    startExercise(runtime.roundIndex, workout.exercises.length - 1);
     return;
   }
 
@@ -4121,11 +4151,14 @@ function previousStep() {
   if (runtime.exerciseIndex > 0) {
     startExercise(runtime.roundIndex, runtime.exerciseIndex - 1);
   } else if (runtime.roundIndex > 0) {
-    startExercise(runtime.roundIndex - 1, currentCircuit().exercises.length - 1);
-  } else if (runtime.circuitIndex > 0) {
-    const previousIndex = runtime.circuitIndex - 1;
-    const previous = workout.circuits[previousIndex];
-    startExercise(previous.rounds - 1, previous.exercises.length - 1, { circuitIndex: previousIndex });
+    startExercise(runtime.roundIndex - 1, workout.exercises.length - 1);
+  } else if (routineSequence && runtime.sequenceIndex > 0) {
+    runtime.sequenceIndex -= 1;
+    workout = routineSequence[runtime.sequenceIndex].workout;
+    runtime.completedRounds = previousSequenceRounds() + workout.rounds - 1;
+    runtime.voiceEnabled = workout.voiceEnabled;
+    updateVoiceToggle();
+    startExercise(workout.rounds - 1, workout.exercises.length - 1);
   } else {
     startExercise(0, 0);
   }
@@ -4194,11 +4227,10 @@ function updateWorkoutDisplay() {
   const isTimed = runtime.phase === PHASE.ACTIVE_TIME;
 
   dom.workoutNameDisplay.textContent = workout.name;
-  const circuit = currentCircuit();
-  dom.progressText.textContent = workout.circuits.length > 1
-    ? `Circuit ${runtime.circuitIndex + 1} of ${workout.circuits.length} · Round ${runtime.roundIndex + 1} of ${circuit.rounds}`
-    : `Round ${runtime.roundIndex + 1} of ${circuit.rounds}`;
-  dom.exercisePosition.textContent = `EXERCISE ${runtime.exerciseIndex + 1} OF ${circuit.exercises.length}`;
+  dom.progressText.textContent = routineSequence
+    ? `Routine ${runtime.sequenceIndex + 1} of ${routineSequence.length} · Round ${runtime.roundIndex + 1} of ${workout.rounds}`
+    : `Round ${runtime.roundIndex + 1} of ${workout.rounds}`;
+  dom.exercisePosition.textContent = `EXERCISE ${runtime.exerciseIndex + 1} OF ${workout.exercises.length}`;
   dom.doneButton.hidden = !isRep;
   dom.timerUnit.textContent = isRep ? "tap done when finished" : "seconds";
   dom.previousButton.disabled = isPrep && runtime.remainingSeconds === workout.prepTime;
@@ -4217,10 +4249,9 @@ function updateWorkoutDisplay() {
     dom.phaseLabel.textContent = runtime.paused ? "PAUSED" : runtime.phase === PHASE.ROUND_REST ? "ROUND REST" : "REST";
     setTimerValue(formatTimerValue(runtime.remainingSeconds));
     dom.currentExerciseName.textContent = runtime.phase === PHASE.ROUND_REST ? `Round ${runtime.roundIndex + 1} complete` : "Recover";
-    const nextCircuit = runtime.phase === PHASE.ROUND_REST && runtime.nextCircuitIndex !== runtime.circuitIndex
-      ? workout.circuits[runtime.nextCircuitIndex]
-      : null;
-    dom.currentTarget.textContent = next ? `Next: ${nextCircuit ? `${nextCircuit.name} · ` : ""}${next.name}` : "Workout complete";
+    const nextRoutine = runtime.phase === PHASE.ROUND_REST && runtime.pendingNextRoutine
+      ? routineSequence?.[runtime.sequenceIndex + 1]?.workout : null;
+    dom.currentTarget.textContent = next ? `Next: ${nextRoutine ? `${nextRoutine.name} · ` : ""}${next.name}` : "Workout complete";
     dom.currentMeta.hidden = true;
     dom.nextExerciseCard.hidden = !next;
     if (next) {
@@ -4280,13 +4311,13 @@ function announceExercise() {
   const exercise = currentExercise();
   const round = runtime.roundIndex + 1;
   const phrase = workout.voiceDetail === "full"
-    ? `${workout.circuits.length > 1 && round === 1 && runtime.exerciseIndex === 0 ? `${currentCircuit().name}. ` : ""}Round ${round}. ${exercise.name}. ${speakTarget(exercise)}.`
+    ? `${routineSequence && round === 1 && runtime.exerciseIndex === 0 ? `${workout.name}. ` : ""}Round ${round}. ${exercise.name}. ${speakTarget(exercise)}.`
     : `${exercise.name}. ${speakTarget(exercise)}.`;
   speak(phrase, true);
 }
 
 function announceExerciseRest() {
-  const next = currentCircuit().exercises[runtime.exerciseIndex + 1];
+  const next = workout.exercises[runtime.exerciseIndex + 1];
   const seconds = runtime.totalSeconds;
   const phrase = workout.voiceDetail === "full"
     ? `Rest for ${seconds} seconds. ${next.name} is next.`
@@ -4296,16 +4327,14 @@ function announceExerciseRest() {
 
 function announceRoundComplete(roundNumber, includesRest) {
   const nextRound = roundNumber + 1;
-  const nextCircuit = runtime.nextCircuitIndex !== runtime.circuitIndex
-    ? workout.circuits[runtime.nextCircuitIndex]
-    : null;
+  const nextRoutine = runtime.pendingNextRoutine ? routineSequence?.[runtime.sequenceIndex + 1]?.workout : null;
   let phrase;
 
   if (workout.voiceDetail === "full") {
-    phrase = nextCircuit
+    phrase = nextRoutine
       ? includesRest
-        ? `Round ${roundNumber} complete. Rest for ${runtime.totalSeconds} seconds. ${nextCircuit.name} is next.`
-        : `Round ${roundNumber} complete. Starting ${nextCircuit.name}.`
+        ? `Round ${roundNumber} complete. Rest for ${runtime.totalSeconds} seconds. ${nextRoutine.name} is next.`
+        : `Round ${roundNumber} complete. Starting ${nextRoutine.name}.`
       : includesRest
       ? `Round ${roundNumber} complete. Rest for ${runtime.totalSeconds} seconds. Round ${nextRound} is next.`
       : `Round ${roundNumber} complete. Starting round ${nextRound}.`;
@@ -4445,11 +4474,12 @@ function persistSession() {
   const session = {
     savedAt: Date.now(),
     workout,
+    sequence: routineSequence,
     runtime: {
       routineId: runtime.routineId,
+      sequenceIndex: runtime.sequenceIndex,
+      pendingNextRoutine: runtime.pendingNextRoutine,
       phase: runtime.phase,
-      circuitIndex: runtime.circuitIndex,
-      nextCircuitIndex: runtime.nextCircuitIndex,
       roundIndex: runtime.roundIndex,
       exerciseIndex: runtime.exerciseIndex,
       remainingSeconds: runtime.remainingSeconds,
@@ -4486,26 +4516,33 @@ async function resumeSavedSession() {
   const saved = getSavedSession();
   if (!saved) return;
 
-  workout = normalizeWorkout(saved.workout);
+  routineSequence = Array.isArray(saved.sequence) && saved.sequence.length >= 2
+    ? saved.sequence.filter((item) => item && typeof item.id === "string" && item.workout)
+      .map((item) => ({ id: item.id, workout: cloneWorkout(item.workout) }))
+    : null;
+  if (routineSequence?.length < 2) routineSequence = null;
   runtime = createEmptyRuntime();
+  const sequenceIndex = routineSequence
+    ? clampInteger(saved.runtime?.sequenceIndex, 0, routineSequence.length - 1, 0) : 0;
+  workout = routineSequence ? routineSequence[sequenceIndex].workout : normalizeWorkout(saved.workout);
   const elapsedDurationMs = Math.max(0, Number(saved.runtime?.elapsedDurationMs) || 0);
   Object.assign(runtime, saved.runtime, {
     routineId: typeof saved.runtime?.routineId === "string" && saved.runtime.routineId
       ? saved.runtime.routineId
       : null,
-    circuitIndex: clampInteger(saved.runtime?.circuitIndex, 0, workout.circuits.length - 1, 0),
-    nextCircuitIndex: clampInteger(saved.runtime?.nextCircuitIndex, 0, workout.circuits.length - 1, 0),
+    sequenceIndex,
+    pendingNextRoutine: Boolean(routineSequence && saved.runtime?.pendingNextRoutine && sequenceIndex < routineSequence.length - 1),
     timerId: null,
     paused: true,
     announcedCountdown: new Set(),
     startedAt: Date.now() - elapsedDurationMs,
     pausedDurationMs: 0,
     pauseStartedAt: Date.now(),
-    exerciseCompletionCounts: allWorkoutExercises(workout).map((_, index) => clampInteger(saved.runtime?.exerciseCompletionCounts?.[index], 0, 9999, 0)),
+    exerciseCompletionCounts: sequenceExercises().map((_, index) => clampInteger(saved.runtime?.exerciseCompletionCounts?.[index], 0, 9999, 0)),
     historyRecorded: false
   });
-  runtime.roundIndex = clampInteger(runtime.roundIndex, 0, currentCircuit().rounds - 1, 0);
-  runtime.exerciseIndex = clampInteger(runtime.exerciseIndex, 0, currentCircuit().exercises.length - 1, 0);
+  runtime.roundIndex = clampInteger(runtime.roundIndex, 0, workout.rounds - 1, 0);
+  runtime.exerciseIndex = clampInteger(runtime.exerciseIndex, 0, workout.exercises.length - 1, 0);
   updateVoiceToggle();
   showScreen("workout");
   updateWorkoutDisplay();
@@ -4562,6 +4599,7 @@ async function endWorkoutAndReturnToSetup(options = {}) {
   clearSavedSession();
   runtime = createEmptyRuntime();
   workout = null;
+  routineSequence = null;
   populateForm(loadSettings());
   setupEditMode = options.edit === true || !activeSavedWorkoutId;
   showScreen("setup");
@@ -4569,8 +4607,8 @@ async function endWorkoutAndReturnToSetup(options = {}) {
 
 async function confirmEndWorkout() {
   const completedExercises = runtime.exerciseCompletionCounts.reduce((sum, value) => sum + (Number(value) || 0), 0);
-  const totalRounds = totalWorkoutRounds(workout);
-  const progressMessage = `${runtime.completedRounds} of ${totalRounds} full ${totalRounds === 1 ? "round" : "rounds"} completed • ${completedExercises} exercise ${completedExercises === 1 ? "set" : "sets"} recorded.`;
+  const rounds = sequenceRounds();
+  const progressMessage = `${runtime.completedRounds} of ${rounds} full ${rounds === 1 ? "round" : "rounds"} completed • ${completedExercises} exercise ${completedExercises === 1 ? "set" : "sets"} recorded.`;
 
   if (!dom.confirmDialog.showModal) {
     if (!window.confirm(`End this workout?\n\n${progressMessage}`)) return;
@@ -6097,6 +6135,18 @@ function bindEvents() {
   dom.openWeightEntryButton.addEventListener("click", openWeightEntryFromReminder);
   dom.startLoadedWorkoutButton.addEventListener("click", startLoadedWorkout);
   dom.editLoadedWorkoutButton.addEventListener("click", editLoadedWorkout);
+  dom.configureCircuitButton.addEventListener("click", openCircuitDialog);
+  dom.circuitRoutineSelect.addEventListener("change", (event) => {
+    const id = event.target.value;
+    if (id && !selectedCircuitRoutineIds.includes(id)) {
+      selectedCircuitRoutineIds.push(id);
+      renderCircuitSelection();
+      dom.circuitRoutineSelect.focus();
+    }
+  });
+  dom.cancelCircuitButton.addEventListener("click", closeCircuitDialog);
+  dom.startCircuitButton.addEventListener("click", startConfiguredCircuit);
+  dom.configureCircuitDialog.addEventListener("close", () => { selectedCircuitRoutineIds = []; });
   dom.saveWorkoutButton.addEventListener("click", () => saveCurrentWorkout(false));
   dom.saveWorkoutAsButton.addEventListener("click", () => saveCurrentWorkout(true));
   dom.newWorkoutButton.addEventListener("click", startNewWorkout);
@@ -6132,7 +6182,6 @@ function bindEvents() {
     renderOverallAnalytics(records);
   });
   dom.addExerciseButton.addEventListener("click", () => addExerciseCard());
-  dom.addCircuitButton.addEventListener("click", () => addCircuitSection());
   dom.defaultRest.addEventListener("change", saveFormDraft);
   [dom.voiceEnabled, dom.countdownVoice, dom.soundEffects, dom.voiceSelect, dom.voiceDetail]
     .forEach((input) => input.addEventListener("change", saveFormDraft));
@@ -6166,7 +6215,10 @@ function bindEvents() {
   dom.backToSetupButton.addEventListener("click", confirmEndWorkout);
   dom.completeReviewForm.addEventListener("submit", submitCompleteSessionReview);
   dom.copyCompleteSessionForAiButton.addEventListener("click", copyCompleteSessionForAi);
-  dom.repeatWorkoutButton.addEventListener("click", () => startWorkout(workout));
+  dom.repeatWorkoutButton.addEventListener("click", () => startWorkout(
+    routineSequence ? routineSequence[0].workout : workout,
+    routineSequence ? { sequence: routineSequence } : {}
+  ));
   dom.editWorkoutButton.addEventListener("click", () => endWorkoutAndReturnToSetup({ edit: true }));
   dom.resumeSavedSession.addEventListener("click", resumeSavedSession);
   dom.discardSavedSession.addEventListener("click", clearSavedSession);

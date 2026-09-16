@@ -7662,49 +7662,62 @@ textarea:focus {
   }
 }
 
-/* Version 43: consecutive circuits */
-.circuits-container {
+/* Version 44: temporary circuits assembled from saved routines */
+.configure-circuit-button {
+  display: block;
+  margin-top: 16px;
+}
+
+.configure-circuit-dialog {
+  width: min(calc(100% - 28px), 600px);
+  max-height: min(90dvh, 760px);
+}
+
+.configure-circuit-shell {
+  display: block;
+  max-height: min(90dvh, 760px);
+  overflow-y: auto;
+}
+
+.configure-circuit-shell > .subtle {
+  margin: 0 0 18px;
+}
+
+.circuit-routine-list {
   display: grid;
-  gap: 22px;
+  gap: 0;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
 }
 
-.circuit-panel {
-  min-width: 0;
-}
-
-.circuit-settings {
-  margin: 18px 0;
-}
-
-.circuit-heading-actions {
-  display: flex;
+.circuit-routine-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
 }
 
-.add-circuit-button {
-  margin-top: 22px;
+.circuit-routine-list strong,
+.circuit-routine-list small {
+  display: block;
 }
 
-.loaded-circuit-heading {
-  padding: 18px 0 6px;
-  border-top: 1px solid var(--line);
+.circuit-routine-list strong {
+  overflow-wrap: anywhere;
 }
 
-.loaded-circuit-heading:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.loaded-circuit-heading h4 {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.loaded-circuit-heading p {
-  margin: 6px 0 0;
+.circuit-routine-list small {
+  margin-top: 3px;
   color: var(--text-muted);
-  font-size: 0.85rem;
+}
+
+.circuit-routine-picker {
+  margin-top: 8px;
+}
+
+.configure-circuit-actions {
+  margin-top: 18px;
 }

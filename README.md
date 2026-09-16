@@ -4,13 +4,14 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
-## Version 43 consecutive circuits
+## Version 44 circuit of saved routines
 
-- Add up to 20 named circuits to a single Forge routine, with independent exercises, rounds and round-rest durations.
-- After each circuit’s final round rest, the next circuit starts automatically. The last circuit ends after its final exercise without an extra rest.
-- Saved routines, loaded plans, progress and history include the whole circuit sequence. Interrupted workouts resume at the same circuit and pending transition.
-- Earlier single-circuit routines and sessions remain available. No Supabase migration is required.
-- Advances the PWA cache and script/style URLs to Version 43. Replace the hosted files and open the app once online to install the new offline shell.
+- Restores the original standalone routine editor. Existing routines keep their own rounds, exercise targets and rest settings.
+- On a loaded routine’s Home screen, **Configure circuit** opens a popup to choose two or more saved routines in order. A chosen routine disappears from the dropdown; remove it from the list to make it selectable again. **Cancel** closes the popup without starting anything.
+- **Start circuit** runs the selected routine snapshots in order, beginning the next routine automatically after the current routine’s final round rest. The loaded routine participates only if selected. **Start workout** still runs it alone.
+- Circuit sessions appear as one history entry with each exercise labelled by its source routine and a stable comparison identity for the selected order. Interrupted circuits resume at the correct routine and rest transition.
+- The circuit is assembled for that run only. Saved routines, the loaded routine and the current workout draft remain unchanged. No database migration is required.
+- Advances the offline app-shell cache and script/style URLs to Version 44. Replace the hosted PWA files and open the app once online to activate the new shell.
 
 ## Version 42 manual sessions and offline access
 

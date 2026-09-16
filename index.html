@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=43" />
+  <link rel="stylesheet" href="styles.css?v=44" />
 </head>
 <body data-design-system="minimal-navy">
   <div class="app-shell">
@@ -171,7 +171,7 @@
           <div>
             <p id="setupEyebrow" class="eyebrow">FORGE TRAINING</p>
             <h2 id="setupTitle">Set up your workout</h2>
-            <p id="setupIntro" class="subtle">Create a circuit, choose repetitions or timed exercises, then let the app guide you.</p>
+            <p id="setupIntro" class="subtle">Create a routine, choose repetitions or timed exercises, then let the app guide you.</p>
           </div>
           <div class="hero-badge" aria-hidden="true">
             <svg class="screen-hero-svg" data-icon-source="setupSectionIcon" viewBox="0 0 24 24" fill="none" focusable="false"></svg>
@@ -195,6 +195,7 @@
                 </svg>
               </button>
             </div>
+            <button id="configureCircuitButton" class="button button-ghost configure-circuit-button" type="button">Configure circuit</button>
           </section>
 
           <section class="panel readonly-session-panel" aria-labelledby="loadedSessionSettingsTitle">
@@ -210,8 +211,8 @@
           <section class="panel readonly-circuit-panel" aria-labelledby="loadedCircuitTitle">
             <div class="panel-heading readonly-panel-heading">
               <div>
-                <p class="eyebrow">CIRCUIT</p>
-                <h3 id="loadedCircuitTitle">Circuit sequence</h3>
+                <p class="eyebrow">ROUTINE</p>
+                <h3 id="loadedCircuitTitle">Exercises</h3>
               </div>
               <span id="loadedExerciseCount" class="counter-pill">0 exercises</span>
             </div>
@@ -230,10 +231,20 @@
 
             <label class="field field-wide">
               <span>Workout name</span>
-              <input id="workoutName" type="text" maxlength="60" autocomplete="off" placeholder="Full-body circuit" />
+              <input id="workoutName" type="text" maxlength="60" autocomplete="off" placeholder="Full-body workout" />
             </label>
 
             <div class="field-grid">
+              <label class="field">
+                <span>Rounds</span>
+                <input id="rounds" type="number" min="1" max="99" inputmode="numeric" value="3" required />
+              </label>
+
+              <label class="field">
+                <span>Round rest <small>seconds</small></span>
+                <input id="roundRest" type="number" min="0" max="3600" inputmode="numeric" value="60" required />
+              </label>
+
               <label class="field">
                 <span>Starting countdown <small>seconds</small></span>
                 <input id="prepTime" type="number" min="0" max="60" inputmode="numeric" value="5" required />
@@ -246,41 +257,21 @@
             </div>
           </section>
 
-          <div id="circuitsContainer" class="circuits-container">
-          <section id="firstCircuit" class="panel exercises-panel circuit-panel" aria-labelledby="exerciseListTitle">
+          <section class="panel exercises-panel" aria-labelledby="exerciseListTitle">
             <div class="panel-heading">
               <div>
-                <p class="eyebrow circuit-position">CIRCUIT 1</p>
+                <p class="eyebrow">ROUTINE</p>
                 <h3 id="exerciseListTitle">Exercises</h3>
               </div>
               <span id="exerciseCount" class="counter-pill">0 exercises</span>
             </div>
 
-            <label class="field field-wide">
-              <span>Circuit name</span>
-              <input id="firstCircuitName" class="circuit-name" type="text" maxlength="60" autocomplete="off" value="Circuit 1" required />
-            </label>
-
-            <div class="field-grid circuit-settings">
-              <label class="field">
-                <span>Rounds</span>
-                <input id="rounds" class="circuit-rounds" type="number" min="1" max="99" inputmode="numeric" value="3" required />
-              </label>
-              <label class="field">
-                <span>Round rest <small>seconds, including before next circuit</small></span>
-                <input id="roundRest" class="circuit-round-rest" type="number" min="0" max="3600" inputmode="numeric" value="60" required />
-              </label>
-            </div>
-
-            <div id="exerciseList" class="exercise-list circuit-exercise-list"></div>
+            <div id="exerciseList" class="exercise-list"></div>
 
             <button id="addExerciseButton" class="button button-secondary button-full" type="button">
               + Add exercise
             </button>
           </section>
-          </div>
-
-          <button id="addCircuitButton" class="button button-secondary button-full add-circuit-button" type="button">+ Add circuit</button>
 
           <div id="formError" class="form-error" role="alert" hidden></div>
 
@@ -1152,7 +1143,7 @@
           </div>
           <p id="backupStatus" class="backup-status" role="status" aria-live="polite"></p>
         </section>
-        <p id="appVersion" class="settings-version">Version 43</p>
+        <p id="appVersion" class="settings-version">Version 44</p>
       </section>
 
       <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
@@ -1332,28 +1323,6 @@
     </article>
   </template>
 
-  <template id="circuitTemplate">
-    <section class="panel exercises-panel circuit-panel">
-      <div class="panel-heading circuit-heading">
-        <div><p class="eyebrow circuit-position">CIRCUIT</p><h3>Exercises</h3></div>
-        <div class="circuit-heading-actions">
-          <span class="counter-pill circuit-exercise-count">0 exercises</span>
-          <button class="button button-ghost button-small danger-text remove-circuit" type="button" aria-label="Remove circuit">Remove</button>
-        </div>
-      </div>
-      <label class="field field-wide">
-        <span>Circuit name</span>
-        <input class="circuit-name" type="text" maxlength="60" autocomplete="off" required />
-      </label>
-      <div class="field-grid circuit-settings">
-        <label class="field"><span>Rounds</span><input class="circuit-rounds" type="number" min="1" max="99" inputmode="numeric" value="3" required /></label>
-        <label class="field"><span>Round rest <small>seconds, including before next circuit</small></span><input class="circuit-round-rest" type="number" min="0" max="3600" inputmode="numeric" value="60" required /></label>
-      </div>
-      <div class="exercise-list circuit-exercise-list"></div>
-      <button class="button button-secondary button-full circuit-add-exercise" type="button">+ Add exercise</button>
-    </section>
-  </template>
-
 
   <template id="savedWorkoutTemplate">
     <article class="saved-workout-card">
@@ -1422,6 +1391,30 @@
       </div>
     </article>
   </template>
+
+  <dialog id="configureCircuitDialog" class="history-dialog configure-circuit-dialog" aria-labelledby="configureCircuitTitle">
+    <div class="history-dialog-shell configure-circuit-shell">
+      <div class="history-dialog-heading">
+        <div>
+          <p class="eyebrow">FORGE TRAINING</p>
+          <h2 id="configureCircuitTitle">Configure circuit</h2>
+        </div>
+      </div>
+      <p class="subtle">Choose saved routines in the order you want to run them. Include the loaded routine if you want it in this circuit.</p>
+      <ol id="circuitRoutineList" class="circuit-routine-list" aria-live="polite"></ol>
+      <label class="field field-wide circuit-routine-picker">
+        <span>Add a routine</span>
+        <select id="circuitRoutineSelect" aria-label="Add a saved routine to the circuit">
+          <option value="">Select a routine</option>
+        </select>
+      </label>
+      <p id="circuitSelectionHint" class="subtle" role="status">Choose at least two routines.</p>
+      <div class="dialog-actions configure-circuit-actions">
+        <button id="cancelCircuitButton" class="button button-ghost" type="button">Cancel</button>
+        <button id="startCircuitButton" class="button button-primary" type="button" disabled>Start circuit</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="readinessHistoryDialog" class="history-dialog" aria-labelledby="readinessHistoryDialogTitle">
     <div class="history-dialog-shell">
@@ -1690,7 +1683,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=43" defer></script>
-  <script src="app.js?v=43" defer></script>
+  <script src="wellness.js?v=44" defer></script>
+  <script src="app.js?v=44" defer></script>
 </body>
 </html>
