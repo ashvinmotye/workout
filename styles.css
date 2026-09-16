@@ -7661,3 +7661,50 @@ textarea:focus {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Version 43: consecutive circuits */
+.circuits-container {
+  display: grid;
+  gap: 22px;
+}
+
+.circuit-panel {
+  min-width: 0;
+}
+
+.circuit-settings {
+  margin: 18px 0;
+}
+
+.circuit-heading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.add-circuit-button {
+  margin-top: 22px;
+}
+
+.loaded-circuit-heading {
+  padding: 18px 0 6px;
+  border-top: 1px solid var(--line);
+}
+
+.loaded-circuit-heading:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.loaded-circuit-heading h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.loaded-circuit-heading p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}

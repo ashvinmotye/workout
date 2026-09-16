@@ -4,6 +4,14 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 43 consecutive circuits
+
+- Add up to 20 named circuits to a single Forge routine, with independent exercises, rounds and round-rest durations.
+- After each circuit’s final round rest, the next circuit starts automatically. The last circuit ends after its final exercise without an extra rest.
+- Saved routines, loaded plans, progress and history include the whole circuit sequence. Interrupted workouts resume at the same circuit and pending transition.
+- Earlier single-circuit routines and sessions remain available. No Supabase migration is required.
+- Advances the PWA cache and script/style URLs to Version 43. Replace the hosted files and open the app once online to install the new offline shell.
+
 ## Version 42 manual sessions and offline access
 
 - Adds manual workout-session recording to Progress, including name, date and time, exact duration, RPE, heart-rate zones and detailed notes.

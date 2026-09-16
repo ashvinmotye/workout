@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=42" />
+  <link rel="stylesheet" href="styles.css?v=43" />
 </head>
 <body data-design-system="minimal-navy">
   <div class="app-shell">
@@ -211,7 +211,7 @@
             <div class="panel-heading readonly-panel-heading">
               <div>
                 <p class="eyebrow">CIRCUIT</p>
-                <h3 id="loadedCircuitTitle">Circuit exercises</h3>
+                <h3 id="loadedCircuitTitle">Circuit sequence</h3>
               </div>
               <span id="loadedExerciseCount" class="counter-pill">0 exercises</span>
             </div>
@@ -235,16 +235,6 @@
 
             <div class="field-grid">
               <label class="field">
-                <span>Rounds</span>
-                <input id="rounds" type="number" min="1" max="99" inputmode="numeric" value="3" required />
-              </label>
-
-              <label class="field">
-                <span>Round rest <small>seconds</small></span>
-                <input id="roundRest" type="number" min="0" max="3600" inputmode="numeric" value="60" required />
-              </label>
-
-              <label class="field">
                 <span>Starting countdown <small>seconds</small></span>
                 <input id="prepTime" type="number" min="0" max="60" inputmode="numeric" value="5" required />
               </label>
@@ -256,21 +246,41 @@
             </div>
           </section>
 
-          <section class="panel exercises-panel" aria-labelledby="exerciseListTitle">
+          <div id="circuitsContainer" class="circuits-container">
+          <section id="firstCircuit" class="panel exercises-panel circuit-panel" aria-labelledby="exerciseListTitle">
             <div class="panel-heading">
               <div>
-                <p class="eyebrow">CIRCUIT</p>
+                <p class="eyebrow circuit-position">CIRCUIT 1</p>
                 <h3 id="exerciseListTitle">Exercises</h3>
               </div>
               <span id="exerciseCount" class="counter-pill">0 exercises</span>
             </div>
 
-            <div id="exerciseList" class="exercise-list"></div>
+            <label class="field field-wide">
+              <span>Circuit name</span>
+              <input id="firstCircuitName" class="circuit-name" type="text" maxlength="60" autocomplete="off" value="Circuit 1" required />
+            </label>
+
+            <div class="field-grid circuit-settings">
+              <label class="field">
+                <span>Rounds</span>
+                <input id="rounds" class="circuit-rounds" type="number" min="1" max="99" inputmode="numeric" value="3" required />
+              </label>
+              <label class="field">
+                <span>Round rest <small>seconds, including before next circuit</small></span>
+                <input id="roundRest" class="circuit-round-rest" type="number" min="0" max="3600" inputmode="numeric" value="60" required />
+              </label>
+            </div>
+
+            <div id="exerciseList" class="exercise-list circuit-exercise-list"></div>
 
             <button id="addExerciseButton" class="button button-secondary button-full" type="button">
               + Add exercise
             </button>
           </section>
+          </div>
+
+          <button id="addCircuitButton" class="button button-secondary button-full add-circuit-button" type="button">+ Add circuit</button>
 
           <div id="formError" class="form-error" role="alert" hidden></div>
 
@@ -1142,7 +1152,7 @@
           </div>
           <p id="backupStatus" class="backup-status" role="status" aria-live="polite"></p>
         </section>
-        <p id="appVersion" class="settings-version">Version 42</p>
+        <p id="appVersion" class="settings-version">Version 43</p>
       </section>
 
       <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
@@ -1320,6 +1330,28 @@
         </label>
       </div>
     </article>
+  </template>
+
+  <template id="circuitTemplate">
+    <section class="panel exercises-panel circuit-panel">
+      <div class="panel-heading circuit-heading">
+        <div><p class="eyebrow circuit-position">CIRCUIT</p><h3>Exercises</h3></div>
+        <div class="circuit-heading-actions">
+          <span class="counter-pill circuit-exercise-count">0 exercises</span>
+          <button class="button button-ghost button-small danger-text remove-circuit" type="button" aria-label="Remove circuit">Remove</button>
+        </div>
+      </div>
+      <label class="field field-wide">
+        <span>Circuit name</span>
+        <input class="circuit-name" type="text" maxlength="60" autocomplete="off" required />
+      </label>
+      <div class="field-grid circuit-settings">
+        <label class="field"><span>Rounds</span><input class="circuit-rounds" type="number" min="1" max="99" inputmode="numeric" value="3" required /></label>
+        <label class="field"><span>Round rest <small>seconds, including before next circuit</small></span><input class="circuit-round-rest" type="number" min="0" max="3600" inputmode="numeric" value="60" required /></label>
+      </div>
+      <div class="exercise-list circuit-exercise-list"></div>
+      <button class="button button-secondary button-full circuit-add-exercise" type="button">+ Add exercise</button>
+    </section>
   </template>
 
 
@@ -1658,7 +1690,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=42" defer></script>
-  <script src="app.js?v=42" defer></script>
+  <script src="wellness.js?v=43" defer></script>
+  <script src="app.js?v=43" defer></script>
 </body>
 </html>

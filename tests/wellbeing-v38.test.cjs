@@ -13,7 +13,7 @@ const worker = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 assert.match(html, /id="loadedWorkoutOverview"[\s\S]*id="startLoadedWorkoutButton"[\s\S]*id="editLoadedWorkoutButton"/, "Home should expose loaded-workout actions");
 assert.match(html, /id="editLoadedWorkoutButton"[\s\S]*aria-label="Edit loaded workout"[\s\S]*<svg/, "the edit action should be an accessible icon-only button");
 assert.match(html, /id="loadedSessionSettingsTitle">Session settings<[\s\S]*id="loadedSessionSettings"/, "read-only Home should have session settings");
-assert.match(html, /id="loadedCircuitTitle">Circuit exercises<[\s\S]*id="loadedExerciseList"/, "read-only Home should have circuit exercises");
+assert.match(html, /id="loadedCircuitTitle">Circuit sequence<[\s\S]*id="loadedExerciseList"/, "read-only Home should have a circuit sequence");
 
 assert.match(app, /const showReadonly = Boolean\(record\) && !setupEditMode;/, "a loaded routine should control read-only mode");
 assert.match(app, /dom\.loadedWorkoutOverview\.hidden = !showReadonly;[\s\S]*dom\.workoutForm\.hidden = showReadonly;/, "Home should switch between overview and editor");
@@ -25,6 +25,6 @@ assert.match(app, /formatRoutineWeight\(exercise\.weight\) \|\| "None"/, "exerci
 
 assert.match(styles, /\.home-workout-cta-actions #startLoadedWorkoutButton \{[\s\S]*min-width: 220px;/, "the read-only start action should be visually prominent");
 assert.match(styles, /\.loaded-workout-edit-button \{[\s\S]*width: 60px;/, "the edit action should remain a compact square target");
-assert.match(worker, /wellbeing-v42/, "the current app should retain a fresh offline cache");
+assert.match(worker, /wellbeing-v43/, "the current app should retain a fresh offline cache");
 
 console.log("Wellbeing Version 38 homepage tests passed");
