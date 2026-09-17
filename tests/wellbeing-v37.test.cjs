@@ -13,7 +13,7 @@ const migration = fs.readFileSync(path.join(root, "supabase", "migrations", "202
 const pushFunction = fs.readFileSync(path.join(root, "supabase", "functions", "wellbeing-push", "index.ts"), "utf8");
 
 assert.match(migration, /is_read boolean not null default false/, "notifications should retain read state");
-assert.match(pushFunction, /select\("id, type, title, body, is_read, read_at, created_at"\)/, "notification state should return read fields");
+assert.match(pushFunction, /select\("id, type, title, body, notification_key, is_read, read_at, created_at"\)/, "notification state should return read fields and the key needed to hide completed fitness checks");
 assert.match(pushFunction, /gte\("created_at", zonedBoundaryIso\(today/, "notification state should start at the user's local day");
 assert.match(pushFunction, /lt\("created_at", zonedBoundaryIso\(tomorrow/, "notification state should end at the next local day");
 assert.match(pushFunction, /update\(\{ is_read: true, read_at:/, "read actions should update instead of delete");

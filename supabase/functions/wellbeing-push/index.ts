@@ -34,6 +34,7 @@ type Preferences = {
   weightEnabled: boolean;
   waistEnabled: boolean;
   workoutEnabled: boolean;
+  fitnessEnabled: boolean;
   timeZone: string;
 };
 
@@ -69,6 +70,7 @@ function normalizePreferences(value: any): Preferences {
     weightEnabled: value?.weightEnabled ?? value?.weight_enabled ?? true,
     waistEnabled: value?.waistEnabled ?? value?.waist_enabled ?? true,
     workoutEnabled: value?.workoutEnabled ?? value?.workout_enabled ?? true,
+    fitnessEnabled: value?.fitnessEnabled ?? value?.fitness_enabled ?? true,
     timeZone: validTimeZone(value?.timeZone ?? value?.time_zone)
   };
 }
@@ -80,6 +82,7 @@ function preferenceRow(userId: string, preferences: Preferences) {
     weight_enabled: preferences.weightEnabled,
     waist_enabled: preferences.waistEnabled,
     workout_enabled: preferences.workoutEnabled,
+    fitness_enabled: preferences.fitnessEnabled,
     time_zone: preferences.timeZone
   };
 }
@@ -99,7 +102,7 @@ async function authenticatedUser(req: Request) {
 async function stateForUser(userId: string) {
   const { data: preferenceData, error: preferenceError } = await db
     .from("wellbeing_notification_preferences")
-    .select("enabled, weight_enabled, waist_enabled, workout_enabled, time_zone")
+    .select("enabled, weight_enabled, waist_enabled, workout_enabled, fitness_enabled, time_zone")
     .eq("user_id", userId)
     .maybeSingle();
   if (preferenceError) throw preferenceError;
@@ -108,7 +111,7 @@ async function stateForUser(userId: string) {
   const tomorrow = shiftDateKey(today, 1);
   const { data: notifications, error: notificationError } = await db
     .from("wellbeing_notifications")
-    .select("id, type, title, body, is_read, read_at, created_at")
+    .select("id, type, title, body, notification_key, is_read, read_at, created_at")
     .eq("user_id", userId)
     .gte("created_at", zonedBoundaryIso(today, preferences.timeZone))
     .lt("created_at", zonedBoundaryIso(tomorrow, preferences.timeZone))
@@ -253,7 +256,7 @@ async function unfinishedMainWorkoutMessage(userId: string, today: string, dayNu
   return `${summary} is scheduled today and has not been completed yet.`;
 }
 
-async function createAndSendNotification(userId: string, type: "weight" | "waist" | "workout", title: string, body: string, key: string) {
+async function createAndSendNotification(userId: string, type: "weight" | "waist" | "workout" | "fitness", title: string, body: string, key: string, checkpointId: string | null = null) {
   const { data: subscriptions, error: subscriptionError } = await db.from("wellbeing_push_subscriptions")
     .select("id, endpoint, p256dh, auth")
     .eq("user_id", userId);
@@ -270,12 +273,14 @@ async function createAndSendNotification(userId: string, type: "weight" | "waist
   const payload = JSON.stringify({
     notificationId: notification.id,
     type,
+    userId,
+    checkpointId,
     title,
     body,
     tag: key,
     url: type === "weight"
       ? "./?weight=1"
-      : (type === "waist" ? "./?waist=1" : "./?notifications=1")
+      : (type === "waist" ? "./?waist=1" : type === "fitness" ? "./?body=1" : "./?notifications=1")
   });
   let delivered = 0;
   for (const subscription of subscriptions) {
@@ -296,10 +301,55 @@ async function createAndSendNotification(userId: string, type: "weight" | "waist
   return { created: true, delivered };
 }
 
+function fitnessMonthDate(anchor: string, monthOffset: number) {
+  const [year, month, day] = anchor.split("-").map(Number);
+  const index = year * 12 + month - 1 + monthOffset;
+  const targetYear = Math.floor(index / 12);
+  const targetMonth = index % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  return `${targetYear}-${String(targetMonth + 1).padStart(2, "0")}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
+}
+
+function currentFitnessCheckpoint(anchorDate: string, results: any[], today: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchorDate)) return null;
+  const firstYear = Number(anchorDate.slice(0, 4));
+  const lastYear = Math.max(firstYear + 1, Number(today.slice(0, 4)) + 2);
+  const completed = new Set(results.filter((record) => record?.status === "completed" && !record.deletedAt)
+    .map((record) => record.checkpointId));
+  const checks = [];
+  for (let year = firstYear; year <= lastYear; year += 1) {
+    const offset = (year - firstYear) * 12;
+    const annualDate = fitnessMonthDate(anchorDate, offset);
+    checks.push({ id: `${anchorDate}:${year}:annual`, kind: "yearly", dueDate: annualDate });
+    checks.push({ id: `${anchorDate}:${year}:midyear`, kind: "midyear", dueDate: fitnessMonthDate(annualDate, 6) });
+  }
+  const overdueOrDue = checks.find((check) => check.dueDate <= today && !completed.has(check.id));
+  if (overdueOrDue) return overdueOrDue;
+  return checks.find((check) => check.dueDate > today && !completed.has(check.id)) || null;
+}
+
+async function fitnessReminderForUser(userId: string, today: string) {
+  const { data, error } = await db.from("fitness_check_data")
+    .select("anchor_date, results").eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  if (!data?.anchor_date) return null;
+  const check = currentFitnessCheckpoint(data.anchor_date, Array.isArray(data.results) ? data.results : [], today);
+  if (!check) return null;
+  const days = (Date.parse(`${check.dueDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000;
+  if (days > 7) return null;
+  const label = check.kind === "yearly" ? "Yearly" : "Midyear";
+  const title = days < 0 ? `${label} fitness check overdue` : days === 0
+    ? `${label} fitness check today` : `${label} fitness check in ${days} ${days === 1 ? "day" : "days"}`;
+  const body = days < 0
+    ? `Your ${label.toLowerCase()} fitness check is ${Math.abs(days)} ${Math.abs(days) === 1 ? "day" : "days"} overdue. Complete it in Body → Configure fitness check.`
+    : `Your ${label.toLowerCase()} fitness check is ${days === 0 ? "due today" : `due in ${days} ${days === 1 ? "day" : "days"}`}. Open Body → Configure fitness check.`;
+  return { title, body, id: check.id };
+}
+
 async function dispatchScheduledNotifications(now = new Date()) {
   if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) throw new Error("VAPID secrets are incomplete.");
   const { data: preferenceRows, error } = await db.from("wellbeing_notification_preferences")
-    .select("user_id, enabled, weight_enabled, waist_enabled, workout_enabled, time_zone")
+    .select("user_id, enabled, weight_enabled, waist_enabled, workout_enabled, fitness_enabled, time_zone")
     .eq("enabled", true);
   if (error) throw error;
 
@@ -344,6 +394,17 @@ async function dispatchScheduledNotifications(now = new Date()) {
           "Your main workout is waiting",
           body,
           `workout:${today}`
+        );
+        created += Number(result.created);
+        delivered += result.delivered;
+      }
+    }
+
+    if (parts.hour === 19 && preferences.fitnessEnabled) {
+      const reminder = await fitnessReminderForUser(row.user_id, today);
+      if (reminder) {
+        const result = await createAndSendNotification(
+          row.user_id, "fitness", reminder.title, reminder.body, `fitness:${reminder.id}:${today}`, reminder.id
         );
         created += Number(result.created);
         delivered += result.delivered;

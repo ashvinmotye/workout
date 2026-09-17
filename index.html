@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=45" />
+  <link rel="stylesheet" href="styles.css?v=46" />
 </head>
 <body data-design-system="minimal-navy">
   <div class="app-shell">
@@ -373,7 +373,7 @@
           <div id="notificationEmptyState" class="empty-state notification-empty-state">
             <div class="empty-state-icon" aria-hidden="true">✓</div>
             <h3>No reminders today</h3>
-            <p>Today’s weight, waist and workout reminders will appear here.</p>
+            <p>Today’s weight, waist, workout and fitness-check reminders will appear here.</p>
           </div>
           <div id="notificationList" class="notification-list"></div>
           <p id="notificationListStatus" class="account-message" role="status" aria-live="polite"></p>
@@ -393,6 +393,12 @@
             <svg class="screen-hero-svg" data-icon-source="recoverySectionIcon" viewBox="0 0 24 24" fill="none" focusable="false"></svg>
           </div>
         </div>
+
+        <section class="panel fitness-entry" aria-labelledby="fitnessEntryTitle">
+          <div class="panel-heading"><div><p class="eyebrow">YEARLY &amp; MIDYEAR</p><h3 id="fitnessEntryTitle">Fitness check</h3></div></div>
+          <p id="fitnessEntryStatus" class="subtle">Choose a yearly check date to begin.</p>
+          <button id="openFitnessCheckButton" class="button button-secondary" type="button">Configure fitness check</button>
+        </section>
 
         <div class="recovery-dashboard" aria-label="Recovery dashboard">
           <section id="todayReadinessCard" class="panel recovery-dashboard-card readiness-dashboard-card" data-level="none" aria-labelledby="todayReadinessTitle">
@@ -656,6 +662,66 @@
       </section>
 
 
+
+      <section id="fitnessScreen" class="screen fitness-screen" aria-labelledby="fitnessTitle" hidden>
+        <button id="backFromFitnessButton" class="button button-ghost button-small fitness-back" type="button">← Back to Body</button>
+        <div class="hero-card"><div>
+          <p class="eyebrow">BODY · PERSONAL BASELINE</p>
+          <h2 id="fitnessTitle">Fitness check</h2>
+          <p class="subtle">Build your own tests, record your results, and compare each annual and halfway check.</p>
+        </div></div>
+
+        <section class="panel" aria-labelledby="fitnessScheduleTitle">
+          <div class="panel-heading"><div><p class="eyebrow">SCHEDULE</p><h3 id="fitnessScheduleTitle">Yearly check date</h3></div></div>
+          <form id="fitnessScheduleForm" class="fitness-form fitness-schedule-form">
+            <label class="field" for="fitnessAnnualDate"><span>First yearly check date</span><input id="fitnessAnnualDate" name="annualDate" type="date" required /></label>
+            <button class="button button-secondary" type="submit">Save date</button>
+          </form>
+          <p class="subtle">The halfway check falls six calendar months later. Changing this date starts a new schedule; existing results stay in history.</p>
+          <p id="fitnessScheduleStatus" class="recovery-form-status" role="status" aria-live="polite"></p>
+          <p id="fitnessNextCheck" class="fitness-next-check"></p>
+        </section>
+
+        <section class="panel" aria-labelledby="fitnessExercisesTitle">
+          <div class="panel-heading"><div><p class="eyebrow">YOUR TESTS</p><h3 id="fitnessExercisesTitle">Configure test exercises</h3></div></div>
+          <p class="subtle">Start with an empty list. Add each exercise and choose how its result is recorded.</p>
+          <div id="fitnessExerciseList" class="fitness-list"></div>
+          <form id="fitnessExerciseForm" class="fitness-form fitness-exercise-form">
+            <h4 id="fitnessExerciseFormTitle">Add an exercise</h4>
+            <label class="field"><span>Exercise name</span><input name="name" type="text" maxlength="80" placeholder="Your test name" required /></label>
+            <div class="fitness-form-grid">
+              <label class="field"><span>Result format</span><select name="resultType"><option value="number">Number</option><option value="boolean">Yes / No</option><option value="text">Written result</option></select></label>
+              <label id="fitnessUnitField" class="field"><span>Unit <small>optional</small></span><input name="unit" type="text" maxlength="20" placeholder="reps, metres, seconds" /></label>
+            </div>
+            <label id="fitnessBilateralField" class="toggle-row fitness-sides-toggle"><span><strong>Separate left and right results</strong><small>For a test measured on both sides</small></span><input name="bilateral" type="checkbox" /></label>
+            <label class="field"><span>How to perform it <small>optional</small></span><textarea name="instructions" rows="2" maxlength="500" placeholder="Record the setup for consistent future checks"></textarea></label>
+            <div class="fitness-actions"><button id="fitnessSaveExerciseButton" class="button button-secondary" type="submit">Save exercise</button><button id="fitnessCancelExerciseEditButton" class="button button-ghost" type="button" hidden>Cancel edit</button></div>
+            <p id="fitnessExerciseStatus" class="recovery-form-status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="fitnessCurrentTitle">
+          <div class="panel-heading"><div><p class="eyebrow">NEXT CHECK</p><h3 id="fitnessCurrentTitle">Record a fitness check</h3></div></div>
+          <p id="fitnessCurrentStatus" class="subtle"></p>
+          <button id="fitnessStartCheckButton" class="button button-primary" type="button" hidden>Start check</button>
+          <form id="fitnessResultForm" class="fitness-form fitness-result-form" hidden>
+            <h4 id="fitnessResultTitle"></h4>
+            <label class="field"><span>Date performed</span><input name="performedDate" type="date" required /></label>
+            <div id="fitnessResultFields" class="fitness-list"></div>
+            <label class="field"><span>Overall notes <small>optional</small></span><textarea name="overallNotes" rows="3" maxlength="1000" placeholder="Sleep, conditions, illness, equipment, technique or effort"></textarea></label>
+            <p id="fitnessResultStatus" class="recovery-form-status" role="status" aria-live="polite"></p>
+            <div class="fitness-actions"><button id="fitnessSaveDraftButton" class="button button-ghost" type="button">Save draft</button><button id="fitnessCompleteCheckButton" class="button button-primary" type="submit">Complete check</button><button id="fitnessCancelResultButton" class="button button-ghost" type="button">Close</button></div>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="fitnessHistoryTitle">
+          <div class="panel-heading"><div><p class="eyebrow">PREVIOUS CHECKS</p><h3 id="fitnessHistoryTitle">Test history</h3></div></div>
+          <button id="fitnessCopyForAiButton" class="button button-ghost button-small" type="button" disabled>Copy for AI · all completed</button>
+          <div id="fitnessHistory" class="fitness-list"></div>
+          <p id="fitnessCopyStatus" class="recovery-form-status" role="status" aria-live="polite"></p>
+          <p id="fitnessSyncStatus" class="recovery-form-status" role="status" aria-live="polite"></p>
+        </section>
+      </section>
 
       <section id="trendsScreen" class="screen trends-screen" aria-labelledby="trendsTitle" hidden>
         <div class="hero-card trends-hero">
@@ -931,6 +997,10 @@
               </span>
               <input id="workoutNotificationsEnabled" type="checkbox" checked />
             </label>
+            <label class="toggle-row">
+              <span><strong>Fitness check · 19:00</strong><small>Daily from seven days before, then overdue until completed</small></span>
+              <input id="fitnessNotificationsEnabled" type="checkbox" checked />
+            </label>
           </div>
           <div class="notification-test-row">
             <button id="testNotificationButton" class="button button-ghost button-small" type="button">Send test notification</button>
@@ -1148,7 +1218,7 @@
 
           <p class="subtle backup-description">
             Export creates one JSON file containing your current workout draft, saved routines, workout history,
-            recovery check-ins, body-weight and waist measurements, target weight, preferences, and any resumable session.
+            recovery check-ins, body-weight and waist measurements, target weight, fitness checks, preferences, and any resumable session.
           </p>
 
           <div class="backup-actions">
@@ -1163,7 +1233,7 @@
           </div>
           <p id="backupStatus" class="backup-status" role="status" aria-live="polite"></p>
         </section>
-        <p id="appVersion" class="settings-version">Version 45</p>
+        <p id="appVersion" class="settings-version">Version 46</p>
       </section>
 
       <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
@@ -1703,7 +1773,8 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=45" defer></script>
-  <script src="app.js?v=45" defer></script>
+  <script src="wellness.js?v=46" defer></script>
+  <script src="fitness.js?v=46" defer></script>
+  <script src="app.js?v=46" defer></script>
 </body>
 </html>

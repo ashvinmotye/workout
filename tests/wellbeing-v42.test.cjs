@@ -26,13 +26,13 @@ assert.match(app, /Promise\.race\(\[sessionCheck, timeout\]\)/, "authentication 
 assert.match(app, /catch \(error\) \{[\s\S]*if \(cachedUser\)[\s\S]*offline: true/, "cached users should enter the local app after a failed or timed-out check");
 
 assert.match(html, /fonts\.googleapis\.com\/css2\?family=Inter/, "Inter should be loaded from Google Fonts");
-assert.match(html, /id="appVersion"[^>]*>Version 45</, "Settings should show the cache-visible version discreetly");
+assert.match(html, /id="appVersion"[^>]*>Version 46</, "Settings should show the cache-visible version discreetly");
 assert.match(html, /id="voiceToggleButton"[\s\S]*class="speaker-svg"[\s\S]*M11\.553 3\.064/, "the supplied speaker SVG should replace the emoji");
 assert.doesNotMatch(app, /voiceToggleButton\.textContent = runtime\.voiceEnabled/, "voice state changes should preserve the SVG");
 assert.match(styles, /Version 42:[\s\S]*theme-toggle-button:hover \.header-svg,[\s\S]*transform: none;/, "theme and Settings icons should not animate on hover");
 assert.match(styles, /--minimal-navy: #191919;/, "the main charcoal should be #191919");
 assert.equal(manifest.theme_color, "#191919");
-assert.match(worker, /wellbeing-v45/);
-assert.match(html, /styles\.css\?v=45[\s\S]*wellness\.js\?v=45[\s\S]*app\.js\?v=45/);
+assert.match(worker, /wellbeing-v46/);
+assert.match(html, /styles\.css\?v=46[\s\S]*wellness\.js\?v=46[\s\S]*app\.js\?v=46/);
 
 console.log("Wellbeing Version 42 change-set tests passed");

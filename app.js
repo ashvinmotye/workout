@@ -6,7 +6,7 @@ const THEME_KEY = "voiceWorkout.theme.v1";
 const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
-const APP_VERSION = "45";
+const APP_VERSION = "46";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const AUTH_SESSION_CHECK_TIMEOUT_MS = 4000;
 const BACKUP_APP_ID = "wellbeing";
@@ -81,6 +81,7 @@ const dom = {
   loadedExerciseList: document.querySelector("#loadedExerciseList"),
   savedWorkoutsScreen: document.querySelector("#savedWorkoutsScreen"),
   recoveryScreen: document.querySelector("#recoveryScreen"),
+  fitnessScreen: document.querySelector("#fitnessScreen"),
   trendsScreen: document.querySelector("#trendsScreen"),
   settingsScreen: document.querySelector("#settingsScreen"),
   notificationsScreen: document.querySelector("#notificationsScreen"),
@@ -104,6 +105,7 @@ const dom = {
   weightNotificationsEnabled: document.querySelector("#weightNotificationsEnabled"),
   waistNotificationsEnabled: document.querySelector("#waistNotificationsEnabled"),
   workoutNotificationsEnabled: document.querySelector("#workoutNotificationsEnabled"),
+  fitnessNotificationsEnabled: document.querySelector("#fitnessNotificationsEnabled"),
   testNotificationButton: document.querySelector("#testNotificationButton"),
   notificationSettingsStatus: document.querySelector("#notificationSettingsStatus"),
   savedWorkoutNavCount: document.querySelector("#savedWorkoutNavCount"),
@@ -512,6 +514,7 @@ function openWaistEntryFromReminder() {
 function openLaunchDestination(destination) {
   if (destination === "weight") openWeightEntryFromReminder();
   else if (destination === "waist") openWaistEntryFromReminder();
+  else if (destination === "body") showScreen("recovery");
   else openNotifications();
 }
 
@@ -535,6 +538,7 @@ function defaultNotificationPreferences() {
     weightEnabled: true,
     waistEnabled: true,
     workoutEnabled: true,
+    fitnessEnabled: true,
     timeZone
   };
 }
@@ -547,6 +551,7 @@ function normalizeNotificationPreferences(candidate) {
     weightEnabled: candidate.weightEnabled ?? candidate.weight_enabled ?? true,
     waistEnabled: candidate.waistEnabled ?? candidate.waist_enabled ?? true,
     workoutEnabled: candidate.workoutEnabled ?? candidate.workout_enabled ?? true,
+    fitnessEnabled: candidate.fitnessEnabled ?? candidate.fitness_enabled ?? true,
     timeZone: typeof (candidate.timeZone ?? candidate.time_zone) === "string"
       ? (candidate.timeZone ?? candidate.time_zone)
       : fallback.timeZone
@@ -579,6 +584,7 @@ function applyNotificationPreferences(preferences = loadNotificationPreferences(
   dom.weightNotificationsEnabled.checked = preferences.weightEnabled;
   dom.waistNotificationsEnabled.checked = preferences.waistEnabled;
   dom.workoutNotificationsEnabled.checked = preferences.workoutEnabled;
+  dom.fitnessNotificationsEnabled.checked = preferences.fitnessEnabled;
   dom.notificationsButton.classList.toggle("is-disabled", !enabled);
   dom.notificationsButton.title = enabled ? "Notifications" : "Notifications are off — open Settings";
   dom.notificationsButton.setAttribute("aria-label", enabled ? "Open notifications" : "Notifications are off. Open settings");
@@ -586,7 +592,7 @@ function applyNotificationPreferences(preferences = loadNotificationPreferences(
     ? (enabled ? "Notifications are active on this device." : "Notifications are off on this device.")
     : "Push notifications are not available in this browser. On iPhone, open Wellbeing from the Home Screen.";
   dom.notificationsEnabled.disabled = notificationBusy || !supported;
-  [dom.weightNotificationsEnabled, dom.waistNotificationsEnabled, dom.workoutNotificationsEnabled]
+  [dom.weightNotificationsEnabled, dom.waistNotificationsEnabled, dom.workoutNotificationsEnabled, dom.fitnessNotificationsEnabled]
     .forEach((input) => { input.disabled = notificationBusy; });
   dom.testNotificationButton.disabled = notificationBusy || !enabled || !navigator.onLine;
 }
@@ -635,8 +641,17 @@ function isNotificationFromToday(record) {
     && date.getDate() === now.getDate();
 }
 
+function isCompletedFitnessNotification(record) {
+  if (record.type !== "fitness" || typeof record.notification_key !== "string") return false;
+  const key = record.notification_key;
+  if (!/^fitness:.+:\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+  const checkpointId = key.slice("fitness:".length, -11);
+  return loadFitnessData().results.some((result) => result.checkpointId === checkpointId
+    && result.status === "completed" && !result.deletedAt);
+}
+
 function renderNotificationCentre() {
-  notificationRecords = notificationRecords.filter(isNotificationFromToday);
+  notificationRecords = notificationRecords.filter((record) => isNotificationFromToday(record) && !isCompletedFitnessNotification(record));
   const unreadCount = notificationRecords.filter((record) => !(record.is_read ?? record.isRead)).length;
   dom.notificationList.replaceChildren();
   dom.notificationEmptyState.hidden = notificationRecords.length > 0;
@@ -741,7 +756,8 @@ async function updateNotificationPreferenceSettings() {
     ...current,
     weightEnabled: dom.weightNotificationsEnabled.checked,
     waistEnabled: dom.waistNotificationsEnabled.checked,
-    workoutEnabled: dom.workoutNotificationsEnabled.checked
+    workoutEnabled: dom.workoutNotificationsEnabled.checked,
+    fitnessEnabled: dom.fitnessNotificationsEnabled.checked
   });
   if (!authSession || !navigator.onLine) return;
   await notificationApi({
@@ -846,13 +862,15 @@ function maybeOpenLaunchDestination() {
   const url = new URL(window.location.href);
   const openWeight = url.searchParams.has("weight");
   const openWaist = url.searchParams.has("waist");
+  const openBody = url.searchParams.has("body");
   const shouldOpenNotifications = url.searchParams.has("notifications");
-  if (!openWeight && !openWaist && !shouldOpenNotifications) return;
+  if (!openWeight && !openWaist && !openBody && !shouldOpenNotifications) return;
   url.searchParams.delete("weight");
   url.searchParams.delete("waist");
+  url.searchParams.delete("body");
   url.searchParams.delete("notifications");
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  const destination = openWeight ? "weight" : (openWaist ? "waist" : "notifications");
+  const destination = openWeight ? "weight" : (openWaist ? "waist" : openBody ? "body" : "notifications");
   window.setTimeout(() => openLaunchDestination(destination), 0);
 }
 
@@ -962,6 +980,7 @@ function showAuthenticatedApp(session, options = {}) {
   if (!user) return;
   authSession = session?.user ? session : null;
   cacheAuthUser(user);
+  updateFitnessPushState();
   const linkedLegacySessions = authSession ? autoLinkLegacyRoutineSessions() : 0;
   updateAccountPanel(user, Boolean(options.offline));
   setAccountMessage(options.offline ? "Using the last account saved on this device. Cloud access will resume when you reconnect." : "");
@@ -970,6 +989,7 @@ function showAuthenticatedApp(session, options = {}) {
   updateHistorySyncStatus();
   updateSavedWorkoutSyncStatus();
   updateWellnessSyncStatus();
+  updateFitnessSyncStatus();
   if (linkedLegacySessions) renderTrends();
   requestAutomaticCloudRefresh();
   renderWeightReminderSlab();
@@ -1156,6 +1176,7 @@ async function refreshAuthenticationAfterReconnect() {
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
     updateWellnessSyncStatus();
+    updateFitnessSyncStatus();
     requestAutomaticCloudRefresh({ force: true });
     return;
   }
@@ -1210,7 +1231,8 @@ function requestAutomaticCloudRefresh(options = {}) {
     await Promise.allSettled([
       syncWorkoutHistory(),
       syncSavedWorkouts(),
-      syncWellnessData()
+      syncWellnessData(),
+      syncFitnessData()
     ]);
   }, delay);
 }
@@ -2609,6 +2631,7 @@ function createBackupPayload() {
       workoutHistory: loadWorkoutHistory(),
       trainingContext: loadTrainingContext(),
       ...getWellnessBackupData(),
+      ...getFitnessBackupData(),
       activeSession: getStoredJson(SESSION_KEY),
       theme: loadTheme()
     }
@@ -2642,7 +2665,8 @@ function exportBackup() {
       `${payload.data.workoutHistory.length} ${payload.data.workoutHistory.length === 1 ? "session" : "sessions"}, ` +
       `${payload.data.recoveryCheckins.length} recovery ${payload.data.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, ` +
       `${payload.data.bodyWeightEntries.length} weight ${payload.data.bodyWeightEntries.length === 1 ? "entry" : "entries"}, and ` +
-      `${payload.data.bodyWaistEntries.length} waist ${payload.data.bodyWaistEntries.length === 1 ? "entry" : "entries"}.`
+      `${payload.data.bodyWaistEntries.length} waist ${payload.data.bodyWaistEntries.length === 1 ? "entry" : "entries"}, and ` +
+      `${payload.data.fitnessCheckData.results.filter((record) => record.status === "completed" && !record.deletedAt).length} completed fitness checks.`
     );
     showToast("Wellbeing backup exported.");
   } catch {
@@ -2697,6 +2721,7 @@ function validateBackupPayload(candidate) {
     return normalizeHistoryRecord(record);
   });
   const wellnessData = validateWellnessBackupData(data);
+  const fitnessData = validateFitnessBackupData(data);
 
   const activeSavedWorkoutId = savedWorkouts.some((record) => record.id === data.activeSavedWorkoutId)
     ? data.activeSavedWorkoutId
@@ -2709,6 +2734,7 @@ function validateBackupPayload(candidate) {
     workoutHistory,
     trainingContext: normalizeTrainingContext(data.trainingContext),
     ...wellnessData,
+    ...fitnessData,
     activeSession: data.activeSession,
     theme: data.theme,
     exportedAt: typeof candidate.exportedAt === "string" ? candidate.exportedAt : ""
@@ -2733,6 +2759,8 @@ function applyImportedBackup(data) {
     BODY_WEIGHT_ENTRIES_KEY,
     TARGET_WEIGHT_KEY,
     BODY_WAIST_ENTRIES_KEY,
+    fitnessStorageKey(),
+    fitnessPendingStorageKey(),
     WELLNESS_SYNC_QUEUE_KEY,
     SESSION_KEY,
     THEME_KEY
@@ -2745,6 +2773,7 @@ function applyImportedBackup(data) {
     saveWorkoutHistory(data.workoutHistory);
     saveTrainingContext(data.trainingContext);
     applyWellnessBackupData(data);
+    applyFitnessBackupData(data);
     if (data.activeSavedWorkoutId) localStorage.setItem(ACTIVE_SAVED_WORKOUT_KEY, data.activeSavedWorkoutId);
     else localStorage.removeItem(ACTIVE_SAVED_WORKOUT_KEY);
     if (data.activeSession) localStorage.setItem(SESSION_KEY, JSON.stringify(data.activeSession));
@@ -2769,6 +2798,7 @@ function applyImportedBackup(data) {
   renderTrends();
   showSavedSessionBanner();
   renderSettingsSummary();
+  requestAutomaticCloudRefresh({ force: true });
 }
 
 function formatBackupTimestamp(value) {
@@ -2793,7 +2823,8 @@ async function importBackupFile(event) {
       `${imported.workoutHistory.length} workout ${imported.workoutHistory.length === 1 ? "session" : "sessions"}, ` +
       `${imported.recoveryCheckins.length} recovery ${imported.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, ` +
       `${imported.bodyWeightEntries.length} weight ${imported.bodyWeightEntries.length === 1 ? "entry" : "entries"}, and ` +
-      `${imported.bodyWaistEntries.length} waist ${imported.bodyWaistEntries.length === 1 ? "entry" : "entries"}.\n\n` +
+      `${imported.bodyWaistEntries.length} waist ${imported.bodyWaistEntries.length === 1 ? "entry" : "entries"}, and ` +
+      `${imported.fitnessCheckData.results.filter((record) => record.status === "completed" && !record.deletedAt).length} completed fitness checks.\n\n` +
       "This will replace the Wellbeing data currently stored on this device."
     );
     if (!confirmed) {
@@ -2807,7 +2838,8 @@ async function importBackupFile(event) {
       `${imported.workoutHistory.length} ${imported.workoutHistory.length === 1 ? "session" : "sessions"}, ` +
       `${imported.recoveryCheckins.length} recovery ${imported.recoveryCheckins.length === 1 ? "check-in" : "check-ins"}, ` +
       `${imported.bodyWeightEntries.length} weight ${imported.bodyWeightEntries.length === 1 ? "entry" : "entries"}, and ` +
-      `${imported.bodyWaistEntries.length} waist ${imported.bodyWaistEntries.length === 1 ? "entry" : "entries"}.`
+      `${imported.bodyWaistEntries.length} waist ${imported.bodyWaistEntries.length === 1 ? "entry" : "entries"}, and ` +
+      `${imported.fitnessCheckData.results.filter((record) => record.status === "completed" && !record.deletedAt).length} completed fitness checks.`
     );
     showToast("Wellbeing backup imported.");
   } catch (error) {
@@ -3887,6 +3919,7 @@ function showScreen(name) {
   dom.setupScreen.hidden = name !== "setup";
   dom.savedWorkoutsScreen.hidden = name !== "saved";
   dom.recoveryScreen.hidden = name !== "recovery";
+  dom.fitnessScreen.hidden = name !== "fitness";
   dom.trendsScreen.hidden = name !== "trends";
   dom.settingsScreen.hidden = name !== "settings";
   dom.notificationsScreen.hidden = name !== "notifications";
@@ -3912,7 +3945,8 @@ function showScreen(name) {
 
   if (name === "setup") renderSetupHomepage();
   if (name === "saved") renderSavedWorkouts();
-  if (name === "recovery") renderRecoveryScreen();
+  if (name === "recovery") { renderRecoveryScreen(); renderFitnessEntry(); }
+  if (name === "fitness") renderFitnessView();
   if (name === "trends") renderTrends();
   if (name === "notifications") renderNotificationCentre();
   if (name === "settings") {
@@ -3920,6 +3954,7 @@ function showScreen(name) {
     updateHistorySyncStatus();
     updateSavedWorkoutSyncStatus();
     updateWellnessSyncStatus();
+    updateFitnessSyncStatus();
     applyNotificationPreferences();
   }
   if (dom.weightReminderSlab) {
@@ -6124,7 +6159,7 @@ function bindEvents() {
   dom.notificationsButton.addEventListener("click", openNotifications);
   dom.notificationsEnabled.addEventListener("change", (event) => togglePushNotifications(event.target.checked));
   dom.testNotificationButton.addEventListener("click", sendTestNotification);
-  [dom.weightNotificationsEnabled, dom.waistNotificationsEnabled, dom.workoutNotificationsEnabled]
+  [dom.weightNotificationsEnabled, dom.waistNotificationsEnabled, dom.workoutNotificationsEnabled, dom.fitnessNotificationsEnabled]
     .forEach((input) => input.addEventListener("change", () => {
       updateNotificationPreferenceSettings().catch((error) => {
         dom.notificationSettingsStatus.textContent = error?.message || "Notification preferences could not be saved.";
@@ -6259,6 +6294,10 @@ function bindEvents() {
         if (dom.authScreen.hidden) openWaistEntryFromReminder();
         else pendingLaunchDestination = "waist";
       }
+      if (event.data?.type === "WELLBEING_OPEN_BODY") {
+        if (dom.authScreen.hidden) showScreen("recovery");
+        else pendingLaunchDestination = "body";
+      }
     });
   }
 
@@ -6282,6 +6321,7 @@ function bindEvents() {
       updateHistorySyncStatus();
       updateSavedWorkoutSyncStatus();
       updateWellnessSyncStatus();
+      updateFitnessSyncStatus();
     }
   });
 }
@@ -6301,6 +6341,7 @@ async function init() {
   populateTrainingContext();
   renderSavedWorkouts();
   initializeWellness();
+  initializeFitness();
   renderTrends();
   renderSettingsSummary();
   applyNotificationPreferences();

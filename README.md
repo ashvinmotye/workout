@@ -4,6 +4,20 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 46 yearly and midyear fitness checks
+
+- Body has a **Configure fitness check** button leading to a dedicated page; this is the only way into the page. The exercise list starts empty. Add, edit and remove your own exercises, choosing a numeric result (with an optional unit and separate left/right values), Yes / No, or a written result. Each recorded check retains a snapshot of its exercises and instructions.
+- Pick the first yearly date; the halfway check occurs six calendar months after each year's date. Record results with performed date, each exercise's optional effort and notes, and overall notes. Save drafts, complete a check, edit existing results or delete them. Completed results stop that checkpoint's reminders; a draft does not.
+- Test history and **Copy for AI · all completed** live on this page. Fitness data is separate from workout, weight, recovery and Progress analytics and included in JSON backups. Offline edits remain available and sync when signed in and reconnected.
+- With push notifications enabled, a dedicated Fitness check toggle sends a daily 19:00 local-time countdown beginning seven days before a due date; after the due date it sends an overdue reminder each day until that checkpoint is completed. Push taps open Body, where the configuration button is available. The app's Body card shows the due/overdue state even without push. An offline completion also suppresses that checkpoint's push on the same installed device; other devices stop after its completion syncs.
+- Advances the app shell, asset URLs and Settings label to Version 46. No existing Cron job or VAPID secrets need changing.
+
+### Upgrade to Version 46
+
+1. Run `supabase/migrations/20260917_create_fitness_checks.sql` once in the Supabase SQL Editor. It adds a private per-user fitness-check table, the separate notification preference and a new notification type.
+2. Redeploy `supabase/functions/wellbeing-push/index.ts` with **Verify JWT disabled**, as for the existing notification setup. The existing quarter-hour Cron continues to dispatch reminders in the user's saved time zone.
+3. Replace the hosted PWA files and open the installed app once online to activate Version 46. In Body, configure your date and add the test exercises you want; none are preloaded. In Settings → Notifications, verify that push is enabled and the Fitness check toggle is on.
+
 ## Version 45 target weight projection
 
 - Set or clear a target weight in Body Weight, immediately above Measurement history. The target stays on this device and is included in exported backups. Older backups without a target still import.

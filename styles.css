@@ -7786,3 +7786,140 @@ textarea:focus {
 .configure-circuit-actions {
   margin-top: 18px;
 }
+
+/* Version 46: dedicated, independent fitness-check workspace */
+.fitness-entry .panel-heading {
+  margin-bottom: 8px;
+}
+
+.fitness-entry .subtle {
+  margin: 0 0 16px;
+}
+
+.fitness-back {
+  margin: 8px 0 20px;
+}
+
+.fitness-screen .panel {
+  padding-block: 28px;
+}
+
+.fitness-screen .panel > .subtle {
+  margin: 10px 0 16px;
+}
+
+.fitness-form,
+.fitness-list {
+  display: grid;
+  gap: 14px;
+}
+
+.fitness-form h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.fitness-schedule-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.fitness-schedule-form .button {
+  min-height: 50px;
+}
+
+.fitness-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fitness-form textarea,
+.fitness-form input[type="date"] {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 10px 14px;
+  background: var(--surface-input);
+  color: var(--text);
+  font: inherit;
+}
+
+.fitness-form textarea {
+  resize: vertical;
+}
+
+.fitness-sides-toggle {
+  margin: 0;
+}
+
+.fitness-exercise-form,
+.fitness-result-form {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.fitness-result-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.fitness-result-field,
+.fitness-record,
+.fitness-exercise-row {
+  display: grid;
+  gap: 10px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.fitness-result-field > p,
+.fitness-record > p,
+.fitness-exercise-row > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.fitness-result-field > strong,
+.fitness-record > strong,
+.fitness-exercise-row > strong {
+  overflow-wrap: anywhere;
+}
+
+.fitness-next-check {
+  margin: 14px 0 0;
+  font-size: 0.93rem;
+  font-weight: 700;
+}
+
+.fitness-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.fitness-list:empty,
+.fitness-screen .recovery-form-status:empty {
+  display: none;
+}
+
+.fitness-history-empty {
+  margin: 14px 0 0;
+  color: var(--text-muted);
+}
+
+@media (max-width: 520px) {
+  .fitness-schedule-form,
+  .fitness-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fitness-schedule-form .button {
+    justify-self: start;
+  }
+}

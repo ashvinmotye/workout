@@ -1,13 +1,14 @@
 "use strict";
 
-const CACHE_NAME = "wellbeing-v45";
+const CACHE_NAME = "wellbeing-v46";
 const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=45",
-  "./wellness.js?v=45",
-  "./app.js?v=45",
+  "./styles.css?v=46",
+  "./wellness.js?v=46",
+  "./fitness.js?v=46",
+  "./app.js?v=46",
   "./manifest.webmanifest",
   "./icons/favicon.ico?v=42",
   "./icons/favicon-16.png?v=42",
@@ -66,6 +67,31 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
+function fitnessAlreadyCompleted(userId, checkpointId) {
+  if (!userId || !checkpointId || !self.indexedDB) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    try {
+      const request = self.indexedDB.open("wellbeing-fitness-push-v1", 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains("completed")) request.result.createObjectStore("completed", { keyPath: "userId" });
+      };
+      request.onerror = () => resolve(false);
+      request.onsuccess = () => {
+        const database = request.result;
+        try {
+          const read = database.transaction("completed", "readonly").objectStore("completed").get(userId);
+          read.onsuccess = () => {
+            const found = Array.isArray(read.result?.completedIds) && read.result.completedIds.includes(checkpointId);
+            database.close();
+            resolve(found);
+          };
+          read.onerror = () => { database.close(); resolve(false); };
+        } catch { database.close(); resolve(false); }
+      };
+    } catch { resolve(false); }
+  });
+}
+
 self.addEventListener("push", (event) => {
   let payload = {};
   try {
@@ -88,12 +114,15 @@ self.addEventListener("push", (event) => {
     }
   };
 
-  event.waitUntil(Promise.all([
-    self.registration.showNotification(title, options),
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      clients.forEach((client) => client.postMessage({ type: "WELLBEING_PUSH_RECEIVED" }));
-    })
-  ]));
+  event.waitUntil((async () => {
+    if (payload.type === "fitness" && await fitnessAlreadyCompleted(payload.userId, payload.checkpointId)) return;
+    await Promise.all([
+      self.registration.showNotification(title, options),
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: "WELLBEING_PUSH_RECEIVED" }));
+      })
+    ]);
+  })());
 });
 
 self.addEventListener("notificationclick", (event) => {
@@ -107,7 +136,7 @@ self.addEventListener("notificationclick", (event) => {
         existing.postMessage({
           type: notificationType === "weight"
             ? "WELLBEING_OPEN_WEIGHT"
-            : (notificationType === "waist" ? "WELLBEING_OPEN_WAIST" : "WELLBEING_OPEN_NOTIFICATIONS")
+            : (notificationType === "waist" ? "WELLBEING_OPEN_WAIST" : notificationType === "fitness" ? "WELLBEING_OPEN_BODY" : "WELLBEING_OPEN_NOTIFICATIONS")
         });
         return existing.focus();
       }
