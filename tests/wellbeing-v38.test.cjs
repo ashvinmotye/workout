@@ -25,6 +25,6 @@ assert.match(app, /formatRoutineWeight\(exercise\.weight\) \|\| "None"/, "exerci
 
 assert.match(styles, /\.home-workout-cta-actions #startLoadedWorkoutButton \{[\s\S]*min-width: 220px;/, "the read-only start action should be visually prominent");
 assert.match(styles, /\.loaded-workout-edit-button \{[\s\S]*width: 60px;/, "the edit action should remain a compact square target");
-assert.match(worker, /wellbeing-v44/, "the current app should retain a fresh offline cache");
+assert.match(worker, /wellbeing-v45/, "the current app should retain a fresh offline cache");
 
 console.log("Wellbeing Version 38 homepage tests passed");

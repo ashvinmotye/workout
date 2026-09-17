@@ -15,6 +15,6 @@ assert.match(styles, /\.history-status \{[\s\S]*padding-right: 0;[\s\S]*padding-
 assert.match(styles, /\.saved-workouts-hero-actions \{[\s\S]*margin-top: 28px;/, "the Routines CTA should be separated from its title");
 assert.match(styles, /\.weight-form-grid input\[name="measurementDate"\],[\s\S]*\.weight-form-grid input\[name="weightKg"\],[\s\S]*height: 50px;[\s\S]*min-height: 50px;/, "weight date and value controls should share a desktop height");
 assert.match(styles, /@media \(max-width: 620px\) \{[\s\S]*\.weight-form-grid input\[name="measurementDate"\],[\s\S]*height: 38px;[\s\S]*min-height: 38px;/, "weight date and value controls should share a mobile height");
-assert.match(worker, /wellbeing-v44/, "the current app should retain a fresh offline cache");
+assert.match(worker, /wellbeing-v45/, "the current app should retain a fresh offline cache");
 
 console.log("Wellbeing Version 40 alignment tests passed");

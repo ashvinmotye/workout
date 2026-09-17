@@ -4,6 +4,13 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 45 target weight projection
+
+- Set or clear a target weight in Body Weight, immediately above Measurement history. The target stays on this device and is included in exported backups. Older backups without a target still import.
+- Calculates a least-squares linear weight trend across **all dated measurements**, then projects forward from the latest weigh-in at that pace to show an approximate target date. The estimate refreshes whenever measurements are added, edited, deleted or synced.
+- If fewer than two dates are available, the trend is flat or moving away from the target, or the projected date is already past, the app explains why it cannot give a current estimate. Projections are estimates; actual weight may vary.
+- Advances the offline app-shell cache and script/style URLs to Version 45. Replace the hosted PWA files and open the app once online to activate the new shell.
+
 ## Version 44 circuit of saved routines
 
 - Restores the original standalone routine editor. Existing routines keep their own rounds, exercise targets and rest settings.

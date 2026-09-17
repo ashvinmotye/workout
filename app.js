@@ -6,7 +6,7 @@ const THEME_KEY = "voiceWorkout.theme.v1";
 const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
-const APP_VERSION = "44";
+const APP_VERSION = "45";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const AUTH_SESSION_CHECK_TIMEOUT_MS = 4000;
 const BACKUP_APP_ID = "wellbeing";
@@ -2731,6 +2731,7 @@ function applyImportedBackup(data) {
     TRAINING_CONTEXT_KEY,
     RECOVERY_CHECKINS_KEY,
     BODY_WEIGHT_ENTRIES_KEY,
+    TARGET_WEIGHT_KEY,
     BODY_WAIST_ENTRIES_KEY,
     WELLNESS_SYNC_QUEUE_KEY,
     SESSION_KEY,

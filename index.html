@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=44" />
+  <link rel="stylesheet" href="styles.css?v=45" />
 </head>
 <body data-design-system="minimal-navy">
   <div class="app-shell">
@@ -475,6 +475,26 @@
                 <span id="weightFormStatus" class="recovery-form-status" role="status" aria-live="polite"></span>
               </div>
             </form>
+
+            <section class="target-weight-card" aria-labelledby="targetWeightTitle">
+              <div class="target-weight-heading">
+                <p class="eyebrow">GOAL</p>
+                <h4 id="targetWeightTitle">Target weight</h4>
+              </div>
+              <form id="targetWeightForm" class="target-weight-form">
+                <label class="field" for="targetWeightKg"><span>Target weight <small>kg</small></span></label>
+                <div class="target-weight-controls">
+                  <input id="targetWeightKg" name="targetWeightKg" type="number" min="30" max="300" step="0.1" inputmode="decimal" placeholder="65.0" required />
+                  <button class="button button-secondary" type="submit">Save target</button>
+                  <button id="clearTargetWeightButton" class="button button-ghost" type="button" hidden>Clear</button>
+                </div>
+              </form>
+              <p id="targetWeightStatus" class="recovery-form-status" role="status" aria-live="polite"></p>
+              <div class="target-weight-forecast" aria-live="polite">
+                <strong id="targetWeightEstimate">Set a target to see an estimated date.</strong>
+                <span id="targetWeightTrend"></span>
+              </div>
+            </section>
 
             <div class="recovery-history-heading">
               <div>
@@ -1128,7 +1148,7 @@
 
           <p class="subtle backup-description">
             Export creates one JSON file containing your current workout draft, saved routines, workout history,
-            recovery check-ins, body-weight and waist measurements, preferences, and any resumable session.
+            recovery check-ins, body-weight and waist measurements, target weight, preferences, and any resumable session.
           </p>
 
           <div class="backup-actions">
@@ -1143,7 +1163,7 @@
           </div>
           <p id="backupStatus" class="backup-status" role="status" aria-live="polite"></p>
         </section>
-        <p id="appVersion" class="settings-version">Version 44</p>
+        <p id="appVersion" class="settings-version">Version 45</p>
       </section>
 
       <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
@@ -1683,7 +1703,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=44" defer></script>
-  <script src="app.js?v=44" defer></script>
+  <script src="wellness.js?v=45" defer></script>
+  <script src="app.js?v=45" defer></script>
 </body>
 </html>

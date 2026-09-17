@@ -2,6 +2,7 @@
 
 const RECOVERY_CHECKINS_KEY = "voiceWorkout.recoveryCheckins.v1";
 const BODY_WEIGHT_ENTRIES_KEY = "voiceWorkout.bodyWeightEntries.v1";
+const TARGET_WEIGHT_KEY = "voiceWorkout.targetWeightKg.v1";
 const BODY_WAIST_ENTRIES_KEY = "voiceWorkout.bodyWaistEntries.v1";
 const WELLNESS_SYNC_QUEUE_KEY = "voiceWorkout.wellnessSyncQueue.v1";
 const WELLNESS_LAST_SYNC_KEY_PREFIX = "voiceWorkout.wellnessLastSync.v1";
@@ -46,6 +47,11 @@ const wellnessDom = {
   weightSinceFirstChange: document.querySelector("#weightSinceFirstChange"),
   weightChart: document.querySelector("#weightChart"),
   weightChartSummary: document.querySelector("#weightChartSummary"),
+  targetWeightForm: document.querySelector("#targetWeightForm"),
+  targetWeightStatus: document.querySelector("#targetWeightStatus"),
+  targetWeightEstimate: document.querySelector("#targetWeightEstimate"),
+  targetWeightTrend: document.querySelector("#targetWeightTrend"),
+  clearTargetWeightButton: document.querySelector("#clearTargetWeightButton"),
   weightHistoryCount: document.querySelector("#weightHistoryCount"),
   weightHistory: document.querySelector("#weightHistory"),
   showAllWeightButton: document.querySelector("#showAllWeightButton"),
@@ -321,6 +327,23 @@ function saveWeightEntries(records) {
   });
   const normalized = [...byDate.values()].sort((a, b) => b.measurementDate.localeCompare(a.measurementDate));
   localStorage.setItem(BODY_WEIGHT_ENTRIES_KEY, JSON.stringify(normalized));
+}
+
+function normalizeTargetWeight(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const weight = Number(value);
+  return Number.isFinite(weight) && weight >= 30 && weight <= 300
+    ? Math.round(weight * 10) / 10
+    : null;
+}
+
+function loadTargetWeight() {
+  return normalizeTargetWeight(localStorage.getItem(TARGET_WEIGHT_KEY));
+}
+
+function saveTargetWeight(value) {
+  if (value === null) localStorage.removeItem(TARGET_WEIGHT_KEY);
+  else localStorage.setItem(TARGET_WEIGHT_KEY, String(value));
 }
 
 function loadWaistEntries() {
@@ -1099,6 +1122,94 @@ function getWeightTrendSummary(records) {
   };
 }
 
+function wellnessUtcDay(dateKey) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return Date.UTC(year, month - 1, day) / 86400000;
+}
+
+function calculateWeightTargetProjection(records, targetKg, todayKey = wellnessTodayKey()) {
+  if (targetKg === null) return { status: "no-target" };
+  const measurements = records.map((record) => ({
+    day: wellnessUtcDay(record.measurementDate),
+    weightKg: record.weightKg,
+    measurementDate: record.measurementDate
+  })).sort((a, b) => b.day - a.day);
+  if (!measurements.length) return { status: "no-measurements" };
+
+  const latest = measurements[0];
+  if (latest.weightKg === targetKg) return { status: "reached", latest, count: measurements.length };
+  if (measurements.length < 2) return { status: "need-more-data", latest, count: measurements.length };
+
+  // Least-squares daily slope uses every dated measurement, not just the endpoints.
+  const firstDay = measurements[measurements.length - 1].day;
+  const meanDay = measurements.reduce((sum, entry) => sum + entry.day - firstDay, 0) / measurements.length;
+  const meanWeight = measurements.reduce((sum, entry) => sum + entry.weightKg, 0) / measurements.length;
+  const variance = measurements.reduce((sum, entry) => sum + (entry.day - firstDay - meanDay) ** 2, 0);
+  if (variance === 0) return { status: "need-more-data", latest, count: measurements.length };
+  const slopeKgPerDay = measurements.reduce((sum, entry) =>
+    sum + (entry.day - firstDay - meanDay) * (entry.weightKg - meanWeight), 0) / variance;
+  const shared = { latest, count: measurements.length, slopeKgPerWeek: slopeKgPerDay * 7 };
+
+  if (Math.abs(slopeKgPerDay) < 1e-8) return { ...shared, status: "flat" };
+  if ((targetKg - latest.weightKg) * slopeKgPerDay <= 0) return { ...shared, status: "away" };
+  const daysToTarget = Math.ceil((targetKg - latest.weightKg) / slopeKgPerDay);
+  if (!Number.isFinite(daysToTarget) || daysToTarget > 36525) return { ...shared, status: "flat" };
+  const projectedDay = latest.day + daysToTarget;
+  const todayDay = wellnessUtcDay(todayKey);
+  if (projectedDay < todayDay) return { ...shared, status: "outdated" };
+  return {
+    ...shared,
+    status: "estimate",
+    projectedDate: new Date(projectedDay * 86400000).toISOString().slice(0, 10)
+  };
+}
+
+function renderTargetWeightForecast(records) {
+  const result = calculateWeightTargetProjection(records, loadTargetWeight());
+  const messages = {
+    "no-target": "Set a target to see an estimated date.",
+    "no-measurements": "Add weight measurements to see an estimate.",
+    "need-more-data": "Add weights on at least two dates to see an estimate.",
+    reached: "Your latest measurement is at the target.",
+    flat: "The measured trend is too flat for a useful date.",
+    away: "The trend is moving away from this target. No date to estimate yet.",
+    outdated: "The projected date has passed. Add a newer weight for a current estimate."
+  };
+  wellnessDom.targetWeightEstimate.textContent = result.status === "estimate"
+    ? `Around ${formatWellnessDate(result.projectedDate)}`
+    : messages[result.status];
+  const slope = result.slopeKgPerWeek;
+  wellnessDom.targetWeightTrend.textContent = Number.isFinite(slope)
+    ? `Linear trend from all ${result.count} measurements: ${slope > 0 ? "+" : "−"}${Math.abs(slope).toFixed(Math.abs(slope) < 0.01 ? 3 : 2)} kg/week. Projected from the latest weigh-in; your pace may change.`
+    : "";
+}
+
+function populateTargetWeightForm() {
+  const target = loadTargetWeight();
+  wellnessDom.targetWeightForm.elements.targetWeightKg.value = target === null ? "" : target.toFixed(1);
+  wellnessDom.clearTargetWeightButton.hidden = target === null;
+}
+
+function submitTargetWeightForm(event) {
+  event.preventDefault();
+  const target = normalizeTargetWeight(wellnessDom.targetWeightForm.elements.targetWeightKg.value);
+  if (target === null) {
+    wellnessDom.targetWeightStatus.textContent = "Enter a target between 30 and 300 kg.";
+    return;
+  }
+  saveTargetWeight(target);
+  populateTargetWeightForm();
+  renderTargetWeightForecast(loadWeightEntries());
+  wellnessDom.targetWeightStatus.textContent = "Target saved on this device.";
+}
+
+function clearTargetWeight() {
+  saveTargetWeight(null);
+  populateTargetWeightForm();
+  renderTargetWeightForecast(loadWeightEntries());
+  wellnessDom.targetWeightStatus.textContent = "Target cleared.";
+}
+
 function weightTrendLines(records) {
   const trend = getWeightTrendSummary(records);
   if (!trend) return [];
@@ -1437,6 +1548,7 @@ function renderRecoveryScreen(options = {}) {
   renderRecoveryDashboard(checkins, weights, waists);
   renderReadinessHistory(checkins);
   renderWeightChart(weights);
+  renderTargetWeightForecast(weights);
   renderWeightHistory(weights);
   renderWaistChart(waists);
   renderWaistHistory(waists);
@@ -1449,6 +1561,7 @@ function renderRecoveryScreen(options = {}) {
     const selectedWaistDate = normalizeWellnessDate(wellnessDom.waistForm.elements.measurementDate.value) || wellnessTodayKey();
     populateReadinessForm(selectedReadinessDate);
     populateWeightForm(selectedWeightDate);
+    populateTargetWeightForm();
     populateWaistForm(selectedWaistDate);
   }
 }
@@ -1601,6 +1714,7 @@ function getWellnessBackupData() {
   return {
     recoveryCheckins: loadRecoveryCheckins(),
     bodyWeightEntries: loadWeightEntries(),
+    targetWeightKg: loadTargetWeight(),
     bodyWaistEntries: loadWaistEntries()
   };
 }
@@ -1612,18 +1726,23 @@ function validateWellnessBackupData(data) {
   if (!Array.isArray(recoverySource)) throw new Error("The recovery check-ins in this backup are invalid.");
   if (!Array.isArray(weightSource)) throw new Error("The body-weight entries in this backup are invalid.");
   if (!Array.isArray(waistSource)) throw new Error("The waist entries in this backup are invalid.");
+  const targetSource = data.targetWeightKg === undefined ? null : data.targetWeightKg;
+  if (targetSource !== null && (typeof targetSource !== "number" || normalizeTargetWeight(targetSource) === null)) {
+    throw new Error("The target weight in this backup is invalid.");
+  }
   const recoveryCheckins = recoverySource.map(normalizeRecoveryCheckin);
   const bodyWeightEntries = weightSource.map(normalizeWeightEntry);
   const bodyWaistEntries = waistSource.map(normalizeWaistEntry);
   if (recoveryCheckins.some((record) => !record)) throw new Error("One or more recovery check-ins in this backup are invalid.");
   if (bodyWeightEntries.some((record) => !record)) throw new Error("One or more body-weight entries in this backup are invalid.");
   if (bodyWaistEntries.some((record) => !record)) throw new Error("One or more waist entries in this backup are invalid.");
-  return { recoveryCheckins, bodyWeightEntries, bodyWaistEntries };
+  return { recoveryCheckins, bodyWeightEntries, bodyWaistEntries, targetWeightKg: normalizeTargetWeight(targetSource) };
 }
 
 function applyWellnessBackupData(data) {
   saveRecoveryCheckins(data.recoveryCheckins || []);
   saveWeightEntries(data.bodyWeightEntries || []);
+  saveTargetWeight(data.targetWeightKg ?? null);
   saveWaistEntries(data.bodyWaistEntries || []);
   (data.recoveryCheckins || []).forEach((record) => queueWellnessOperation(WELLNESS_ENTITY.RECOVERY, "upsert", record));
   (data.bodyWeightEntries || []).forEach((record) => queueWellnessOperation(WELLNESS_ENTITY.WEIGHT, "upsert", record));
@@ -1659,6 +1778,11 @@ function bindWellnessEvents() {
   wellnessDom.weightForm.elements.measurementDate.addEventListener("change", (event) => populateWeightForm(event.target.value));
   wellnessDom.weightForm.addEventListener("submit", submitWeightForm);
   wellnessDom.resetWeightButton.addEventListener("click", () => populateWeightForm(wellnessTodayKey()));
+  wellnessDom.targetWeightForm.addEventListener("submit", submitTargetWeightForm);
+  wellnessDom.clearTargetWeightButton.addEventListener("click", clearTargetWeight);
+  wellnessDom.targetWeightForm.elements.targetWeightKg.addEventListener("input", () => {
+    wellnessDom.targetWeightStatus.textContent = "";
+  });
   wellnessDom.waistForm.elements.measurementDate.addEventListener("change", (event) => populateWaistForm(event.target.value));
   wellnessDom.waistForm.addEventListener("submit", submitWaistForm);
   wellnessDom.resetWaistButton.addEventListener("click", () => populateWaistForm(wellnessTodayKey()));
@@ -1747,6 +1871,7 @@ function initializeWellness() {
   wellnessDom.waistForm.elements.measurementDate.max = today;
   populateReadinessForm(today);
   populateWeightForm(today);
+  populateTargetWeightForm();
   populateWaistForm(today);
   renderRecoveryScreen({ preserveForms: true });
   renderWellnessSettingsSummary();

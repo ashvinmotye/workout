@@ -2081,6 +2081,71 @@ html[data-theme="dark"] .theme-icon-light {
   margin-top: 24px;
 }
 
+.target-weight-card {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  padding: 22px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.target-weight-heading .eyebrow {
+  margin: 0 0 4px;
+}
+
+.target-weight-heading h4 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.target-weight-form {
+  display: grid;
+  gap: 8px;
+}
+
+.target-weight-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.target-weight-controls input {
+  flex: 1 1 145px;
+  min-width: 0;
+}
+
+.target-weight-card .recovery-form-status:empty {
+  display: none;
+}
+
+.target-weight-forecast {
+  display: grid;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  line-height: 1.4;
+}
+
+.target-weight-forecast strong {
+  font-size: 0.94rem;
+}
+
+.target-weight-forecast span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.weight-panel .target-weight-card + .recovery-history-heading {
+  padding-top: 0;
+  border-top: 0;
+}
+
+@media (max-width: 460px) {
+  .target-weight-controls input {
+    flex-basis: 100%;
+  }
+}
+
 .chart-summary.weight-chart-summary {
   display: grid;
   gap: 3px;
