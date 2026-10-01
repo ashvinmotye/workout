@@ -6,7 +6,7 @@ const THEME_KEY = "voiceWorkout.theme.v1";
 const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
-const APP_VERSION = "46";
+const APP_VERSION = "47";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const AUTH_SESSION_CHECK_TIMEOUT_MS = 4000;
 const BACKUP_APP_ID = "wellbeing";
@@ -70,6 +70,12 @@ const dom = {
   startLoadedWorkoutButton: document.querySelector("#startLoadedWorkoutButton"),
   editLoadedWorkoutButton: document.querySelector("#editLoadedWorkoutButton"),
   configureCircuitButton: document.querySelector("#configureCircuitButton"),
+  trainingMethodDialog: document.querySelector("#trainingMethodDialog"),
+  trainingMethodForm: document.querySelector("#trainingMethodForm"),
+  straightSetCountField: document.querySelector("#straightSetCountField"),
+  straightSetCount: document.querySelector("#straightSetCount"),
+  trainingMethodStatus: document.querySelector("#trainingMethodStatus"),
+  cancelTrainingMethodButton: document.querySelector("#cancelTrainingMethodButton"),
   configureCircuitDialog: document.querySelector("#configureCircuitDialog"),
   circuitRoutineList: document.querySelector("#circuitRoutineList"),
   circuitRoutineSelect: document.querySelector("#circuitRoutineSelect"),
@@ -275,6 +281,7 @@ const dom = {
 let workout = null;
 let routineSequence = null;
 let selectedCircuitRoutineIds = [];
+let pendingWorkoutStart = null;
 let runtime = createEmptyRuntime();
 let wakeLock = null;
 let audioContext = null;
@@ -311,6 +318,8 @@ function createEmptyRuntime() {
     routineId: null,
     sequenceIndex: 0,
     pendingNextRoutine: false,
+    trainingMethod: "rounds",
+    straightSetCount: 3,
     phase: null,
     roundIndex: 0,
     exerciseIndex: 0,
@@ -327,6 +336,46 @@ function createEmptyRuntime() {
     exerciseCompletionCounts: [],
     historyRecorded: false
   };
+}
+
+function normalizeTrainingMethod(value) {
+  return value === "straight-sets" ? "straight-sets" : "rounds";
+}
+
+function isStraightSetSession() {
+  return !routineSequence && runtime.trainingMethod === "straight-sets";
+}
+
+function trainingPassCount() {
+  return isStraightSetSession()
+    ? clampInteger(runtime.straightSetCount, 1, 99, 3)
+    : workout.rounds;
+}
+
+function nextTrainingStep(trainingMethod, passIndex, exerciseIndex, passCount, exerciseCount) {
+  const method = normalizeTrainingMethod(trainingMethod);
+  const safePasses = Math.max(1, Number.parseInt(passCount, 10) || 1);
+  const safeExercises = Math.max(1, Number.parseInt(exerciseCount, 10) || 1);
+  const currentPass = Math.max(0, Number.parseInt(passIndex, 10) || 0);
+  const currentExercise = Math.max(0, Number.parseInt(exerciseIndex, 10) || 0);
+
+  if (method === "straight-sets") {
+    if (currentPass + 1 < safePasses) {
+      return { complete: false, roundIndex: currentPass + 1, exerciseIndex: currentExercise };
+    }
+    if (currentExercise + 1 < safeExercises) {
+      return { complete: false, roundIndex: 0, exerciseIndex: currentExercise + 1 };
+    }
+    return { complete: true, roundIndex: currentPass, exerciseIndex: currentExercise };
+  }
+
+  if (currentExercise + 1 < safeExercises) {
+    return { complete: false, roundIndex: currentPass, exerciseIndex: currentExercise + 1 };
+  }
+  if (currentPass + 1 < safePasses) {
+    return { complete: false, roundIndex: currentPass + 1, exerciseIndex: 0 };
+  }
+  return { complete: true, roundIndex: currentPass, exerciseIndex: currentExercise };
 }
 
 function uid() {
@@ -1359,6 +1408,7 @@ function normalizeHistoryExercise(exercise) {
     weight: typeof exercise.weight === "string" ? exercise.weight : "",
     perSide: Boolean(exercise.perSide),
     note: typeof exercise.note === "string" ? exercise.note : "",
+    trainingMethod: normalizeTrainingMethod(exercise.trainingMethod),
     circuitName: typeof exercise.circuitName === "string" ? exercise.circuitName : "",
     circuitIndex: clampInteger(exercise.circuitIndex, 0, 9999, 0),
     completedSets: clampInteger(exercise.completedSets, 0, 9999, 0)
@@ -1374,6 +1424,9 @@ function normalizeHistoryRecord(record) {
   const exercises = Array.isArray(record.exercises)
     ? record.exercises.map(normalizeHistoryExercise).filter(Boolean)
     : [];
+  const trainingMethod = normalizeTrainingMethod(
+    record.trainingMethod ?? exercises.find((exercise) => exercise.trainingMethod === "straight-sets")?.trainingMethod
+  );
   const rpe = Number.parseInt(record.rpe, 10);
   const normalizeOptionalSeconds = (value) => {
     if (value === null || value === undefined || value === "") return null;
@@ -1393,6 +1446,7 @@ function normalizeHistoryRecord(record) {
     status: record.status === "partial" ? "partial" : "completed",
     workoutName: typeof record.workoutName === "string" && record.workoutName.trim() ? record.workoutName.trim() : "Workout",
     durationSeconds,
+    trainingMethod,
     plannedRounds: clampInteger(record.plannedRounds, 1, 999999, 1),
     completedRounds: clampInteger(record.completedRounds, 0, 999999, 0),
     exercises,
@@ -2012,6 +2066,7 @@ function recordWorkoutSession(status) {
       weight: exercise.weight,
       perSide: exercise.perSide,
       note: exercise.note,
+      trainingMethod: runtime.trainingMethod,
       completedSets: counts[exerciseIndex++]
     }))
   );
@@ -2023,6 +2078,7 @@ function recordWorkoutSession(status) {
     status: status === "partial" ? "partial" : "completed",
     workoutName: circuitSessionName(),
     durationSeconds: Math.max(0, Math.round(getElapsedDurationMs(endedAt) / 1000)),
+    trainingMethod: runtime.trainingMethod,
     plannedRounds: sequenceRounds(),
     completedRounds: status === "completed" ? sequenceRounds() : runtime.completedRounds,
     exercises
@@ -3048,6 +3104,52 @@ function editLoadedWorkout() {
   requestAnimationFrame(() => dom.workoutName.focus());
 }
 
+function selectedTrainingMethod() {
+  return normalizeTrainingMethod(dom.trainingMethodForm.elements.trainingMethod.value);
+}
+
+function updateTrainingMethodDialog() {
+  const straightSets = selectedTrainingMethod() === "straight-sets";
+  dom.straightSetCountField.hidden = !straightSets;
+  dom.straightSetCount.disabled = !straightSets;
+  dom.trainingMethodStatus.hidden = true;
+  dom.trainingMethodStatus.textContent = "";
+}
+
+function requestWorkoutStart(candidate) {
+  const snapshot = cloneWorkout(candidate || collectWorkoutFromForm(), false);
+  pendingWorkoutStart = snapshot;
+  const roundsOption = dom.trainingMethodForm.querySelector('[name="trainingMethod"][value="rounds"]');
+  roundsOption.checked = true;
+  dom.straightSetCount.value = String(snapshot.rounds);
+  updateTrainingMethodDialog();
+  if (typeof dom.trainingMethodDialog.showModal === "function") dom.trainingMethodDialog.showModal();
+  else dom.trainingMethodDialog.setAttribute("open", "");
+  roundsOption.focus();
+}
+
+function closeTrainingMethodDialog() {
+  if (typeof dom.trainingMethodDialog.close === "function") dom.trainingMethodDialog.close();
+  else dom.trainingMethodDialog.removeAttribute("open");
+  pendingWorkoutStart = null;
+}
+
+async function submitTrainingMethod(event) {
+  event.preventDefault();
+  if (!pendingWorkoutStart) return;
+  const candidate = pendingWorkoutStart;
+  const trainingMethod = selectedTrainingMethod();
+  const straightSetCount = Number.parseInt(dom.straightSetCount.value, 10);
+  if (trainingMethod === "straight-sets" && (!Number.isInteger(straightSetCount) || straightSetCount < 1 || straightSetCount > 99)) {
+    dom.trainingMethodStatus.textContent = "Sets per exercise must be between 1 and 99.";
+    dom.trainingMethodStatus.hidden = false;
+    dom.straightSetCount.focus();
+    return;
+  }
+  closeTrainingMethodDialog();
+  await startWorkout(candidate, { trainingMethod, straightSetCount });
+}
+
 function startLoadedWorkout() {
   const record = activeSavedWorkoutId ? findSavedWorkout(activeSavedWorkoutId) : null;
   if (!record) {
@@ -3057,7 +3159,7 @@ function startLoadedWorkout() {
     showToast("Choose or create a workout first.");
     return;
   }
-  startWorkout(cloneWorkout(record.workout, false));
+  requestWorkoutStart(record.workout);
 }
 
 function renderCircuitSelection() {
@@ -3141,7 +3243,7 @@ function sequenceExercises() {
 function sequenceRounds() {
   return routineSequence
     ? routineSequence.reduce((total, item) => total + item.workout.rounds, 0)
-    : workout.rounds;
+    : trainingPassCount();
 }
 
 function previousSequenceRounds() {
@@ -3970,6 +4072,10 @@ async function startWorkout(candidate = null, options = {}) {
     : null;
   workout = routineSequence ? routineSequence[0].workout : normalizeWorkout(candidate || collectWorkoutFromForm());
   runtime = createEmptyRuntime();
+  runtime.trainingMethod = routineSequence ? "rounds" : normalizeTrainingMethod(options.trainingMethod);
+  runtime.straightSetCount = runtime.trainingMethod === "straight-sets"
+    ? clampInteger(options.straightSetCount, 1, 99, workout.rounds)
+    : workout.rounds;
   runtime.routineId = routineSequence
     ? circuitRoutineId(routineSequence)
     : (activeSavedWorkoutId && findSavedWorkout(activeSavedWorkoutId) ? activeSavedWorkoutId : null);
@@ -4000,7 +4106,7 @@ function startPrep() {
 
 function startExercise(roundIndex, exerciseIndex, options = {}) {
   runtime.pendingNextRoutine = false;
-  runtime.roundIndex = clampInteger(roundIndex, 0, workout.rounds - 1, 0);
+  runtime.roundIndex = clampInteger(roundIndex, 0, trainingPassCount() - 1, 0);
   runtime.exerciseIndex = clampInteger(exerciseIndex, 0, workout.exercises.length - 1, 0);
   runtime.announcedCountdown.clear();
 
@@ -4028,7 +4134,26 @@ function finishCurrentExercise(completed = true) {
     runtime.exerciseCompletionCounts[index] = currentCount + 1;
   }
   const isLastExercise = runtime.exerciseIndex === workout.exercises.length - 1;
-  const isLastRound = runtime.roundIndex === workout.rounds - 1;
+  const isLastRound = runtime.roundIndex === trainingPassCount() - 1;
+
+  if (isStraightSetSession()) {
+    runtime.completedRounds = Math.min(...runtime.exerciseCompletionCounts);
+    const step = nextTrainingStep(
+      runtime.trainingMethod,
+      runtime.roundIndex,
+      runtime.exerciseIndex,
+      trainingPassCount(),
+      workout.exercises.length
+    );
+    if (step.complete) {
+      completeWorkout();
+    } else if (exercise.rest > 0) {
+      startExerciseRest(exercise.rest);
+    } else {
+      startExercise(step.roundIndex, step.exerciseIndex);
+    }
+    return;
+  }
 
   if (!isLastExercise) {
     if (exercise.rest > 0) {
@@ -4065,7 +4190,23 @@ function startExerciseRest(seconds) {
   updateWorkoutDisplay();
   playTone("rest");
   announceExerciseRest();
-  startTimer(() => startExercise(runtime.roundIndex, runtime.exerciseIndex + 1));
+  startTimer(advanceAfterExerciseRest);
+}
+
+function advanceAfterExerciseRest() {
+  if (isStraightSetSession()) {
+    const step = nextTrainingStep(
+      runtime.trainingMethod,
+      runtime.roundIndex,
+      runtime.exerciseIndex,
+      trainingPassCount(),
+      workout.exercises.length
+    );
+    if (step.complete) completeWorkout();
+    else startExercise(step.roundIndex, step.exerciseIndex);
+    return;
+  }
+  startExercise(runtime.roundIndex, runtime.exerciseIndex + 1);
 }
 
 function startRoundRest(seconds) {
@@ -4102,7 +4243,9 @@ function completeWorkout() {
   speak("Workout complete. Great job.", true);
   dom.completeWorkoutName.textContent = circuitSessionName();
   const rounds = sequenceRounds();
-  dom.completeSummary.textContent = routineSequence
+  dom.completeSummary.textContent = isStraightSetSession()
+    ? `${rounds} ${rounds === 1 ? "set" : "sets"} per exercise completed`
+    : routineSequence
     ? `${routineSequence.length} routines · ${rounds} rounds completed`
     : `${rounds} ${rounds === 1 ? "round" : "rounds"} completed`;
   showScreen("complete");
@@ -4155,6 +4298,16 @@ function currentExercise() {
 }
 
 function nextExercise() {
+  if (isStraightSetSession()) {
+    const step = nextTrainingStep(
+      runtime.trainingMethod,
+      runtime.roundIndex,
+      runtime.exerciseIndex,
+      trainingPassCount(),
+      workout.exercises.length
+    );
+    return step.complete ? null : workout.exercises[step.exerciseIndex];
+  }
   if (runtime.exerciseIndex < workout.exercises.length - 1) {
     return workout.exercises[runtime.exerciseIndex + 1];
   }
@@ -4181,6 +4334,17 @@ function previousStep() {
     runtime.remainingSeconds = workout.prepTime;
     runtime.totalSeconds = workout.prepTime;
     updateWorkoutDisplay();
+    return;
+  }
+
+  if (isStraightSetSession()) {
+    if (runtime.roundIndex > 0) {
+      startExercise(runtime.roundIndex - 1, runtime.exerciseIndex);
+    } else if (runtime.exerciseIndex > 0) {
+      startExercise(trainingPassCount() - 1, runtime.exerciseIndex - 1);
+    } else {
+      startExercise(0, 0);
+    }
     return;
   }
 
@@ -4212,7 +4376,7 @@ function skipStep() {
       finishCurrentExercise(false);
       break;
     case PHASE.EXERCISE_REST:
-      startExercise(runtime.roundIndex, runtime.exerciseIndex + 1);
+      advanceAfterExerciseRest();
       break;
     case PHASE.ROUND_REST:
       advanceAfterRoundRest();
@@ -4263,9 +4427,11 @@ function updateWorkoutDisplay() {
   const isTimed = runtime.phase === PHASE.ACTIVE_TIME;
 
   dom.workoutNameDisplay.textContent = workout.name;
-  dom.progressText.textContent = routineSequence
-    ? `Routine ${runtime.sequenceIndex + 1} of ${routineSequence.length} · Round ${runtime.roundIndex + 1} of ${workout.rounds}`
-    : `Round ${runtime.roundIndex + 1} of ${workout.rounds}`;
+  dom.progressText.textContent = isStraightSetSession()
+    ? `Exercise ${runtime.exerciseIndex + 1} of ${workout.exercises.length} · Set ${runtime.roundIndex + 1} of ${trainingPassCount()}`
+    : routineSequence
+      ? `Routine ${runtime.sequenceIndex + 1} of ${routineSequence.length} · Round ${runtime.roundIndex + 1} of ${workout.rounds}`
+      : `Round ${runtime.roundIndex + 1} of ${workout.rounds}`;
   dom.exercisePosition.textContent = `EXERCISE ${runtime.exerciseIndex + 1} OF ${workout.exercises.length}`;
   dom.doneButton.hidden = !isRep;
   dom.timerUnit.textContent = isRep ? "tap done when finished" : "seconds";
@@ -4347,16 +4513,18 @@ function announceExercise() {
   const exercise = currentExercise();
   const round = runtime.roundIndex + 1;
   const phrase = workout.voiceDetail === "full"
-    ? `${routineSequence && round === 1 && runtime.exerciseIndex === 0 ? `${workout.name}. ` : ""}Round ${round}. ${exercise.name}. ${speakTarget(exercise)}.`
+    ? isStraightSetSession()
+      ? `${runtime.exerciseIndex === 0 && round === 1 ? `${workout.name}. ` : ""}${exercise.name}. Set ${round} of ${trainingPassCount()}. ${speakTarget(exercise)}.`
+      : `${routineSequence && round === 1 && runtime.exerciseIndex === 0 ? `${workout.name}. ` : ""}Round ${round}. ${exercise.name}. ${speakTarget(exercise)}.`
     : `${exercise.name}. ${speakTarget(exercise)}.`;
   speak(phrase, true);
 }
 
 function announceExerciseRest() {
-  const next = workout.exercises[runtime.exerciseIndex + 1];
+  const next = nextExercise();
   const seconds = runtime.totalSeconds;
   const phrase = workout.voiceDetail === "full"
-    ? `Rest for ${seconds} seconds. ${next.name} is next.`
+    ? `Rest for ${seconds} seconds. ${next?.name || "The next exercise"} is next.`
     : "Rest now.";
   speak(phrase, true);
 }
@@ -4515,6 +4683,8 @@ function persistSession() {
       routineId: runtime.routineId,
       sequenceIndex: runtime.sequenceIndex,
       pendingNextRoutine: runtime.pendingNextRoutine,
+      trainingMethod: runtime.trainingMethod,
+      straightSetCount: runtime.straightSetCount,
       phase: runtime.phase,
       roundIndex: runtime.roundIndex,
       exerciseIndex: runtime.exerciseIndex,
@@ -4568,6 +4738,8 @@ async function resumeSavedSession() {
       : null,
     sequenceIndex,
     pendingNextRoutine: Boolean(routineSequence && saved.runtime?.pendingNextRoutine && sequenceIndex < routineSequence.length - 1),
+    trainingMethod: routineSequence ? "rounds" : normalizeTrainingMethod(saved.runtime?.trainingMethod),
+    straightSetCount: clampInteger(saved.runtime?.straightSetCount, 1, 99, workout.rounds),
     timerId: null,
     paused: true,
     announcedCountdown: new Set(),
@@ -4577,7 +4749,7 @@ async function resumeSavedSession() {
     exerciseCompletionCounts: sequenceExercises().map((_, index) => clampInteger(saved.runtime?.exerciseCompletionCounts?.[index], 0, 9999, 0)),
     historyRecorded: false
   });
-  runtime.roundIndex = clampInteger(runtime.roundIndex, 0, workout.rounds - 1, 0);
+  runtime.roundIndex = clampInteger(runtime.roundIndex, 0, trainingPassCount() - 1, 0);
   runtime.exerciseIndex = clampInteger(runtime.exerciseIndex, 0, workout.exercises.length - 1, 0);
   updateVoiceToggle();
   showScreen("workout");
@@ -4596,7 +4768,7 @@ function resumeTimerForCurrentPhase() {
       startTimer(finishCurrentExercise);
       break;
     case PHASE.EXERCISE_REST:
-      startTimer(() => startExercise(runtime.roundIndex, runtime.exerciseIndex + 1));
+      startTimer(advanceAfterExerciseRest);
       break;
     case PHASE.ROUND_REST:
       startTimer(advanceAfterRoundRest);
@@ -4644,7 +4816,9 @@ async function endWorkoutAndReturnToSetup(options = {}) {
 async function confirmEndWorkout() {
   const completedExercises = runtime.exerciseCompletionCounts.reduce((sum, value) => sum + (Number(value) || 0), 0);
   const rounds = sequenceRounds();
-  const progressMessage = `${runtime.completedRounds} of ${rounds} full ${rounds === 1 ? "round" : "rounds"} completed • ${completedExercises} exercise ${completedExercises === 1 ? "set" : "sets"} recorded.`;
+  const progressMessage = isStraightSetSession()
+    ? `${completedExercises} of ${rounds * workout.exercises.length} planned exercise sets completed.`
+    : `${runtime.completedRounds} of ${rounds} full ${rounds === 1 ? "round" : "rounds"} completed • ${completedExercises} exercise ${completedExercises === 1 ? "set" : "sets"} recorded.`;
 
   if (!dom.confirmDialog.showModal) {
     if (!window.confirm(`End this workout?\n\n${progressMessage}`)) return;
@@ -4744,7 +4918,9 @@ function summarizeHistory(records) {
   return {
     workouts: records.length,
     durationSeconds: records.reduce((sum, record) => sum + record.durationSeconds, 0),
-    rounds: records.reduce((sum, record) => sum + record.completedRounds, 0),
+    rounds: records
+      .filter((record) => record.trainingMethod === "rounds")
+      .reduce((sum, record) => sum + record.completedRounds, 0),
     exercises: records.reduce(
       (sum, record) => sum + record.exercises.reduce((exerciseSum, exercise) => exerciseSum + exercise.completedSets, 0),
       0
@@ -5545,7 +5721,7 @@ function renderSessionComparison(record, previous) {
       currentSets > previousSets ? "is-positive" : currentSets < previousSets ? "is-negative" : ""
     ));
     metrics.push(comparisonMetric(
-      "Round completion",
+      "Plan completion",
       formatSignedValue(currentRoundShare - previousRoundShare, " pp"),
       `${previousRoundShare}%`,
       `${currentRoundShare}%`,
@@ -5765,7 +5941,17 @@ function sessionForAi(record) {
     status: record.status,
     duration_seconds: record.durationSeconds,
     duration: formatDuration(record.durationSeconds),
-    rounds: { completed: record.completedRounds, planned: record.plannedRounds },
+    training_method: record.trainingMethod === "straight-sets" ? "straight sets" : "rounds",
+    rounds: record.trainingMethod === "rounds"
+      ? { completed: record.completedRounds, planned: record.plannedRounds }
+      : null,
+    straight_sets: record.trainingMethod === "straight-sets"
+      ? {
+          sets_per_exercise: record.plannedRounds,
+          exercise_sets_completed: completedSetCount(record),
+          exercise_sets_planned: record.plannedRounds * record.exercises.length
+        }
+      : null,
     exercise_sets_completed: completedSetCount(record),
     exercises: record.exercises.map((exercise) => ({
       name: exercise.name,
@@ -5919,7 +6105,9 @@ function renderSessionAnalysis(record, previous) {
         <div><strong>${sessionLoad === null ? "—" : sessionLoad}</strong><span>Session load</span><small>minutes × RPE</small></div>
         ${isManualSession(record)
           ? '<div><strong>Manual</strong><span>Entry</span><small>recorded after workout</small></div>'
-          : `<div><strong>${record.completedRounds}/${record.plannedRounds}</strong><span>Rounds</span><small>completed / planned</small></div>`}
+          : record.trainingMethod === "straight-sets"
+            ? `<div><strong>${completedSets}/${record.plannedRounds * record.exercises.length}</strong><span>Straight sets</span><small>exercise sets completed / planned</small></div>`
+            : `<div><strong>${record.completedRounds}/${record.plannedRounds}</strong><span>Rounds</span><small>completed / planned</small></div>`}
         <div><strong>${completedSets}</strong><span>Exercise sets</span><small>total completed</small></div>
         ${recoveryCheckin ? `<div><strong>${recoveryCheckin.readinessScore}/100</strong><span>Readiness</span><small>${escapeHtml(getReadinessLevel(recoveryCheckin.readinessScore).label)}</small></div>` : ""}
       </div>
@@ -6171,6 +6359,10 @@ function bindEvents() {
   dom.openWeightEntryButton.addEventListener("click", openWeightEntryFromReminder);
   dom.startLoadedWorkoutButton.addEventListener("click", startLoadedWorkout);
   dom.editLoadedWorkoutButton.addEventListener("click", editLoadedWorkout);
+  dom.trainingMethodForm.addEventListener("change", updateTrainingMethodDialog);
+  dom.trainingMethodForm.addEventListener("submit", submitTrainingMethod);
+  dom.cancelTrainingMethodButton.addEventListener("click", closeTrainingMethodDialog);
+  dom.trainingMethodDialog.addEventListener("close", () => { pendingWorkoutStart = null; });
   dom.configureCircuitButton.addEventListener("click", openCircuitDialog);
   dom.circuitRoutineSelect.addEventListener("change", (event) => {
     const id = event.target.value;
@@ -6238,7 +6430,7 @@ function bindEvents() {
       document.querySelector(".invalid")?.focus();
       return;
     }
-    await startWorkout(candidate);
+    requestWorkoutStart(candidate);
   });
 
   dom.testVoiceButton.addEventListener("click", testVoice);
@@ -6251,10 +6443,10 @@ function bindEvents() {
   dom.backToSetupButton.addEventListener("click", confirmEndWorkout);
   dom.completeReviewForm.addEventListener("submit", submitCompleteSessionReview);
   dom.copyCompleteSessionForAiButton.addEventListener("click", copyCompleteSessionForAi);
-  dom.repeatWorkoutButton.addEventListener("click", () => startWorkout(
-    routineSequence ? routineSequence[0].workout : workout,
-    routineSequence ? { sequence: routineSequence } : {}
-  ));
+  dom.repeatWorkoutButton.addEventListener("click", () => {
+    if (routineSequence) startWorkout(routineSequence[0].workout, { sequence: routineSequence });
+    else requestWorkoutStart(workout);
+  });
   dom.editWorkoutButton.addEventListener("click", () => endWorkoutAndReturnToSetup({ edit: true }));
   dom.resumeSavedSession.addEventListener("click", resumeSavedSession);
   dom.discardSavedSession.addEventListener("click", clearSavedSession);

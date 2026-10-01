@@ -90,9 +90,10 @@ vm.runInContext([
   "var workout = null, routineSequence = null, selectedCircuitRoutineIds = [], activeSavedWorkoutId = null, runtime = createEmptyRuntime();",
   ...[
     "clampInteger", "normalizeWorkout", "cloneWorkout", "createEmptyRuntime",
+    "normalizeTrainingMethod", "isStraightSetSession", "trainingPassCount", "nextTrainingStep",
     "renderCircuitSelection", "startConfiguredCircuit", "sequenceExercises", "sequenceRounds",
     "previousSequenceRounds", "sequenceExerciseOffset", "circuitSessionName", "circuitRoutineId",
-    "startWorkout", "startExercise", "currentExercise", "finishCurrentExercise", "startExerciseRest",
+    "startWorkout", "startExercise", "currentExercise", "finishCurrentExercise", "startExerciseRest", "advanceAfterExerciseRest",
     "startRoundRest", "advanceAfterRoundRest", "completeWorkout", "recordWorkoutSession",
     "normalizeHistoryExercise"
   ].map(sourceFor)
@@ -180,5 +181,5 @@ assert.equal(JSON.stringify([one, two]), originalRecords);
 
 assert.match(html, /id="configureCircuitButton"[\s\S]*id="configureCircuitDialog"[\s\S]*id="circuitRoutineSelect"/);
 assert.doesNotMatch(html, /id="addCircuitButton"|id="circuitsContainer"/, "the routine editor must have no circuit controls");
-assert.match(worker, /wellbeing-v46/);
+assert.match(worker, /wellbeing-v47/);
 console.log("Wellbeing Version 44 routine circuit tests passed");

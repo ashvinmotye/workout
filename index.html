@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=46" />
+  <link rel="stylesheet" href="styles.css?v=47" />
 </head>
 <body data-design-system="minimal-navy">
   <div class="app-shell">
@@ -1233,7 +1233,7 @@
           </div>
           <p id="backupStatus" class="backup-status" role="status" aria-live="polite"></p>
         </section>
-        <p id="appVersion" class="settings-version">Version 46</p>
+        <p id="appVersion" class="settings-version">Version 47</p>
       </section>
 
       <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
@@ -1481,6 +1481,45 @@
       </div>
     </article>
   </template>
+
+  <dialog id="trainingMethodDialog" class="history-dialog training-method-dialog" aria-labelledby="trainingMethodTitle">
+    <form id="trainingMethodForm" class="history-dialog-shell training-method-shell">
+      <div class="history-dialog-heading">
+        <div>
+          <p class="eyebrow">FORGE TRAINING</p>
+          <h2 id="trainingMethodTitle">Choose training method</h2>
+        </div>
+      </div>
+      <p class="subtle">Choose how this session should move through the loaded routine. Your saved routine will not be changed.</p>
+      <fieldset class="training-method-options">
+        <legend>Training method</legend>
+        <label class="training-method-option">
+          <input type="radio" name="trainingMethod" value="rounds" checked />
+          <span>
+            <strong>Rounds</strong>
+            <small>Complete every exercise in order, then repeat the routine.</small>
+          </span>
+        </label>
+        <label class="training-method-option">
+          <input type="radio" name="trainingMethod" value="straight-sets" />
+          <span>
+            <strong>Straight sets</strong>
+            <small>Complete every set of one exercise before moving to the next.</small>
+          </span>
+        </label>
+      </fieldset>
+      <label id="straightSetCountField" class="field field-wide straight-set-count-field" hidden>
+        <span>Sets per exercise</span>
+        <input id="straightSetCount" name="straightSetCount" type="number" min="1" max="99" inputmode="numeric" value="3" required />
+        <small>Each exercise uses its own saved rest timer between sets and before the next exercise.</small>
+      </label>
+      <p id="trainingMethodStatus" class="form-error" role="alert" hidden></p>
+      <div class="dialog-actions training-method-actions">
+        <button id="cancelTrainingMethodButton" class="button button-ghost" type="button">Cancel</button>
+        <button class="button button-primary" type="submit">Start workout</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="configureCircuitDialog" class="history-dialog configure-circuit-dialog" aria-labelledby="configureCircuitTitle">
     <div class="history-dialog-shell configure-circuit-shell">
@@ -1773,8 +1812,8 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=46" defer></script>
-  <script src="fitness.js?v=46" defer></script>
-  <script src="app.js?v=46" defer></script>
+  <script src="wellness.js?v=47" defer></script>
+  <script src="fitness.js?v=47" defer></script>
+  <script src="app.js?v=47" defer></script>
 </body>
 </html>

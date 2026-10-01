@@ -1,14 +1,14 @@
 "use strict";
 
-const CACHE_NAME = "wellbeing-v46";
+const CACHE_NAME = "wellbeing-v47";
 const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=46",
-  "./wellness.js?v=46",
-  "./fitness.js?v=46",
-  "./app.js?v=46",
+  "./styles.css?v=47",
+  "./wellness.js?v=47",
+  "./fitness.js?v=47",
+  "./app.js?v=47",
   "./manifest.webmanifest",
   "./icons/favicon.ico?v=42",
   "./icons/favicon-16.png?v=42",

@@ -7787,6 +7787,83 @@ textarea:focus {
   margin-top: 18px;
 }
 
+/* Version 47: session-only rounds or straight-set startup */
+.training-method-dialog {
+  width: min(calc(100% - 28px), 600px);
+  max-height: min(90dvh, 760px);
+}
+
+.training-method-shell {
+  display: block;
+  max-height: min(90dvh, 760px);
+  overflow-y: auto;
+}
+
+.training-method-shell > .subtle {
+  margin: 0 0 18px;
+}
+
+.training-method-options {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.training-method-options legend {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.training-method-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: flex-start;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-input);
+  cursor: pointer;
+}
+
+.training-method-option:has(input:checked) {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+.training-method-option input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--primary);
+}
+
+.training-method-option strong,
+.training-method-option small {
+  display: block;
+}
+
+.training-method-option small,
+.straight-set-count-field > small {
+  margin-top: 4px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.straight-set-count-field {
+  margin-top: 18px;
+}
+
+.training-method-actions {
+  margin-top: 20px;
+}
+
 /* Version 46: dedicated, independent fitness-check workspace */
 .fitness-entry .panel-heading {
   margin-bottom: 8px;

@@ -124,7 +124,7 @@ assert.match(backend, /parts\.hour === 19 && preferences\.fitnessEnabled/);
 assert.match(backend, /`fitness:\$\{reminder\.id\}:\$\{today\}`/);
 assert.match(migration, /fitness_check_data[\s\S]*enable row level security/);
 assert.match(migration, /'workout', 'fitness'/);
-assert.match(worker, /\.\/fitness\.js\?v=46/);
+assert.match(worker, /\.\/fitness\.js\?v=47/);
 assert.match(worker, /payload\.type === "fitness" && await fitnessAlreadyCompleted\(payload\.userId, payload\.checkpointId\)/,
   "the same device should suppress a completed check's push before offline data reaches the server");
 assert.match(backend, /userId,\s*checkpointId,\s*title/, "fitness pushes must carry the checkpoint and owner for local suppression");

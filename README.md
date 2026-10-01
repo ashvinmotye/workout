@@ -4,6 +4,17 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 47 training methods
+
+- Starting an individual routine now opens a session-only training method selector. **Rounds** remains the default and preserves the existing exercise-by-exercise round sequence.
+- **Straight sets** accepts one global set count for the session. It completes every set of the current exercise before advancing, running that exercise’s saved rest after each set and after its final set when another exercise follows.
+- The saved routine is never changed. Temporary circuits remain round-based. Active straight-set sessions can be resumed offline, and completed history, backup files, cloud synchronization and Copy for AI retain the chosen method.
+- Advances the app shell, asset URLs and Settings label to Version 47. No Supabase migration, Edge Function, secret or Cron change is required.
+
+### Upgrade to Version 47
+
+Replace the hosted PWA files and open the installed app once while online to activate Version 47.
+
 ## Version 46 yearly and midyear fitness checks
 
 - Body has a **Configure fitness check** button leading to a dedicated page; this is the only way into the page. The exercise list starts empty. Add, edit and remove your own exercises, choosing a numeric result (with an optional unit and separate left/right values), Yes / No, or a written result. Each recorded check retains a snapshot of its exercises and instructions.
