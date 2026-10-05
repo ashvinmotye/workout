@@ -6,7 +6,7 @@ const THEME_KEY = "voiceWorkout.theme.v1";
 const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
-const APP_VERSION = "47";
+const APP_VERSION = "48";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const AUTH_SESSION_CHECK_TIMEOUT_MS = 4000;
 const BACKUP_APP_ID = "wellbeing";
@@ -38,6 +38,12 @@ const ROUTINE_WEEKDAYS = Object.freeze([
   { value: 0, short: "S", label: "Sunday", compact: "Sun" }
 ]);
 const ROUTINE_ROLE_ORDER = Object.freeze({ pre: 0, main: 1, post: 2 });
+const ROUTINE_LIBRARY_GROUPS = Object.freeze([
+  { key: "unassigned", label: "Unassigned", emptyText: "No unassigned routines.", hideWhenEmpty: true },
+  { key: "main", label: "Main workouts", emptyText: "No main workouts." },
+  { key: "pre", label: "Pre workouts", emptyText: "No pre workouts." },
+  { key: "post", label: "Post workouts", emptyText: "No post workouts." }
+]);
 
 const PHASE = Object.freeze({
   PREP: "prep",
@@ -1343,6 +1349,18 @@ function normalizeDesignatedDays(value) {
 
 function normalizeRoutineRole(value) {
   return Object.prototype.hasOwnProperty.call(ROUTINE_ROLE_ORDER, value) ? value : "main";
+}
+
+function routineLibraryGroup(record) {
+  return Array.isArray(record?.designatedDays) && record.designatedDays.length
+    ? normalizeRoutineRole(record.routineRole)
+    : "unassigned";
+}
+
+function groupSavedWorkouts(records) {
+  const groups = Object.fromEntries(ROUTINE_LIBRARY_GROUPS.map((group) => [group.key, []]));
+  records.forEach((record) => groups[routineLibraryGroup(record)].push(record));
+  return groups;
 }
 
 function formatRoutineSchedule(days) {
@@ -3390,6 +3408,49 @@ function renderSavedWorkouts() {
   renderSuggestedRoutines(records);
 
   const fragment = document.createDocumentFragment();
+  const groupedRecords = groupSavedWorkouts(records);
+  const groupLists = new Map();
+
+  if (records.length) {
+    ROUTINE_LIBRARY_GROUPS.forEach((group) => {
+      const groupRecords = groupedRecords[group.key];
+      if (group.hideWhenEmpty && groupRecords.length === 0) return;
+
+      const section = document.createElement("details");
+      section.className = "routine-library-group";
+      section.dataset.group = group.key;
+
+      const heading = document.createElement("summary");
+      heading.className = "routine-library-group-heading";
+      heading.setAttribute(
+        "aria-label",
+        `${group.label}, ${groupRecords.length} ${groupRecords.length === 1 ? "routine" : "routines"}`
+      );
+      const title = document.createElement("span");
+      title.className = "routine-library-group-title";
+      title.textContent = group.label;
+      const count = document.createElement("span");
+      count.className = "routine-library-group-count";
+      count.textContent = String(groupRecords.length);
+      count.setAttribute("aria-hidden", "true");
+      heading.append(title, count);
+
+      const list = document.createElement("div");
+      list.className = "routine-library-group-list";
+      list.dataset.group = group.key;
+      if (groupRecords.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "routine-library-group-empty";
+        empty.textContent = group.emptyText;
+        list.append(empty);
+      }
+
+      section.append(heading, list);
+      fragment.append(section);
+      groupLists.set(group.key, list);
+    });
+  }
+
   records.forEach((record) => {
     const cardFragment = dom.savedWorkoutTemplate.content.cloneNode(true);
     const card = cardFragment.querySelector(".saved-workout-card");
@@ -3455,10 +3516,15 @@ function renderSavedWorkouts() {
     card.querySelector(".rename-saved-workout").addEventListener("click", () => renameSavedWorkout(record.id));
     card.querySelector(".duplicate-saved-workout").addEventListener("click", () => duplicateSavedWorkout(record.id));
     card.querySelector(".delete-saved-workout").addEventListener("click", () => deleteSavedWorkout(record.id));
-    fragment.appendChild(cardFragment);
+    groupLists.get(routineLibraryGroup(record))?.appendChild(cardFragment);
   });
 
   dom.savedWorkoutList.appendChild(fragment);
+  groupLists.forEach((list, groupKey) => {
+    setupPointerSortable(list, ".saved-workout-card", ".saved-workout-drag-handle", (orderedIds) => {
+      reorderSavedWorkoutGroup(groupKey, orderedIds);
+    });
+  });
 }
 
 function validateCurrentWorkoutForSave() {
@@ -3595,6 +3661,27 @@ function reorderSavedWorkouts(orderedIds) {
   queueSavedWorkoutUpserts(loadSavedWorkouts());
   syncSavedWorkouts().catch(() => {});
   renderSavedWorkouts();
+  showToast("Routine order saved.");
+}
+
+function reorderSavedWorkoutGroup(groupKey, orderedIds) {
+  const records = loadSavedWorkouts();
+  const groupRecords = records.filter((record) => routineLibraryGroup(record) === groupKey);
+  if (!Array.isArray(orderedIds) || orderedIds.length !== groupRecords.length) return;
+
+  const byId = new Map(groupRecords.map((record) => [record.id, record]));
+  if (orderedIds.some((id) => !byId.has(id))) return;
+  const currentIds = groupRecords.map((record) => record.id);
+  if (orderedIds.every((id, index) => id === currentIds[index])) return;
+
+  let groupIndex = 0;
+  const reorderedAt = Date.now();
+  const reordered = records.map((record) => routineLibraryGroup(record) === groupKey
+    ? { ...byId.get(orderedIds[groupIndex++]), updatedAt: reorderedAt }
+    : record);
+  saveSavedWorkouts(reordered);
+  queueSavedWorkoutUpserts(loadSavedWorkouts());
+  syncSavedWorkouts().catch(() => {});
   showToast("Routine order saved.");
 }
 
@@ -6458,8 +6545,6 @@ function bindEvents() {
     updateExerciseCards();
     saveFormDraft();
   });
-  setupPointerSortable(dom.savedWorkoutList, ".saved-workout-card", ".saved-workout-drag-handle", reorderSavedWorkouts);
-
   document.addEventListener("click", (event) => {
     if (!event.target.closest("#chartPopover, .chart-bar-group, .load-bar-column")) hideChartPopover();
     if (event.target.closest(".saved-workout-actions")) return;

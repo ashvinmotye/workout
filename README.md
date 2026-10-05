@@ -4,6 +4,18 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 48 grouped Routine Library
+
+- Groups saved routines into collapsed **Unassigned**, **Main workouts**, **Pre workouts** and **Post workouts** sections. A routine without designated days is Unassigned; scheduled routines use their configured session role.
+- Every heading shows its routine count in a compact circular badge and opens by clicking or tapping the heading. All groups start collapsed whenever the Routine Library is rendered.
+- Hides Unassigned when there are no unassigned routines. Main, Pre and Post remain available with a zero count so their library structure stays predictable.
+- Drag sorting remains available within each open group and preserves the role and schedule of every routine.
+- Advances the app shell, asset URLs and Settings label to Version 48. No Supabase migration, Edge Function, secret or Cron change is required.
+
+### Upgrade to Version 48
+
+Replace the hosted PWA files and open the installed app once while online to activate Version 48.
+
 ## Version 47 training methods
 
 - Starting an individual routine now opens a session-only training method selector. **Rounds** remains the default and preserves the existing exercise-by-exercise round sequence.

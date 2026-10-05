@@ -181,5 +181,5 @@ assert.equal(JSON.stringify([one, two]), originalRecords);
 
 assert.match(html, /id="configureCircuitButton"[\s\S]*id="configureCircuitDialog"[\s\S]*id="circuitRoutineSelect"/);
 assert.doesNotMatch(html, /id="addCircuitButton"|id="circuitsContainer"/, "the routine editor must have no circuit controls");
-assert.match(worker, /wellbeing-v47/);
+assert.match(worker, /wellbeing-v48/);
 console.log("Wellbeing Version 44 routine circuit tests passed");

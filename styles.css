@@ -7864,6 +7864,92 @@ textarea:focus {
   margin-top: 20px;
 }
 
+/* Version 48: collapsed Routine Library groups */
+.saved-workout-list {
+  gap: 0;
+}
+
+.routine-library-group {
+  border-top: 1px solid var(--line);
+}
+
+.routine-library-group:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.routine-library-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 14px 2px;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.routine-library-group-heading::-webkit-details-marker {
+  display: none;
+}
+
+.routine-library-group-heading::after {
+  width: 9px;
+  height: 9px;
+  margin-left: auto;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  content: "";
+  opacity: 0.62;
+  transform: rotate(45deg) translate(-2px, 2px);
+  transition: transform 160ms ease;
+}
+
+.routine-library-group[open] > .routine-library-group-heading::after {
+  transform: rotate(225deg) translate(-2px, 2px);
+}
+
+.routine-library-group-heading:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.routine-library-group-title {
+  font-size: 1rem;
+  font-weight: 850;
+  letter-spacing: 0.01em;
+}
+
+.routine-library-group-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.routine-library-group-list {
+  display: grid;
+  padding: 0 2px 14px;
+}
+
+.routine-library-group-list > .saved-workout-card:first-of-type {
+  border-top: 0;
+}
+
+.routine-library-group-empty {
+  margin: 0;
+  padding: 4px 0 18px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
 /* Version 46: dedicated, independent fitness-check workspace */
 .fitness-entry .panel-heading {
   margin-bottom: 8px;
