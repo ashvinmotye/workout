@@ -4,9 +4,33 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 50 Holiday routines
+
+- Adds **Holiday** to the routine-type selector alongside Pre-workout, Main workout and Post-workout.
+- Shows Holiday routines in their own collapsed **Holiday** section in the Routine Library. The section is hidden when there are no Holiday routines.
+- Holiday routines remain in that group without needing designated weekdays. If days are added, their schedule is retained and they can still appear in Suggested today.
+- Includes `supabase/migrations/20261006_allow_holiday_routine_role.sql` so Holiday routines can sync across devices.
+- Advances the app shell, asset URLs and Settings label to Version 50.
+
+### Upgrade to Version 50
+
+Run `supabase/migrations/20261006_allow_holiday_routine_role.sql` in the Supabase SQL Editor, replace the hosted PWA files, then open the installed app once while online to activate Version 50.
+
+## Version 49 additive routine JSON import
+
+- Adds **Settings → Add routines from JSON**, separate from the full backup restore.
+- Accepts one routine object, an array of routines, a `{ "routines": [...] }` wrapper, or the saved routines inside a complete Wellbeing backup.
+- Appends every valid routine to the existing library. Imported routines receive new IDs and collision-safe names, so existing routines are never replaced; schedule days and Pre/Main/Post roles are retained when supplied.
+- Queues imported routines for the existing offline-first Supabase sync. No workout history, body data, settings, loaded routine or active session is changed.
+- Advances the app shell, asset URLs and Settings label to Version 49. No Supabase migration, Edge Function, secret or Cron change is required.
+
+### Upgrade to Version 49
+
+Replace the hosted PWA files and open the installed app once while online to activate Version 49.
+
 ## Version 48 grouped Routine Library
 
-- Groups saved routines into collapsed **Unassigned**, **Main workouts**, **Pre workouts** and **Post workouts** sections. A routine without designated days is Unassigned; scheduled routines use their configured session role.
+- Groups saved routines into collapsed **Unassigned**, **Main workouts**, **Pre workouts** and **Post workouts** sections. A non-Holiday routine without designated days is Unassigned; scheduled routines use their configured session role.
 - Every heading shows its routine count in a compact circular badge and opens by clicking or tapping the heading. All groups start collapsed whenever the Routine Library is rendered.
 - Hides Unassigned when there are no unassigned routines. Main, Pre and Post remain available with a zero count so their library structure stays predictable.
 - Drag sorting remains available within each open group and preserves the role and schedule of every routine.
@@ -324,7 +348,7 @@ The project uses only relative paths, so it also works when deployed under a rep
 
 ## Saved workouts
 
-Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Each library card shows the unique weights required by that routine using the same summary as **Suggested today**; routines without weights do not show an empty weight row. Drag a routine by its handle to arrange the library, use **Show all exercises** when needed, and open the overflow menu to designate one or more weekdays plus a Pre-workout, Main workout or Post-workout order. Routines scheduled for the current day also appear in **Suggested today**, ordered Pre → Main → Post, while remaining in the full library. Schedules, routines and custom order are saved locally first and synchronized to the signed-in account, with offline changes queued for retry.
+Use **Save workout** on the Setup screen to add the current routine to **Saved workouts**. Loading a saved routine lets you edit it and use **Save changes**, while **Save as new** creates a separate variation. Each library card shows the unique weights required by that routine using the same summary as **Suggested today**; routines without weights do not show an empty weight row. Drag a routine by its handle to arrange the library, use **Show all exercises** when needed, and open the overflow menu to designate one or more weekdays plus a Pre-workout, Main workout, Post-workout or Holiday type. Holiday routines stay in their own library group even without weekdays. Routines scheduled for the current day also appear in **Suggested today**, ordered Pre → Main → Post → Holiday, while remaining in the full library. Schedules, routines and custom order are saved locally first and synchronized to the signed-in account, with offline changes queued for retry.
 
 ## Notes
 

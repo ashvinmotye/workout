@@ -64,6 +64,6 @@ assert.match(app, /trainingMethod: runtime\.trainingMethod,[\s\S]*completedSets:
   "history exercise JSON should carry the method through existing cloud synchronization");
 assert.match(app, /training_method: record\.trainingMethod === "straight-sets"/,
   "Copy for AI should identify straight-set sessions");
-assert.match(worker, /wellbeing-v48/);
+assert.match(worker, /wellbeing-v50/);
 
 console.log("Wellbeing Version 47 training method tests passed");

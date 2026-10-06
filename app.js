@@ -6,13 +6,14 @@ const THEME_KEY = "voiceWorkout.theme.v1";
 const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
-const APP_VERSION = "48";
+const APP_VERSION = "50";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const AUTH_SESSION_CHECK_TIMEOUT_MS = 4000;
 const BACKUP_APP_ID = "wellbeing";
 const SUPPORTED_BACKUP_APP_IDS = Object.freeze([BACKUP_APP_ID, "forge", "voice-workout"]);
 const BACKUP_SCHEMA_VERSION = 1;
 const MAX_BACKUP_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_ROUTINE_IMPORT_COUNT = 100;
 const AUTH_USER_CACHE_KEY = "voiceWorkout.authUser.v1";
 const HISTORY_SYNC_QUEUE_KEY = "voiceWorkout.historySyncQueue.v1";
 const HISTORY_LAST_SYNC_KEY_PREFIX = "voiceWorkout.historyLastSync.v1";
@@ -37,12 +38,13 @@ const ROUTINE_WEEKDAYS = Object.freeze([
   { value: 6, short: "S", label: "Saturday", compact: "Sat" },
   { value: 0, short: "S", label: "Sunday", compact: "Sun" }
 ]);
-const ROUTINE_ROLE_ORDER = Object.freeze({ pre: 0, main: 1, post: 2 });
+const ROUTINE_ROLE_ORDER = Object.freeze({ pre: 0, main: 1, post: 2, holiday: 3 });
 const ROUTINE_LIBRARY_GROUPS = Object.freeze([
   { key: "unassigned", label: "Unassigned", emptyText: "No unassigned routines.", hideWhenEmpty: true },
   { key: "main", label: "Main workouts", emptyText: "No main workouts." },
   { key: "pre", label: "Pre workouts", emptyText: "No pre workouts." },
-  { key: "post", label: "Post workouts", emptyText: "No post workouts." }
+  { key: "post", label: "Post workouts", emptyText: "No post workouts." },
+  { key: "holiday", label: "Holiday", emptyText: "No holiday routines.", hideWhenEmpty: true }
 ]);
 
 const PHASE = Object.freeze({
@@ -256,6 +258,9 @@ const dom = {
   importBackupButton: document.querySelector("#importBackupButton"),
   importBackupInput: document.querySelector("#importBackupInput"),
   backupStatus: document.querySelector("#backupStatus"),
+  importRoutinesButton: document.querySelector("#importRoutinesButton"),
+  importRoutinesInput: document.querySelector("#importRoutinesInput"),
+  routineImportStatus: document.querySelector("#routineImportStatus"),
   trainingPhase: document.querySelector("#trainingPhase"),
   trainingGoals: document.querySelector("#trainingGoals"),
   trainingContextStatus: document.querySelector("#trainingContextStatus"),
@@ -1352,9 +1357,9 @@ function normalizeRoutineRole(value) {
 }
 
 function routineLibraryGroup(record) {
-  return Array.isArray(record?.designatedDays) && record.designatedDays.length
-    ? normalizeRoutineRole(record.routineRole)
-    : "unassigned";
+  const role = normalizeRoutineRole(record?.routineRole);
+  if (role === "holiday") return "holiday";
+  return Array.isArray(record?.designatedDays) && record.designatedDays.length ? role : "unassigned";
 }
 
 function groupSavedWorkouts(records) {
@@ -1373,7 +1378,7 @@ function formatRoutineSchedule(days) {
 }
 
 function formatRoutineRole(role) {
-  return { pre: "Pre-workout", main: "Main workout", post: "Post-workout" }[normalizeRoutineRole(role)];
+  return { pre: "Pre-workout", main: "Main workout", post: "Post-workout", holiday: "Holiday" }[normalizeRoutineRole(role)];
 }
 
 function formatRoutineWeight(value) {
@@ -2595,6 +2600,10 @@ function friendlySavedWorkoutSyncError(error) {
     && (normalized.includes("column") || normalized.includes("schema cache"))) {
     return "Routine scheduling needs the included Supabase migration";
   }
+  if (normalized.includes("saved_workouts_routine_role_valid")
+    || (normalized.includes("check constraint") && normalized.includes("routine_role"))) {
+    return "Holiday routine sync needs the included Supabase migration";
+  }
   if (normalized.includes("row-level security")) return "Routine sync was blocked by the database security policy";
   return message ? `Routine sync failed: ${message}` : "Saved routines could not be synced";
 }
@@ -2746,6 +2755,105 @@ function exportBackup() {
   } catch {
     updateBackupStatus("The backup could not be created. Please try again.", true);
     showToast("Backup export failed.");
+  }
+}
+
+function routineImportCandidates(candidate) {
+  if (Array.isArray(candidate)) return candidate;
+  if (!isObject(candidate)) throw new Error("The routine file must contain a JSON object or array.");
+  if (Array.isArray(candidate.routines)) return candidate.routines;
+  if (Array.isArray(candidate.savedWorkouts)) return candidate.savedWorkouts;
+  if (isObject(candidate.data) && Array.isArray(candidate.data.routines)) return candidate.data.routines;
+  if (isObject(candidate.data) && Array.isArray(candidate.data.savedWorkouts)) return candidate.data.savedWorkouts;
+  if (isObject(candidate.workout) || Array.isArray(candidate.exercises)) return [candidate];
+  throw new Error("No routines were found in this JSON file.");
+}
+
+function validateRoutineImportCandidate(candidate, index) {
+  const position = index + 1;
+  if (!isObject(candidate)) throw new Error(`Routine ${position} is not a JSON object.`);
+  const sourceWorkout = isObject(candidate.workout) ? candidate.workout : candidate;
+  if (typeof sourceWorkout.name !== "string" || !sourceWorkout.name.trim()) {
+    throw new Error(`Routine ${position} needs a name.`);
+  }
+  if (!Array.isArray(sourceWorkout.exercises) || !sourceWorkout.exercises.length) {
+    throw new Error(`Routine ${position} needs at least one exercise.`);
+  }
+  sourceWorkout.exercises.forEach((exercise, exerciseIndex) => {
+    if (!isObject(exercise) || typeof exercise.name !== "string" || !exercise.name.trim()) {
+      throw new Error(`Exercise ${exerciseIndex + 1} in routine ${position} needs a name.`);
+    }
+    if (exercise.mode !== undefined && exercise.mode !== "reps" && exercise.mode !== "time") {
+      throw new Error(`Exercise ${exerciseIndex + 1} in routine ${position} has an invalid mode.`);
+    }
+  });
+  return {
+    designatedDays: normalizeDesignatedDays(candidate.designatedDays ?? candidate.designated_days),
+    routineRole: normalizeRoutineRole(candidate.routineRole ?? candidate.routine_role),
+    workout: cloneWorkout(sourceWorkout, true)
+  };
+}
+
+function prepareRoutineImport(candidate, existingRecords = loadSavedWorkouts(), now = Date.now()) {
+  const candidates = routineImportCandidates(candidate);
+  if (!candidates.length) throw new Error("No routines were found in this JSON file.");
+  if (candidates.length > MAX_ROUTINE_IMPORT_COUNT) {
+    throw new Error(`Import up to ${MAX_ROUTINE_IMPORT_COUNT} routines at a time.`);
+  }
+
+  const namesInUse = [...existingRecords];
+  return candidates.map((item, index) => {
+    const validated = validateRoutineImportCandidate(item, index);
+    const name = makeUniqueWorkoutName(validated.workout.name, namesInUse);
+    const timestamp = now + index;
+    const record = {
+      id: workoutUid(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      sortOrder: existingRecords.length + index,
+      designatedDays: validated.designatedDays,
+      routineRole: validated.routineRole,
+      workout: { ...validated.workout, name }
+    };
+    namesInUse.push(record);
+    return record;
+  });
+}
+
+function updateRoutineImportStatus(message, isError = false) {
+  dom.routineImportStatus.textContent = message;
+  dom.routineImportStatus.classList.toggle("is-error", isError);
+}
+
+async function importRoutinesFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    if (file.size > MAX_BACKUP_FILE_SIZE) throw new Error("This routine file is too large to import.");
+    const candidate = JSON.parse(await file.text());
+    const existing = loadSavedWorkouts();
+    const imported = prepareRoutineImport(candidate, existing);
+    saveSavedWorkouts([...existing, ...imported]);
+
+    const importedIds = new Set(imported.map((record) => record.id));
+    const savedImports = loadSavedWorkouts().filter((record) => importedIds.has(record.id));
+    queueSavedWorkoutUpserts(savedImports);
+    syncSavedWorkouts().catch(() => {});
+    renderSavedWorkouts();
+    renderSettingsSummary();
+
+    const count = savedImports.length;
+    updateRoutineImportStatus(`${count} ${count === 1 ? "routine" : "routines"} added. Existing routines were not changed.`);
+    showToast(`${count} ${count === 1 ? "routine" : "routines"} imported.`);
+  } catch (error) {
+    const message = error instanceof SyntaxError
+      ? "The selected file is not valid JSON."
+      : (error?.message || "The routines could not be imported.");
+    updateRoutineImportStatus(message, true);
+    showToast("Routine import failed.");
+  } finally {
+    event.target.value = "";
   }
 }
 
@@ -3352,7 +3460,7 @@ function saveRoutineSchedule(id, designatedDays, routineRole) {
   queueSavedWorkoutUpserts([saved]);
   syncSavedWorkouts().catch(() => {});
   renderSavedWorkouts();
-  showToast(saved.designatedDays.length ? "Routine schedule saved." : "Routine schedule cleared.");
+  showToast("Routine type and schedule saved.");
 }
 
 function configureRoutineScheduleEditor(card, record) {
@@ -3465,10 +3573,11 @@ function renderSavedWorkouts() {
     const weights = card.querySelector(".saved-workout-weights");
     weights.textContent = weightSummary;
     weights.hidden = !weightSummary;
-    card.querySelector(".saved-workout-schedule-summary").textContent = record.designatedDays.length
+    const scheduleSummary = card.querySelector(".saved-workout-schedule-summary");
+    scheduleSummary.textContent = record.designatedDays.length
       ? `${formatRoutineSchedule(record.designatedDays)} · ${formatRoutineRole(record.routineRole)}`
-      : formatRoutineSchedule(record.designatedDays);
-    card.querySelector(".saved-workout-schedule-summary").classList.toggle("is-empty", record.designatedDays.length === 0);
+      : record.routineRole === "holiday" ? formatRoutineRole(record.routineRole) : formatRoutineSchedule(record.designatedDays);
+    scheduleSummary.classList.toggle("is-empty", record.designatedDays.length === 0 && record.routineRole !== "holiday");
     const previewElement = card.querySelector(".saved-workout-preview");
     const previewToggle = card.querySelector(".saved-workout-preview-toggle");
     const renderPreview = (expanded) => {
@@ -6477,6 +6586,8 @@ function bindEvents() {
   dom.exportBackupButton.addEventListener("click", exportBackup);
   dom.importBackupButton.addEventListener("click", () => dom.importBackupInput.click());
   dom.importBackupInput.addEventListener("change", importBackupFile);
+  dom.importRoutinesButton.addEventListener("click", () => dom.importRoutinesInput.click());
+  dom.importRoutinesInput.addEventListener("change", importRoutinesFile);
   dom.syncHistoryButton.addEventListener("click", () => syncWorkoutHistory({ manual: true }));
   dom.uploadExistingHistoryButton.addEventListener("click", uploadExistingWorkoutHistory);
   dom.syncSavedWorkoutsButton.addEventListener("click", () => syncSavedWorkouts({ manual: true }));

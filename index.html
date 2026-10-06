@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=48" />
+  <link rel="stylesheet" href="styles.css?v=50" />
 </head>
 <body data-design-system="minimal-navy">
   <div class="app-shell">
@@ -1208,6 +1208,25 @@
           </div>
         </section>
 
+        <section class="panel routine-import-panel" aria-labelledby="routineImportTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">ROUTINE IMPORT</p>
+              <h3 id="routineImportTitle">Add routines from JSON</h3>
+            </div>
+          </div>
+
+          <p class="subtle backup-description">
+            Import one routine, an array of routines, or the routines from a Wellbeing backup. Imported routines are added to your library; existing routines and other data stay unchanged.
+          </p>
+
+          <div class="backup-actions">
+            <button id="importRoutinesButton" class="button button-primary" type="button">Import routines JSON</button>
+            <input id="importRoutinesInput" class="visually-hidden" type="file" accept="application/json,.json" tabindex="-1" />
+          </div>
+          <p id="routineImportStatus" class="backup-status" role="status" aria-live="polite"></p>
+        </section>
+
         <section class="panel backup-panel" aria-labelledby="backupTitle">
           <div class="panel-heading">
             <div>
@@ -1233,7 +1252,7 @@
           </div>
           <p id="backupStatus" class="backup-status" role="status" aria-live="polite"></p>
         </section>
-        <p id="appVersion" class="settings-version">Version 48</p>
+        <p id="appVersion" class="settings-version">Version 50</p>
       </section>
 
       <section id="workoutScreen" class="screen workout-screen" aria-labelledby="currentExerciseName" hidden>
@@ -1445,7 +1464,7 @@
           <button class="button button-primary button-small load-saved-workout" type="button">Load</button>
           <button class="button button-ghost button-small routine-more-button" type="button" aria-label="More routine actions" aria-expanded="false">•••</button>
           <div class="saved-workout-more-menu" hidden>
-            <button class="button button-ghost button-small schedule-saved-workout" type="button">Schedule</button>
+            <button class="button button-ghost button-small schedule-saved-workout" type="button">Type &amp; schedule</button>
             <button class="button button-ghost button-small rename-saved-workout" type="button">Rename</button>
             <button class="button button-ghost button-small duplicate-saved-workout" type="button">Duplicate</button>
             <button class="button button-ghost button-small delete-saved-workout danger-text" type="button">
@@ -1467,15 +1486,16 @@
           <button class="weekday-button" type="button" data-day="0" aria-pressed="false" title="Sunday">S</button>
         </div>
         <label class="routine-role-field">
-          <span>Session order</span>
+          <span>Routine type</span>
           <select class="routine-role-select">
             <option value="pre">Pre-workout</option>
             <option value="main">Main workout</option>
             <option value="post">Post-workout</option>
+            <option value="holiday">Holiday</option>
           </select>
         </label>
         <div class="inline-actions">
-          <button class="button button-primary button-small save-routine-schedule" type="button">Save schedule</button>
+          <button class="button button-primary button-small save-routine-schedule" type="button">Save type &amp; schedule</button>
           <button class="button button-ghost button-small cancel-routine-schedule" type="button">Cancel</button>
         </div>
       </div>
@@ -1812,8 +1832,8 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3" crossorigin="anonymous" defer></script>
-  <script src="wellness.js?v=48" defer></script>
-  <script src="fitness.js?v=48" defer></script>
-  <script src="app.js?v=48" defer></script>
+  <script src="wellness.js?v=50" defer></script>
+  <script src="fitness.js?v=50" defer></script>
+  <script src="app.js?v=50" defer></script>
 </body>
 </html>

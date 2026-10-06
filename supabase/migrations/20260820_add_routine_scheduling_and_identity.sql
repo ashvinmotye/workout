@@ -28,7 +28,7 @@ begin
   ) then
     alter table public.saved_workouts
       add constraint saved_workouts_routine_role_valid
-      check (routine_role in ('pre', 'main', 'post'));
+      check (routine_role in ('pre', 'main', 'post', 'holiday'));
   end if;
 end;
 $$;

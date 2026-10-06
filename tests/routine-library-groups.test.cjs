@@ -7,8 +7,10 @@ const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const styles = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const worker = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
+const holidayMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20261006_allow_holiday_routine_role.sql"), "utf8");
 
 function sourceFor(name) {
   const start = app.indexOf(`function ${name}(`);
@@ -26,10 +28,11 @@ const groups = [
   { key: "unassigned", label: "Unassigned", hideWhenEmpty: true },
   { key: "main", label: "Main workouts" },
   { key: "pre", label: "Pre workouts" },
-  { key: "post", label: "Post workouts" }
+  { key: "post", label: "Post workouts" },
+  { key: "holiday", label: "Holiday", hideWhenEmpty: true }
 ];
 const context = {
-  ROUTINE_ROLE_ORDER: { pre: 0, main: 1, post: 2 },
+  ROUTINE_ROLE_ORDER: { pre: 0, main: 1, post: 2, holiday: 3 },
   ROUTINE_LIBRARY_GROUPS: groups
 };
 vm.createContext(context);
@@ -44,15 +47,18 @@ const records = [
   { id: "m1", designatedDays: [1], routineRole: "main" },
   { id: "p", designatedDays: [1], routineRole: "pre" },
   { id: "m2", designatedDays: [3], routineRole: "main" },
-  { id: "post", designatedDays: [5], routineRole: "post" }
+  { id: "post", designatedDays: [5], routineRole: "post" },
+  { id: "trip", designatedDays: [], routineRole: "holiday" },
+  { id: "trip-day", designatedDays: [6], routineRole: "holiday" }
 ];
 const grouped = JSON.parse(JSON.stringify(context.groupSavedWorkouts(records)));
 assert.deepEqual(grouped.unassigned.map((record) => record.id), ["u"]);
 assert.deepEqual(grouped.main.map((record) => record.id), ["m1", "m2"]);
 assert.deepEqual(grouped.pre.map((record) => record.id), ["p"]);
 assert.deepEqual(grouped.post.map((record) => record.id), ["post"]);
-assert.deepEqual(groups.map((group) => group.label), ["Unassigned", "Main workouts", "Pre workouts", "Post workouts"]);
-assert.equal(groups.filter((group) => group.hideWhenEmpty).map((group) => group.key).join(), "unassigned");
+assert.deepEqual(grouped.holiday.map((record) => record.id), ["trip", "trip-day"]);
+assert.deepEqual(groups.map((group) => group.label), ["Unassigned", "Main workouts", "Pre workouts", "Post workouts", "Holiday"]);
+assert.equal(groups.filter((group) => group.hideWhenEmpty).map((group) => group.key).join(), "unassigned,holiday");
 
 let stored = records.map((record, sortOrder) => ({ ...record, sortOrder, updatedAt: 1 }));
 Object.assign(context, {
@@ -65,7 +71,7 @@ Object.assign(context, {
 });
 vm.runInContext(sourceFor("reorderSavedWorkoutGroup"), context);
 context.reorderSavedWorkoutGroup("main", ["m2", "m1"]);
-assert.deepEqual(stored.map((record) => record.id), ["u", "m2", "p", "m1", "post"]);
+assert.deepEqual(stored.map((record) => record.id), ["u", "m2", "p", "m1", "post", "trip", "trip-day"]);
 assert.equal(stored.find((record) => record.id === "m2").routineRole, "main");
 assert.deepEqual(stored.find((record) => record.id === "m2").designatedDays, [3]);
 
@@ -76,6 +82,9 @@ assert.doesNotMatch(renderSource, /section\.open\s*=|setAttribute\("open"/, "gro
 assert.match(renderSource, /routine-library-group-count[\s\S]*String\(groupRecords\.length\)/);
 assert.match(renderSource, /setupPointerSortable\(list,[\s\S]*reorderSavedWorkoutGroup/, "sorting should remain scoped to each group");
 assert.match(styles, /\.routine-library-group-count \{[\s\S]*border-radius: 999px;/, "counts should use circular badges");
-assert.match(worker, /wellbeing-v48/);
+assert.match(html, /<span>Routine type<\/span>[\s\S]*<option value="holiday">Holiday<\/option>/);
+assert.match(holidayMigration, /check \(routine_role in \('pre', 'main', 'post', 'holiday'\)\)/);
+assert.match(app, /Holiday routine sync needs the included Supabase migration/);
+assert.match(worker, /wellbeing-v50/);
 
 console.log("Wellbeing Version 48 grouped Routine Library tests passed");
