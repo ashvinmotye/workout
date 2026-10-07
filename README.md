@@ -4,6 +4,17 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 51 stable session-review status
+
+- Moves the completion review status onto a dedicated full-width line below **Save session review** and **Copy for AI**, so status text no longer changes either button’s dimensions.
+- Shows **Not saved yet.** when the completion review first appears and whenever its fields are edited.
+- Shows **Saved. Syncing automatically** after saving the review and keeps that same status after **Copy for AI**, which also saves the current review values.
+- Advances the app shell, asset URLs and Settings label to Version 51. No Supabase migration, Edge Function, secret or Cron change is required.
+
+### Upgrade to Version 51
+
+Replace the hosted PWA files and open the installed app once while online to activate Version 51.
+
 ## Version 50 Holiday routines
 
 - Adds **Holiday** to the routine-type selector alongside Pre-workout, Main workout and Post-workout.

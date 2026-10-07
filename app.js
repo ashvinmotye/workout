@@ -6,7 +6,7 @@ const THEME_KEY = "voiceWorkout.theme.v1";
 const SAVED_WORKOUTS_KEY = "voiceWorkout.savedWorkouts.v1";
 const ACTIVE_SAVED_WORKOUT_KEY = "voiceWorkout.activeSavedWorkout.v1";
 const HISTORY_KEY = "voiceWorkout.history.v1";
-const APP_VERSION = "50";
+const APP_VERSION = "51";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const AUTH_SESSION_CHECK_TIMEOUT_MS = 4000;
 const BACKUP_APP_ID = "wellbeing";
@@ -6063,7 +6063,7 @@ function prepareCompleteSessionReview(record) {
   completeSessionId = record?.id || null;
   if (!dom.completeReviewForm) return;
   dom.completeReviewForm.reset();
-  dom.completeReviewStatus.textContent = "";
+  dom.completeReviewStatus.textContent = "Not saved yet.";
   dom.saveCompleteReviewButton.disabled = !record;
   dom.copyCompleteSessionForAiButton.disabled = !record;
   if (!record) return;
@@ -6081,7 +6081,7 @@ function submitCompleteSessionReview(event) {
   try {
     const updated = saveSessionReview(completeSessionId, collectSessionReview(dom.completeReviewForm));
     prepareCompleteSessionReview(updated);
-    dom.completeReviewStatus.textContent = navigator.onLine ? "Saved · syncing automatically" : "Saved on this device · sync pending";
+    dom.completeReviewStatus.textContent = "Saved. Syncing automatically";
     showToast("Session review saved.");
   } catch (error) {
     dom.completeReviewStatus.textContent = error instanceof Error ? error.message : "Session review could not be saved.";
@@ -6096,12 +6096,19 @@ async function copyCompleteSessionForAi() {
   try {
     const updated = saveSessionReview(completeSessionId, collectSessionReview(dom.completeReviewForm));
     prepareCompleteSessionReview(updated);
+    dom.completeReviewStatus.textContent = "Saved. Syncing automatically";
     await copySessionForAi(updated.id);
+    dom.completeReviewStatus.textContent = "Saved. Syncing automatically";
   } catch (error) {
     dom.completeReviewStatus.textContent = error instanceof Error ? error.message : "The session could not be prepared for AI.";
   } finally {
     dom.copyCompleteSessionForAiButton.disabled = false;
   }
+}
+
+function markCompleteSessionReviewUnsaved() {
+  if (!completeSessionId) return;
+  dom.completeReviewStatus.textContent = "Not saved yet.";
 }
 
 function submitHistorySessionReview(event) {
@@ -6640,6 +6647,7 @@ function bindEvents() {
   dom.voiceToggleButton.addEventListener("click", toggleVoice);
   dom.backToSetupButton.addEventListener("click", confirmEndWorkout);
   dom.completeReviewForm.addEventListener("submit", submitCompleteSessionReview);
+  dom.completeReviewForm.addEventListener("input", markCompleteSessionReviewUnsaved);
   dom.copyCompleteSessionForAiButton.addEventListener("click", copyCompleteSessionForAi);
   dom.repeatWorkoutButton.addEventListener("click", () => {
     if (routineSequence) startWorkout(routineSequence[0].workout, { sequence: routineSequence });
