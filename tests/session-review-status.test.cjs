@@ -38,6 +38,6 @@ assert.match(save, /completeReviewStatus\.textContent = "Saved\. Syncing automat
 assert.match(copy, /prepareCompleteSessionReview\(updated\);[\s\S]*?Saved\. Syncing automatically[\s\S]*?await copySessionForAi\(updated\.id\);[\s\S]*?Saved\. Syncing automatically/);
 assert.match(app, /completeReviewForm\.addEventListener\("input", markCompleteSessionReviewUnsaved\)/);
 assert.doesNotMatch(app, /Saved · syncing automatically|Saved on this device · sync pending/);
-assert.match(worker, /wellbeing-v51/);
+assert.match(worker, /wellbeing-v52/);
 
 console.log("Wellbeing Version 51 session-review status tests passed");

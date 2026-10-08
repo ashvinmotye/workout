@@ -10,6 +10,7 @@ const WELLNESS_CLOUD_IDS_KEY_PREFIX = "voiceWorkout.wellnessCloudIds.v1";
 const WELLNESS_PULL_IDS_KEY_PREFIX = "voiceWorkout.wellnessPullIds.v1";
 const READINESS_HISTORY_PREVIEW_LIMIT = 5;
 const WEIGHT_HISTORY_RECENT_LIMIT = 7;
+const WEIGHT_CHART_MARKER_LIMIT = 30;
 const WELLNESS_HISTORY_PAGE_SIZE = 50;
 
 const WELLNESS_ENTITY = Object.freeze({
@@ -1288,7 +1289,7 @@ function renderReadinessHistory(records) {
 }
 
 function renderWeightChart(records) {
-  const displayed = records.slice(0, 30).reverse();
+  const displayed = records.slice().reverse();
   if (!displayed.length) {
     wellnessDom.weightChart.innerHTML = '<div class="weight-chart-empty">No measurements yet</div>';
     wellnessDom.weightChartSummary.textContent = "Add your first measurement to begin the trend.";
@@ -1311,7 +1312,9 @@ function renderWeightChart(records) {
     const x = (index) => paddingX + index / (displayed.length - 1) * (width - paddingX * 2);
     const y = (value) => paddingY + (max - value) / Math.max(0.1, max - min) * (height - paddingY * 2);
     const points = displayed.map((record, index) => `${x(index).toFixed(1)},${y(record.weightKg).toFixed(1)}`).join(" ");
-    const circles = displayed.map((record, index) => `<circle cx="${x(index).toFixed(1)}" cy="${y(record.weightKg).toFixed(1)}" r="4"><title>${escapeHtml(formatWellnessDate(record.measurementDate))}: ${formatWeight(record.weightKg)}</title></circle>`).join("");
+    const circles = displayed.length <= WEIGHT_CHART_MARKER_LIMIT
+      ? displayed.map((record, index) => `<circle cx="${x(index).toFixed(1)}" cy="${y(record.weightKg).toFixed(1)}" r="4"><title>${escapeHtml(formatWellnessDate(record.measurementDate))}: ${formatWeight(record.weightKg)}</title></circle>`).join("")
+      : "";
     const firstDisplayed = displayed[0];
     const latestDisplayed = displayed[displayed.length - 1];
     wellnessDom.weightChart.innerHTML = `

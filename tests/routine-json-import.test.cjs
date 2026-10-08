@@ -81,6 +81,6 @@ assert.match(html, /Imported routines are added to your library; existing routin
 assert.match(app, /saveSavedWorkouts\(\[\.\.\.existing, \.\.\.imported\]\)/, "routine import should append in one local save");
 assert.match(app, /queueSavedWorkoutUpserts\(savedImports\)/, "imports should use the existing offline sync queue");
 assert.match(app, /importRoutinesInput\.addEventListener\("change", importRoutinesFile\)/);
-assert.match(worker, /wellbeing-v51/);
+assert.match(worker, /wellbeing-v52/);
 
 console.log("Wellbeing Version 49 additive routine JSON import tests passed");

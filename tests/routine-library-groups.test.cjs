@@ -85,6 +85,6 @@ assert.match(styles, /\.routine-library-group-count \{[\s\S]*border-radius: 999p
 assert.match(html, /<span>Routine type<\/span>[\s\S]*<option value="holiday">Holiday<\/option>/);
 assert.match(holidayMigration, /check \(routine_role in \('pre', 'main', 'post', 'holiday'\)\)/);
 assert.match(app, /Holiday routine sync needs the included Supabase migration/);
-assert.match(worker, /wellbeing-v51/);
+assert.match(worker, /wellbeing-v52/);
 
 console.log("Wellbeing Version 48 grouped Routine Library tests passed");

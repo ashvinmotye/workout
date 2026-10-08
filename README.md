@@ -4,6 +4,17 @@ A mobile-first physical-wellbeing app built with plain HTML, CSS and JavaScript.
 
 The interface now uses Wellbeing’s **Minimal Navy** design system with the updated `#191919` charcoal field, white type, off-white actions, square geometry, strong uppercase labels and thin dividers. See `MINIMAL-DESIGN.md` for the current specification. `AURAOS.md` is retained as the previous design-system reference.
 
+## Version 52 complete body-weight curve
+
+- Draws the body-weight curve from every recorded measurement instead of limiting it to the latest 30 points.
+- Keeps individual point markers for up to 30 measurements. Once the history exceeds 30 entries, the chart hides the crowded dots while retaining the complete line, first/latest dates and overall trend guide.
+- Waist-chart behavior is unchanged.
+- Advances the app shell, asset URLs and Settings label to Version 52. No Supabase migration, Edge Function, secret or Cron change is required.
+
+### Upgrade to Version 52
+
+Replace the hosted PWA files and open the installed app once while online to activate Version 52.
+
 ## Version 51 stable session-review status
 
 - Moves the completion review status onto a dedicated full-width line below **Save session review** and **Copy for AI**, so status text no longer changes either button’s dimensions.
