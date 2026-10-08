@@ -32,7 +32,7 @@ assert.match(pushFunction, /scheduledRoutines = \(mainRoutines \|\| \[\]\)\.filt
 assert.match(pushFunction, /mainRoutineIds = \(mainRoutines \|\| \[\]\)\.map[\s\S]*\.in\("routine_id", mainRoutineIds\)/, "any completed main routine should suppress the 16:00 reminder");
 assert.match(html, /Only when no main workout has been completed today/, "Settings should describe the updated reminder rule");
 
-assert.match(html, /styles\.css\?v=52[\s\S]*wellness\.js\?v=52[\s\S]*app\.js\?v=52/, "Current assets should be cache-busted");
-assert.match(worker, /wellbeing-v52/, "The current version should use a fresh offline cache");
+assert.match(html, /styles\.css\?v=53[\s\S]*wellness\.js\?v=53[\s\S]*app\.js\?v=53/, "Current assets should be cache-busted");
+assert.match(worker, /wellbeing-v53/, "The current version should use a fresh offline cache");
 
 console.log("Wellbeing Version 41 backlog tests passed");

@@ -2040,7 +2040,8 @@ html[data-theme="dark"] .theme-icon-light {
   stroke-width: 1;
 }
 
-.weight-chart polyline {
+.weight-chart polyline,
+.weight-chart .weight-curve {
   fill: none;
   stroke: var(--aura-accent-2);
   stroke-linecap: round;

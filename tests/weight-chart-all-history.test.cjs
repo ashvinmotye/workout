@@ -40,7 +40,10 @@ const context = {
   weightTrendLines: () => ["All-history trend"]
 };
 vm.createContext(context);
-vm.runInContext(sourceFor("renderWeightChart"), context);
+vm.runInContext([
+  sourceFor("buildMonotoneCurvePath"),
+  sourceFor("renderWeightChart")
+].join("\n"), context);
 
 function records(count) {
   return Array.from({ length: count }, (_, index) => ({
@@ -52,8 +55,8 @@ function records(count) {
 
 context.renderWeightChart(records(31));
 const lineOnlyMarkup = weightChart.innerHTML;
-const linePoints = lineOnlyMarkup.match(/<polyline points="([^"]+)"/)[1].trim().split(/\s+/);
-assert.equal(linePoints.length, 31, "every measurement should remain in the weight curve");
+const curvePath = lineOnlyMarkup.match(/<path class="weight-curve" d="([^"]+)"/)[1];
+assert.equal((curvePath.match(/\bC\b/g) || []).length, 30, "every measurement should remain in the smooth weight curve");
 assert.equal((lineOnlyMarkup.match(/<circle /g) || []).length, 0, "crowded histories should render the line without point markers");
 
 context.renderWeightChart(records(30));
@@ -62,6 +65,19 @@ assert.equal((weightChart.innerHTML.match(/<circle /g) || []).length, 30, "reada
 const renderSource = sourceFor("renderWeightChart");
 assert.doesNotMatch(renderSource, /slice\(0,\s*30\)/, "weight chart must not truncate history");
 assert.match(renderSource, /displayed\.length <= WEIGHT_CHART_MARKER_LIMIT/);
-assert.match(worker, /wellbeing-v52/);
+assert.match(renderSource, /buildMonotoneCurvePath\(plottedPoints\)/);
 
-console.log("Wellbeing Version 52 complete weight-chart tests passed");
+const peakPath = context.buildMonotoneCurvePath([
+  { x: 0, y: 10 },
+  { x: 10, y: 0 },
+  { x: 20, y: 10 }
+]);
+assert.equal((peakPath.match(/\bC\b/g) || []).length, 2);
+assert.doesNotMatch(peakPath, /NaN|Infinity/);
+const numbers = peakPath.match(/-?\d+(?:\.\d+)?/g).map(Number);
+const yCoordinates = numbers.filter((_, index) => index % 2 === 1);
+assert.ok(yCoordinates.every((value) => value >= 0 && value <= 10), "curve controls must not overshoot neighbouring measurements");
+
+assert.match(worker, /wellbeing-v53/);
+
+console.log("Wellbeing Version 53 smooth complete weight-chart tests passed");

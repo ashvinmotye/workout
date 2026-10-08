@@ -1288,6 +1288,54 @@ function renderReadinessHistory(records) {
   wellnessDom.readinessHistory.innerHTML = displayed.map((record) => readinessHistoryItemMarkup(record, true)).join("");
 }
 
+function buildMonotoneCurvePath(points) {
+  if (!Array.isArray(points) || !points.length) return "";
+  const format = (value) => Number(value).toFixed(1);
+  if (points.length === 1) return `M ${format(points[0].x)} ${format(points[0].y)}`;
+  if (points.length === 2) {
+    return `M ${format(points[0].x)} ${format(points[0].y)} L ${format(points[1].x)} ${format(points[1].y)}`;
+  }
+
+  const intervals = [];
+  const slopes = [];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const interval = points[index + 1].x - points[index].x;
+    intervals.push(interval);
+    slopes.push((points[index + 1].y - points[index].y) / interval);
+  }
+
+  const tangents = Array(points.length);
+  tangents[0] = slopes[0];
+  tangents[tangents.length - 1] = slopes[slopes.length - 1];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previousSlope = slopes[index - 1];
+    const nextSlope = slopes[index];
+    if (previousSlope === 0 || nextSlope === 0 || previousSlope * nextSlope <= 0) {
+      tangents[index] = 0;
+      continue;
+    }
+    const previousInterval = intervals[index - 1];
+    const nextInterval = intervals[index];
+    const previousWeight = 2 * nextInterval + previousInterval;
+    const nextWeight = nextInterval + 2 * previousInterval;
+    tangents[index] = (previousWeight + nextWeight)
+      / (previousWeight / previousSlope + nextWeight / nextSlope);
+  }
+
+  const commands = [`M ${format(points[0].x)} ${format(points[0].y)}`];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    const interval = intervals[index];
+    commands.push(
+      `C ${format(start.x + interval / 3)} ${format(start.y + tangents[index] * interval / 3)} `
+      + `${format(end.x - interval / 3)} ${format(end.y - tangents[index + 1] * interval / 3)} `
+      + `${format(end.x)} ${format(end.y)}`
+    );
+  }
+  return commands.join(" ");
+}
+
 function renderWeightChart(records) {
   const displayed = records.slice().reverse();
   if (!displayed.length) {
@@ -1311,7 +1359,8 @@ function renderWeightChart(records) {
     const max = rawMax + visualPadding;
     const x = (index) => paddingX + index / (displayed.length - 1) * (width - paddingX * 2);
     const y = (value) => paddingY + (max - value) / Math.max(0.1, max - min) * (height - paddingY * 2);
-    const points = displayed.map((record, index) => `${x(index).toFixed(1)},${y(record.weightKg).toFixed(1)}`).join(" ");
+    const plottedPoints = displayed.map((record, index) => ({ x: x(index), y: y(record.weightKg) }));
+    const curvePath = buildMonotoneCurvePath(plottedPoints);
     const circles = displayed.length <= WEIGHT_CHART_MARKER_LIMIT
       ? displayed.map((record, index) => `<circle cx="${x(index).toFixed(1)}" cy="${y(record.weightKg).toFixed(1)}" r="4"><title>${escapeHtml(formatWellnessDate(record.measurementDate))}: ${formatWeight(record.weightKg)}</title></circle>`).join("")
       : "";
@@ -1325,7 +1374,7 @@ function renderWeightChart(records) {
         <text x="${paddingX}" y="${height - 9}">${escapeHtml(formatWellnessDate(firstDisplayed.measurementDate, { short: true }))}</text>
         <text x="${width - paddingX}" y="${height - 9}" text-anchor="end">${escapeHtml(formatWellnessDate(latestDisplayed.measurementDate, { short: true }))}</text>
         <line class="overall-trend-line" x1="${x(0).toFixed(1)}" y1="${y(firstDisplayed.weightKg).toFixed(1)}" x2="${x(displayed.length - 1).toFixed(1)}" y2="${y(latestDisplayed.weightKg).toFixed(1)}"></line>
-        <polyline points="${points}"></polyline>
+        <path class="weight-curve" d="${curvePath}"></path>
         ${circles}
       </svg>`;
   }
